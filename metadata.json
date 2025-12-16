@@ -1,0 +1,8 @@
+{
+  "name": "Copy of Copy of FreshLeaf 2.0 (1)",
+  "description": "A premium e-commerce platform for fresh vegetables and fruits, featuring multilingual support (English, Hindi, Bengali) and Indian currency integration.",
+  "requestFramePermissions": [
+    "geolocation",
+    "microphone"
+  ]
+}
