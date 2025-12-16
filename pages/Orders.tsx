@@ -1,14 +1,16 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Package, ChevronRight, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Package, ChevronRight, Clock, CheckCircle, XCircle, Truck } from 'lucide-react';
 import { useOrder } from '../services/OrderContext';
 import { useAuth } from '../services/AuthContext';
 import { useImage } from '../services/ImageContext';
+import { useToast } from '../services/ToastContext';
 
 export const Orders: React.FC = () => {
-  const { orders } = useOrder();
-  const { user } = useAuth();
+  const { orders, updateOrderStatus } = useOrder();
+  const { user, updateWallet } = useAuth();
   const { getProductImage } = useImage();
+  const { addToast } = useToast();
   const navigate = useNavigate();
 
   if (!user) {
@@ -18,6 +20,17 @@ export const Orders: React.FC = () => {
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(price);
+
+  const handleSimulateDelivery = (orderId: string, orderTotal: number) => {
+    // 1. Mark as Delivered
+    updateOrderStatus(orderId, 'Delivered');
+    
+    // 2. Calculate and Credit Points (10%)
+    const pointsEarned = parseFloat((orderTotal * 0.1).toFixed(2));
+    updateWallet(pointsEarned);
+    
+    addToast(`Order Delivered! Earned ${pointsEarned} Points`, 'success');
+  };
 
   return (
     <div className="bg-gray-50 min-h-screen py-10">
@@ -51,7 +64,17 @@ export const Orders: React.FC = () => {
                     <span className="text-xs text-gray-500 uppercase tracking-wide font-bold">Order #</span>
                     <p className="text-gray-900 font-medium">{order.id}</p>
                   </div>
-                  <div className="sm:ml-auto">
+                  <div className="sm:ml-auto flex items-center gap-2">
+                     {/* Demo Feature: Simulate Delivery */}
+                     {order.status !== 'Delivered' && order.status !== 'Cancelled' && (
+                        <button 
+                            onClick={() => handleSimulateDelivery(order.id, order.total)}
+                            className="bg-blue-100 text-blue-700 px-3 py-2 rounded-lg text-xs font-bold hover:bg-blue-200 transition flex items-center gap-1"
+                            title="Demo: Simulate Delivery Completion"
+                        >
+                            <Truck size={14}/> Mark Delivered
+                        </button>
+                     )}
                      <Link to={`/track-order/${order.id}`} className="bg-leaf-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-leaf-700 transition flex items-center gap-2">
                        Track Order <ChevronRight size={16} />
                      </Link>

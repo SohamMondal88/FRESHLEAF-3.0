@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Menu, X, User, Search, Leaf, Phone, MapPin, Facebook, Twitter, Instagram, LogOut, Crown, ChevronRight, Mail, ShieldCheck, MessageCircle, Youtube, ShoppingBag, Mic } from 'lucide-react';
+import { ShoppingCart, Menu, X, User, Search, Leaf, Phone, MapPin, Facebook, Twitter, Instagram, LogOut, Crown, ChevronRight, Mail, ShieldCheck, MessageCircle, Youtube, ShoppingBag, Mic, Sprout } from 'lucide-react';
 import { useCart } from '../services/CartContext';
 import { useAuth } from '../services/AuthContext';
 import { useProduct } from '../services/ProductContext';
@@ -177,6 +177,12 @@ export const Layout: React.FC = () => {
             </span>
           </div>
           <div className="flex gap-4 items-center">
+            {/* Seller Link */}
+            <Link to="/seller" className="flex items-center gap-1 text-white hover:text-yellow-300 transition-colors">
+               <Sprout size={12} /> Become a Seller
+            </Link>
+            <div className="w-px h-3 bg-white/20 hidden sm:block"></div>
+            
             {user?.isPro ? (
               <span className="flex items-center gap-1.5 text-yellow-400 font-bold bg-white/10 px-2 py-0.5 rounded-full backdrop-blur-sm border border-white/10">
                 <Crown size={12} fill="currentColor" /> Pro Member
@@ -310,7 +316,7 @@ export const Layout: React.FC = () => {
               {/* User Account - Visible on Tablet and Desktop */}
               <div className="hidden md:block">
                  {user ? (
-                  <Link to="/account" className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border border-gray-100 hover:border-leaf-200 hover:bg-leaf-50/50 transition-all group">
+                  <Link to={user.role === 'seller' ? '/seller/dashboard' : '/account'} className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border border-gray-100 hover:border-leaf-200 hover:bg-leaf-50/50 transition-all group">
                     <img src={user.avatar} alt="Profile" className="w-8 h-8 rounded-full object-cover ring-2 ring-white" />
                     <span className="text-sm font-bold text-gray-700 group-hover:text-leaf-700 max-w-[80px] truncate">
                       {user.name.split(' ')[0]}
@@ -434,9 +440,13 @@ export const Layout: React.FC = () => {
               <div className="h-px bg-gray-100 my-4 mx-4"></div>
 
               <div className="space-y-1">
+                <Link to="/seller" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-leaf-700 font-bold hover:bg-leaf-50 rounded-xl">
+                  <Sprout size={20} /> Sell on FreshLeaf
+                </Link>
+                
                 {user ? (
                   <>
-                    <Link to="/account" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-xl">
+                    <Link to={user.role === 'seller' ? '/seller/dashboard' : '/account'} onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-xl">
                       <User size={20} className="text-gray-400" /> My Account
                     </Link>
                     <Link to="/orders" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-xl">
@@ -547,7 +557,7 @@ export const Layout: React.FC = () => {
                  <li><Link to="/cart" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> My Cart</Link></li>
                  <li><Link to="/blog" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> Blog / Recipes</Link></li>
                  <li><Link to="/shop" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> Gift Packs</Link></li>
-                 <li><Link to="/about" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> Farmer Partnership</Link></li>
+                 <li><Link to="/seller" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> Farmer Partnership</Link></li>
               </ul>
             </div>
 

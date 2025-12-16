@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Trash2, Plus, Minus, ArrowLeft, ShoppingBag, AlertTriangle, X } from 'lucide-react';
+import { Trash2, Plus, Minus, ArrowLeft, ShoppingBag, AlertTriangle, X, Lock } from 'lucide-react';
 import { useCart } from '../services/CartContext';
 import { useImage } from '../services/ImageContext';
 
@@ -9,6 +9,9 @@ export const Cart: React.FC = () => {
   const { getProductImage } = useImage();
   const navigate = useNavigate();
   const [confirmRemove, setConfirmRemove] = useState<{id: string, unit: string, name: string} | null>(null);
+
+  const MIN_ORDER_VALUE = 100;
+  const FREE_DELIVERY_THRESHOLD = 200;
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(price);
@@ -151,6 +154,32 @@ export const Cart: React.FC = () => {
           <div className="lg:w-1/3">
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 sticky top-24">
               <h2 className="text-xl font-bold mb-6 text-gray-900">Order Summary</h2>
+              
+              {/* Progress for Free Delivery */}
+              {cartTotal < FREE_DELIVERY_THRESHOLD && (
+                <div className="mb-6 bg-blue-50 p-4 rounded-xl border border-blue-100">
+                   <p className="text-sm text-blue-700 font-medium mb-2">
+                     Add <b>{formatPrice(FREE_DELIVERY_THRESHOLD - cartTotal)}</b> more for Free Delivery
+                   </p>
+                   <div className="w-full bg-blue-200 rounded-full h-1.5">
+                     <div 
+                        className="bg-blue-600 h-1.5 rounded-full transition-all duration-500" 
+                        style={{ width: `${(cartTotal / FREE_DELIVERY_THRESHOLD) * 100}%` }}
+                     ></div>
+                   </div>
+                </div>
+              )}
+
+              {/* Progress for Minimum Order */}
+              {cartTotal < MIN_ORDER_VALUE && (
+                <div className="mb-6 bg-red-50 p-4 rounded-xl border border-red-100 flex gap-3 items-start">
+                   <AlertTriangle className="text-red-500 shrink-0" size={20} />
+                   <p className="text-sm text-red-700 font-medium">
+                     Minimum order value is <b>{formatPrice(MIN_ORDER_VALUE)}</b>. Please add more items.
+                   </p>
+                </div>
+              )}
+
               <div className="space-y-4 mb-8">
                 <div className="flex justify-between text-gray-600">
                   <span>Subtotal</span>
@@ -158,7 +187,11 @@ export const Cart: React.FC = () => {
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <span>Shipping Estimate</span>
-                  <span className="text-green-600 font-bold">Free</span>
+                  {cartTotal >= FREE_DELIVERY_THRESHOLD ? (
+                    <span className="text-green-600 font-bold">Free</span>
+                  ) : (
+                    <span className="text-gray-900 font-bold">₹40</span>
+                  )}
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <span>Tax</span>
@@ -166,15 +199,16 @@ export const Cart: React.FC = () => {
                 </div>
                 <div className="border-t border-dashed border-gray-200 pt-4 flex justify-between items-center">
                   <span className="font-bold text-lg text-gray-900">Total</span>
-                  <span className="font-extrabold text-2xl text-leaf-700">{formatPrice(cartTotal)}</span>
+                  <span className="font-extrabold text-2xl text-leaf-700">{formatPrice(cartTotal + (cartTotal >= FREE_DELIVERY_THRESHOLD ? 0 : 40))}</span>
                 </div>
               </div>
 
               <button 
                 onClick={() => navigate('/checkout')}
-                className="w-full bg-leaf-600 hover:bg-leaf-700 text-white py-4 rounded-xl font-bold transition shadow-lg shadow-leaf-200 mb-4 text-lg"
+                disabled={cartTotal < MIN_ORDER_VALUE}
+                className="w-full bg-leaf-600 hover:bg-leaf-700 text-white py-4 rounded-xl font-bold transition shadow-lg shadow-leaf-200 mb-4 text-lg disabled:bg-gray-300 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center gap-2"
               >
-                Proceed to Checkout
+                {cartTotal < MIN_ORDER_VALUE ? <><Lock size={18}/> Order Min {formatPrice(MIN_ORDER_VALUE)}</> : 'Proceed to Checkout'}
               </button>
               
               <div className="text-xs text-center text-gray-400 flex flex-col gap-2">

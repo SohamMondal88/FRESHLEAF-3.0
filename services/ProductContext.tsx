@@ -6,6 +6,7 @@ interface ProductContextType {
   products: Product[];
   updateProduct: (id: string, updates: Partial<Product>) => void;
   bulkUpdateProducts: (ids: string[], updates: Partial<Product>) => void;
+  addProduct: (product: Omit<Product, 'id' | 'rating' | 'reviews'>) => void;
   resetProducts: () => void;
 }
 
@@ -44,13 +45,26 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     setProducts(prev => prev.map(p => ids.includes(p.id) ? { ...p, ...updates } : p));
   };
 
+  const addProduct = (newProductData: Omit<Product, 'id' | 'rating' | 'reviews'>) => {
+    const newProduct: Product = {
+        ...newProductData,
+        id: 'p-' + Date.now(),
+        rating: 0,
+        reviews: 0,
+        inStock: true,
+        // Ensure gallery has at least main image
+        gallery: newProductData.gallery.length > 0 ? newProductData.gallery : [newProductData.image]
+    };
+    setProducts(prev => [newProduct, ...prev]);
+  };
+
   const resetProducts = () => {
     setProducts(INITIAL_PRODUCTS);
     localStorage.removeItem('freshleaf_products_v1');
   };
 
   return (
-    <ProductContext.Provider value={{ products, updateProduct, bulkUpdateProducts, resetProducts }}>
+    <ProductContext.Provider value={{ products, updateProduct, bulkUpdateProducts, addProduct, resetProducts }}>
       {children}
     </ProductContext.Provider>
   );

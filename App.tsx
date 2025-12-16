@@ -23,6 +23,9 @@ import { Wishlist } from './pages/Wishlist';
 import { Login, Signup } from './pages/Auth';
 import { Subscription } from './pages/Subscription';
 import { NotFound } from './pages/NotFound';
+import { SellerLanding } from './pages/SellerLanding';
+import { SellerAuth } from './pages/SellerAuth';
+import { SellerDashboard } from './pages/SellerDashboard';
 
 const App: React.FC = () => {
   return (
@@ -43,6 +46,10 @@ const App: React.FC = () => {
                       {/* Auth Routes */}
                       <Route path="login" element={<Login />} />
                       <Route path="signup" element={<Signup />} />
+                      
+                      {/* Seller Routes */}
+                      <Route path="seller" element={<SellerLanding />} />
+                      <Route path="seller/auth" element={<SellerAuth />} />
                       
                       {/* User Routes */}
                       <Route path="checkout" element={<Checkout />} />
@@ -71,7 +78,9 @@ const App: React.FC = () => {
                       <Route path="*" element={<NotFound />} />
                     </Route>
                     
+                    {/* Dashboards outside main layout if needed, but keeping Seller Dashboard inside layout for consistent nav, or separate. Here separate to hide consumer nav. */}
                     <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/seller/dashboard" element={<SellerDashboard />} />
                   </Routes>
                 </HashRouter>
               </CartProvider>

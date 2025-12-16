@@ -12,6 +12,7 @@ declare global {
 interface OrderContextType {
   orders: Order[];
   createOrder: (items: CartItem[], total: number, address: string, paymentMethod: string, phone: string, name: string) => Promise<string>;
+  updateOrderStatus: (orderId: string, status: Order['status']) => void;
   getOrderById: (id: string) => Order | undefined;
   generateInvoice: (order: Order) => void;
 }
@@ -29,6 +30,13 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setOrders(JSON.parse(storedOrders));
     }
   }, []);
+
+  // Save orders whenever they change
+  useEffect(() => {
+    if (orders.length > 0) {
+        localStorage.setItem('freshleaf_orders', JSON.stringify(orders));
+    }
+  }, [orders]);
 
   const generateInvoice = (order: Order) => {
     if (!window.jspdf) {
@@ -126,9 +134,13 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     const updatedOrders = [newOrder, ...orders];
     setOrders(updatedOrders);
-    localStorage.setItem('freshleaf_orders', JSON.stringify(updatedOrders));
+    // localStorage set handled by useEffect
     
     return newOrder.id;
+  };
+
+  const updateOrderStatus = (orderId: string, status: Order['status']) => {
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
   };
 
   const getOrderById = (id: string) => {
@@ -138,7 +150,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const userOrders = user ? orders.filter(o => o.userId === user.id) : [];
 
   return (
-    <OrderContext.Provider value={{ orders: userOrders, createOrder, getOrderById, generateInvoice }}>
+    <OrderContext.Provider value={{ orders: userOrders, createOrder, updateOrderStatus, getOrderById, generateInvoice }}>
       {children}
     </OrderContext.Provider>
   );

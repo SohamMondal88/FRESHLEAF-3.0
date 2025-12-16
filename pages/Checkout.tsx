@@ -4,20 +4,28 @@ import { useCart } from '../services/CartContext';
 import { useAuth } from '../services/AuthContext';
 import { useOrder } from '../services/OrderContext';
 import { useToast } from '../services/ToastContext';
-import { ShieldCheck, CreditCard, Banknote, Smartphone, Truck, Tag, X } from 'lucide-react';
+import { ShieldCheck, CreditCard, Banknote, Smartphone, Truck, Tag, X, Wallet } from 'lucide-react';
 
 export const Checkout: React.FC = () => {
   const { cartItems, cartTotal, clearCart } = useCart();
-  const { user } = useAuth();
+  const { user, updateWallet } = useAuth();
   const { createOrder } = useOrder();
   const { addToast } = useToast();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   
+  // Rules
+  const MIN_ORDER_VALUE = 100;
+  const FREE_DELIVERY_THRESHOLD = 200;
+  const DELIVERY_FEE = 40;
+
   // Coupon State
   const [couponCode, setCouponCode] = useState('');
   const [discount, setDiscount] = useState(0);
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
+
+  // Wallet State
+  const [useWallet, setUseWallet] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -30,7 +38,22 @@ export const Checkout: React.FC = () => {
     paymentMethod: 'cod'
   });
 
-  const finalTotal = Math.max(0, cartTotal - discount);
+  // Redirect if below minimum order
+  useEffect(() => {
+    if (cartItems.length > 0 && cartTotal < MIN_ORDER_VALUE) {
+        addToast(`Minimum order value is ₹${MIN_ORDER_VALUE}`, 'error');
+        navigate('/cart');
+    }
+  }, [cartTotal, cartItems, navigate, addToast]);
+
+  const deliveryCharge = cartTotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE;
+  
+  // Calculate Wallet Usage
+  const maxWalletUsable = user?.walletBalance || 0;
+  const payableBeforeWallet = Math.max(0, cartTotal + deliveryCharge - discount);
+  const walletUsed = useWallet ? Math.min(maxWalletUsable, payableBeforeWallet) : 0;
+  
+  const finalTotal = Math.max(0, payableBeforeWallet - walletUsed);
 
   if (cartItems.length === 0) {
     return (
@@ -42,7 +65,7 @@ export const Checkout: React.FC = () => {
   }
 
   const formatPrice = (price: number) =>
-    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(price);
+    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(price);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -89,6 +112,11 @@ export const Checkout: React.FC = () => {
     // Create order with final total
     const orderId = await createOrder(cartItems, finalTotal, fullAddress, paymentLabel, formData.phone, fullName);
     
+    // Deduct wallet balance if used
+    if (walletUsed > 0) {
+        updateWallet(-walletUsed);
+    }
+
     clearCart();
     setLoading(false);
     addToast('Order placed successfully!', 'success');
@@ -210,6 +238,27 @@ export const Checkout: React.FC = () => {
                   ))}
                 </div>
 
+                {/* Wallet Usage Section */}
+                {user && user.walletBalance > 0 && (
+                    <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                                <Wallet size={16} className="text-yellow-600"/> Wallet Balance
+                            </span>
+                            <span className="text-sm font-bold text-gray-800">{formatPrice(user.walletBalance)}</span>
+                        </div>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                checked={useWallet} 
+                                onChange={(e) => setUseWallet(e.target.checked)} 
+                                className="w-4 h-4 accent-yellow-600 rounded"
+                            />
+                            <span className="text-xs text-gray-600">Use {walletUsed > 0 ? formatPrice(walletUsed) : 'credit points'}</span>
+                        </label>
+                    </div>
+                )}
+
                 {/* Coupon Input */}
                 <div className="mb-6 pt-4 border-t border-gray-100">
                   <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 block">Discount Code</label>
@@ -247,12 +296,22 @@ export const Checkout: React.FC = () => {
                   </div>
                   <div className="flex justify-between text-gray-600 text-sm">
                     <span>Shipping</span>
-                    <span className="text-green-600 font-bold">Free</span>
+                    {deliveryCharge === 0 ? (
+                      <span className="text-green-600 font-bold">Free</span>
+                    ) : (
+                      <span className="text-gray-900 font-bold">{formatPrice(deliveryCharge)}</span>
+                    )}
                   </div>
                   {discount > 0 && (
                     <div className="flex justify-between text-green-600 text-sm font-bold">
                       <span>Discount</span>
                       <span>-{formatPrice(discount)}</span>
+                    </div>
+                  )}
+                  {walletUsed > 0 && (
+                    <div className="flex justify-between text-yellow-600 text-sm font-bold">
+                      <span>Wallet Used</span>
+                      <span>-{formatPrice(walletUsed)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-gray-900 font-bold text-2xl pt-4 mt-2 border-t border-dashed border-gray-200">

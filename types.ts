@@ -19,6 +19,7 @@ export interface Product {
   isOrganic?: boolean;
   isLocal?: boolean;
   baseUnit: string; // e.g., 'kg', 'pc', 'bunch'
+  sellerId?: string; // ID of the farmer/seller
 }
 
 export interface CartItem extends Product {
@@ -58,6 +59,9 @@ export interface User {
   pincode?: string;
   isPro?: boolean; // Membership status
   avatar?: string;
+  role: 'customer' | 'seller'; // Distinguish between buyers and farmers
+  farmName?: string; // For sellers
+  walletBalance: number; // Credit points
 }
 
 export interface Order {
