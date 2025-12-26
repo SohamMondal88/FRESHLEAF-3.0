@@ -108,7 +108,7 @@ createProduct(
 createProduct(
   'f-10', 'Custard Apple', 'सीताफल', 'আতা',
   'Tropical', 57,
-  './images/custardapple.png',
+  './images/Custard-Apple.png',
   'Creamy custard apples.', 'kg', { isLocal: true }
 ),
 
