@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Star, Minus, Plus, ShoppingCart, CheckCircle } from 'lucide-react';
+import { X, Star, Minus, Plus, ShoppingCart, CheckCircle, Zap as BuyIcon } from 'lucide-react';
 import { Product } from '../../types';
 import { useCart } from '../../services/CartContext';
 import { useImage } from '../../services/ImageContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 interface QuickViewModalProps {
   product: Product;
@@ -14,6 +14,7 @@ interface QuickViewModalProps {
 export const QuickViewModal: React.FC<QuickViewModalProps> = ({ product, onClose }) => {
   const { addToCart } = useCart();
   const { getProductImage } = useImage();
+  const navigate = useNavigate();
   const [qty, setQty] = useState(1);
   
   // Default unit logic similar to ProductCard
@@ -27,10 +28,14 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({ product, onClose
     new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(price);
 
   const handleAddToCart = () => {
-    // Note: In a real app, unit selection logic might be more complex here to match ProductCard's full capabilities
-    // For Quick View, we use the base price/unit for simplicity or the default selected unit
     addToCart(product, qty, selectedUnit, product.price);
     onClose();
+  };
+
+  const handleBuyNow = () => {
+    addToCart(product, qty, selectedUnit, product.price);
+    onClose();
+    navigate('/checkout');
   };
 
   const handleOverlayClick = (e: React.MouseEvent) => {
@@ -102,20 +107,29 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({ product, onClose
           </div>
 
           <div className="mt-auto space-y-4">
-             {/* Quantity & Add */}
+             {/* Quantity Selection */}
              <div className="flex items-center gap-4">
                <div className="flex items-center border border-gray-200 rounded-xl bg-gray-50 h-12">
                   <button onClick={() => setQty(Math.max(1, qty - 1))} className="w-12 h-full flex items-center justify-center hover:bg-gray-200 rounded-l-xl transition text-gray-600"><Minus size={18}/></button>
                   <span className="px-4 font-bold text-lg text-gray-900 w-12 text-center">{qty}</span>
                   <button onClick={() => setQty(qty + 1)} className="w-12 h-full flex items-center justify-center hover:bg-gray-200 rounded-r-xl transition text-gray-600"><Plus size={18}/></button>
                </div>
-               <button 
-                 onClick={handleAddToCart}
-                 disabled={!product.inStock}
-                 className={`flex-grow h-12 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 ${product.inStock ? 'bg-gray-900 text-white hover:bg-leaf-600 shadow-leaf-200' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
-               >
-                 <ShoppingCart size={18} /> {product.inStock ? 'Add to Cart' : 'Out of Stock'}
-               </button>
+               <div className="flex-grow flex gap-2">
+                 <button 
+                   onClick={handleAddToCart}
+                   disabled={!product.inStock}
+                   className={`flex-1 h-12 rounded-xl font-bold flex items-center justify-center gap-2 border border-gray-200 transition-all active:scale-95 ${product.inStock ? 'bg-white text-gray-800 hover:bg-gray-50' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                 >
+                   <ShoppingCart size={18} /> Cart
+                 </button>
+                 <button 
+                   onClick={handleBuyNow}
+                   disabled={!product.inStock}
+                   className={`flex-[1.5] h-12 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 group ${product.inStock ? 'bg-gray-900 text-white hover:bg-leaf-600 shadow-leaf-200' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+                 >
+                   <BuyIcon size={18} className="group-hover:fill-current" /> Buy Now
+                 </button>
+               </div>
              </div>
              
              <div className="pt-4 text-center">

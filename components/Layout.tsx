@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Menu, X, User, Search, Leaf, Phone, MapPin, Facebook, Twitter, Instagram, LogOut, Crown, ChevronRight, Mail, ShieldCheck, MessageCircle, Youtube, ShoppingBag, Mic, Sprout } from 'lucide-react';
+import { ShoppingCart, Menu, X, User, Search, Leaf, Phone, MapPin, Facebook, Twitter, Instagram, LogOut, Crown, ChevronRight, Mail, ShieldCheck, MessageCircle, Youtube, ShoppingBag, Mic, Sprout, ArrowRight, Heart, Chrome, Smartphone, Play } from 'lucide-react';
 import { useCart } from '../services/CartContext';
 import { useAuth } from '../services/AuthContext';
 import { useProduct } from '../services/ProductContext';
@@ -154,7 +154,7 @@ export const Layout: React.FC = () => {
   };
 
   const navLinks = [
-    { name: 'Home', path: '/' },
+    { name: 'Home', path: '/home' },
     { name: 'Shop', path: '/shop' },
     { name: 'About', path: '/about' },
     { name: 'Blog', path: '/blog' },
@@ -483,122 +483,176 @@ export const Layout: React.FC = () => {
       <ChatBot />
       <BackToTop />
 
-      {/* Advanced Professional Footer */}
-      <footer className="bg-gray-900 text-white pt-16 pb-8 border-t border-gray-800 font-sans mt-20">
-        <div className="container mx-auto px-4">
-          
-          {/* Newsletter Section */}
-          <div className="bg-leaf-800 rounded-2xl p-8 mb-12 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
-             <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
-             <div className="relative z-10 text-center md:text-left">
-               <h3 className="text-2xl font-bold mb-2 text-white">Join our Farm Family</h3>
-               <p className="text-leaf-100">Subscribe to get fresh deals, new arrivals, and farm updates!</p>
-             </div>
-             <div className="relative z-10 w-full md:w-auto flex flex-col sm:flex-row gap-2">
-               <input type="email" placeholder="Enter your email" className="bg-white/10 border border-white/20 text-white placeholder-leaf-200 px-4 py-3 rounded-lg w-full md:w-80 focus:outline-none focus:border-leaf-400 transition" />
-               <button className="bg-white text-leaf-900 px-6 py-3 rounded-lg font-bold hover:bg-leaf-50 transition">Subscribe</button>
-             </div>
-          </div>
+      {/* Advanced Cool Footer */}
+      <footer className="bg-gray-950 text-white pt-20 pb-10 border-t border-gray-900 font-sans mt-20 relative overflow-hidden">
+        {/* Decorative background blobs */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+            <div className="absolute -top-24 -left-24 w-96 h-96 bg-leaf-900/20 rounded-full blur-3xl"></div>
+            <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-gray-900/40 rounded-full blur-3xl"></div>
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
-            {/* Col 1: About & Contact */}
-            <div className="space-y-6">
-              <div className="flex items-center gap-2 mb-4">
-                 <Leaf className="text-leaf-500" />
-                 <span className="text-2xl font-extrabold tracking-tight">FreshLeaf</span>
-              </div>
-              <p className="text-gray-400 text-sm leading-relaxed">
-                India's most trusted online grocery store. We deliver fresh, farm-sourced fruits and vegetables with hygienic handling and affordable pricing directly to your doorstep.
-              </p>
-              <div className="space-y-3 pt-2">
-                <div className="flex items-start gap-3 text-gray-400 text-sm">
-                  <MapPin size={18} className="mt-1 text-leaf-500 shrink-0" />
-                  <span>123 Green Market, Sector 4, New Delhi, India 110001</span>
+        <div className="container mx-auto px-4 relative z-10">
+            
+            {/* Newsletter - Glassmorphism Style */}
+            <div className="relative bg-gradient-to-r from-leaf-900 to-leaf-800 rounded-3xl p-8 md:p-12 mb-16 flex flex-col lg:flex-row items-center justify-between gap-8 shadow-2xl border border-leaf-700/50 overflow-hidden">
+                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+                <div className="absolute -right-20 -top-20 w-64 h-64 bg-leaf-500 rounded-full blur-[100px] opacity-40"></div>
+                
+                <div className="relative z-10 text-center lg:text-left max-w-xl">
+                    <div className="inline-flex items-center gap-2 bg-leaf-700/50 border border-leaf-600/30 rounded-full px-4 py-1 mb-4 backdrop-blur-sm">
+                        <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+                        <span className="text-xs font-bold text-leaf-100 uppercase tracking-widest">Weekly Harvest News</span>
+                    </div>
+                    <h3 className="text-3xl md:text-4xl font-extrabold mb-3 text-white tracking-tight">Unlock 15% Off Your First Order</h3>
+                    <p className="text-leaf-200 text-lg">Join the farm family! Get exclusive deals, seasonal recipes, and organic farming tips delivered to your inbox.</p>
                 </div>
-                <div className="flex items-center gap-3 text-gray-400 text-sm">
-                  <Phone size={18} className="text-leaf-500 shrink-0" />
-                  <span>+91 98765 43210 (9 AM – 9 PM)</span>
+
+                <div className="relative z-10 w-full lg:w-auto">
+                    <form className="flex flex-col sm:flex-row gap-3">
+                        <div className="relative">
+                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-leaf-300" size={20} />
+                            <input 
+                                type="email" 
+                                placeholder="Enter your email address" 
+                                className="bg-leaf-950/50 border border-leaf-600/50 text-white placeholder-leaf-400 pl-12 pr-6 py-4 rounded-xl w-full sm:w-80 focus:outline-none focus:border-leaf-400 focus:ring-2 focus:ring-leaf-500/20 transition-all backdrop-blur-sm" 
+                            />
+                        </div>
+                        <button className="bg-white text-leaf-900 px-8 py-4 rounded-xl font-bold hover:bg-leaf-50 transition shadow-lg hover:shadow-xl hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2">
+                            Subscribe <ArrowRight size={18} />
+                        </button>
+                    </form>
+                    <p className="text-leaf-400/60 text-xs mt-3 text-center lg:text-left">By subscribing, you agree to our Terms & Privacy Policy.</p>
                 </div>
-                <div className="flex items-center gap-3 text-gray-400 text-sm">
-                  <Mail size={18} className="text-leaf-500 shrink-0" />
-                  <span>support@freshleaf.in</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 mb-16 border-b border-gray-800 pb-12">
+                
+                {/* Brand Column (Span 4) */}
+                <div className="lg:col-span-4 space-y-6">
+                    <Link to="/" className="flex items-center gap-3 group w-fit">
+                        <div className="bg-gradient-to-br from-leaf-500 to-leaf-700 p-2.5 rounded-xl text-white shadow-lg group-hover:scale-110 transition-transform duration-300">
+                            <Leaf size={28} fill="currentColor" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-3xl font-extrabold text-white tracking-tight">Fresh<span className="text-leaf-500">Leaf</span></span>
+                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.3em] ml-0.5">Organic Market</span>
+                        </div>
+                    </Link>
+                    <p className="text-gray-400 leading-relaxed">
+                        FreshLeaf bridges the gap between verified organic farmers and your kitchen. We ensure fair prices for farmers and chemical-free, nutrient-rich produce for your family.
+                    </p>
+                    <div className="flex gap-4 pt-2">
+                        {/* Socials with glow effect */}
+                        {['facebook', 'twitter', 'instagram', 'youtube'].map(social => (
+                            <a href="#" key={social} className="w-10 h-10 rounded-full bg-gray-900 border border-gray-800 flex items-center justify-center text-gray-400 hover:text-white hover:border-leaf-600 hover:bg-leaf-600/10 hover:shadow-[0_0_15px_rgba(76,175,80,0.5)] transition-all duration-300">
+                                {social === 'facebook' && <Facebook size={18} />}
+                                {social === 'twitter' && <Twitter size={18} />}
+                                {social === 'instagram' && <Instagram size={18} />}
+                                {social === 'youtube' && <Youtube size={18} />}
+                            </a>
+                        ))}
+                    </div>
                 </div>
-                <div className="flex items-center gap-3 text-gray-400 text-sm">
-                  <ShieldCheck size={18} className="text-leaf-500 shrink-0" />
-                  <span>FSSAI Lic. No. 12345678901234</span>
+
+                {/* Links Column 1 (Span 2) */}
+                <div className="lg:col-span-2">
+                    <h4 className="text-white font-bold text-lg mb-6 flex items-center gap-2">Shop <span className="h-1 w-8 bg-leaf-600 rounded-full block"></span></h4>
+                    <ul className="space-y-4">
+                        {['Fresh Vegetables', 'Seasonal Fruits', 'Exotic Collection', 'Leafy Greens', 'Root Vegetables', 'Value Packs'].map(item => (
+                            <li key={item}>
+                                <Link to="/shop" className="text-gray-400 hover:text-leaf-400 transition-colors flex items-center gap-2 group">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-gray-700 group-hover:bg-leaf-500 transition-colors"></span>
+                                    {item}
+                                </Link>
+                            </li>
+                        ))}
+                    </ul>
                 </div>
-              </div>
+
+                {/* Links Column 2 (Span 2) */}
+                <div className="lg:col-span-2">
+                    <h4 className="text-white font-bold text-lg mb-6 flex items-center gap-2">Company <span className="h-1 w-8 bg-leaf-600 rounded-full block"></span></h4>
+                    <ul className="space-y-4">
+                        {[
+                            {name: 'About Us', path: '/about'},
+                            {name: 'Our Farmers', path: '/about'},
+                            {name: 'Blog & Recipes', path: '/blog'},
+                            {name: 'Become a Seller', path: '/seller'},
+                            {name: 'Careers', path: '#'},
+                            {name: 'Contact Support', path: '/contact'},
+                        ].map(item => (
+                            <li key={item.name}>
+                                <Link to={item.path} className="text-gray-400 hover:text-leaf-400 transition-colors flex items-center gap-2 group">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-gray-700 group-hover:bg-leaf-500 transition-colors"></span>
+                                    {item.name}
+                                </Link>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+
+                {/* App & Contact Column (Span 4) */}
+                <div className="lg:col-span-4 space-y-8">
+                    <div>
+                        <h4 className="text-white font-bold text-lg mb-6">Experience the Mobile App</h4>
+                        <p className="text-gray-400 mb-6 text-sm">Get live order tracking, exclusive app-only deals, and express delivery slots.</p>
+                        <div className="flex flex-wrap gap-4">
+                            <button className="flex items-center gap-3 bg-gray-900 border border-gray-800 hover:border-gray-600 hover:bg-gray-800 px-4 py-2.5 rounded-xl transition-all group">
+                                <Smartphone size={28} className="text-gray-300 group-hover:text-white" />
+                                <div className="text-left">
+                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Download on</p>
+                                    <p className="text-sm font-bold text-white">App Store</p>
+                                </div>
+                            </button>
+                            <button className="flex items-center gap-3 bg-gray-900 border border-gray-800 hover:border-gray-600 hover:bg-gray-800 px-4 py-2.5 rounded-xl transition-all group">
+                                <div className="relative">
+                                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></div>
+                                    <Play size={28} fill="currentColor" className="text-gray-300 group-hover:text-white" />
+                                </div>
+                                <div className="text-left">
+                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Get it on</p>
+                                    <p className="text-sm font-bold text-white">Google Play</p>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="p-6 bg-gray-900/50 border border-gray-800 rounded-2xl">
+                        <div className="flex items-start gap-4">
+                            <div className="bg-leaf-500/20 p-3 rounded-full text-leaf-500">
+                                <Phone size={24} />
+                            </div>
+                            <div>
+                                <p className="text-gray-400 text-sm mb-1">24/7 Customer Support</p>
+                                <p className="text-xl font-extrabold text-white tracking-wide">+91 98765 43210</p>
+                                <p className="text-xs text-gray-500 mt-1">support@freshleaf.in</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            {/* Col 2: Customer Support */}
-            <div>
-              <h4 className="text-lg font-bold text-white mb-6 border-b border-gray-700 pb-2 inline-block">Customer Support</h4>
-              <ul className="space-y-3 text-sm text-gray-400">
-                 <li><Link to="/contact" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> Contact Us</Link></li>
-                 <li><Link to="/contact" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> FAQs</Link></li>
-                 <li><Link to="/orders" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> Order Tracking</Link></li>
-                 <li><Link to="/contact" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> Bulk / Wholesale</Link></li>
-                 <li><Link to="/refund-policy" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> Return & Refund</Link></li>
-                 <li><Link to="/shipping-policy" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> Shipping Info</Link></li>
-                 <li><Link to="/refund-policy" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> Replacement Policy</Link></li>
-                 <li><a href="#" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> Chat Support</a></li>
-              </ul>
-            </div>
+            {/* Bottom Bar */}
+            <div className="flex flex-col-reverse md:flex-row justify-between items-center gap-6 text-sm">
+                <div className="text-gray-500 font-medium flex items-center gap-1">
+                    © {new Date().getFullYear()} FreshLeaf Technologies Pvt Ltd. <span className="hidden md:inline mx-2">|</span> Made with <Heart size={12} className="inline text-red-500 mx-0.5" fill="currentColor"/> in India
+                </div>
+                
+                <div className="flex items-center gap-6">
+                    <Link to="/privacy" className="text-gray-500 hover:text-white transition-colors">Privacy Policy</Link>
+                    <Link to="/terms" className="text-gray-500 hover:text-white transition-colors">Terms of Service</Link>
+                    <Link to="/disclaimer" className="text-gray-500 hover:text-white transition-colors">Sitemap</Link>
+                </div>
 
-            {/* Col 3: Quick Links */}
-            <div>
-              <h4 className="text-lg font-bold text-white mb-6 border-b border-gray-700 pb-2 inline-block">Quick Links</h4>
-              <ul className="space-y-3 text-sm text-gray-400">
-                 <li><Link to="/" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> Home</Link></li>
-                 <li><Link to="/shop?q=Vegetable" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> Fresh Vegetables</Link></li>
-                 <li><Link to="/shop?q=Fruit" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> Fresh Fruits</Link></li>
-                 <li><Link to="/shop" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> Offers & Discounts</Link></li>
-                 <li><Link to="/account" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> My Account</Link></li>
-                 <li><Link to="/cart" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> My Cart</Link></li>
-                 <li><Link to="/blog" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> Blog / Recipes</Link></li>
-                 <li><Link to="/shop" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> Gift Packs</Link></li>
-                 <li><Link to="/seller" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> Farmer Partnership</Link></li>
-              </ul>
+                {/* Payment Icons (Simulated) */}
+                <div className="flex items-center gap-3 opacity-70 grayscale hover:grayscale-0 transition-all duration-500">
+                   {['Visa', 'Mastercard', 'UPI', 'RuPay', 'Wallet'].map((p, i) => (
+                       <div key={i} className="bg-white px-2 py-1 rounded text-[10px] font-extrabold text-gray-900 border border-gray-300">
+                           {p}
+                       </div>
+                   ))}
+                </div>
             </div>
-
-            {/* Col 4: Legal & Social */}
-            <div>
-              <h4 className="text-lg font-bold text-white mb-6 border-b border-gray-700 pb-2 inline-block">Policy & Legal</h4>
-              <ul className="space-y-3 text-sm text-gray-400 mb-8">
-                 <li><Link to="/privacy" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> Privacy Policy</Link></li>
-                 <li><Link to="/terms" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> Terms & Conditions</Link></li>
-                 <li><Link to="/shipping-policy" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> Shipping Policy</Link></li>
-                 <li><Link to="/refund-policy" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> Return Policy</Link></li>
-                 <li><Link to="/cancellation-policy" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> Cancellation Policy</Link></li>
-                 <li><Link to="/disclaimer" className="hover:text-leaf-400 transition flex items-center gap-2"><ChevronRight size={14}/> Disclaimer</Link></li>
-              </ul>
-              
-              <h4 className="text-lg font-bold text-white mb-4">Follow Us</h4>
-              <div className="flex gap-4">
-                 {/* Social Icons */}
-                 <a href="#" className="bg-gray-800 p-2 rounded-full hover:bg-blue-600 hover:text-white transition"><Facebook size={18}/></a>
-                 <a href="#" className="bg-gray-800 p-2 rounded-full hover:bg-pink-600 hover:text-white transition"><Instagram size={18}/></a>
-                 <a href="#" className="bg-gray-800 p-2 rounded-full hover:bg-green-500 hover:text-white transition"><MessageCircle size={18}/></a>
-                 <a href="#" className="bg-gray-800 p-2 rounded-full hover:bg-red-600 hover:text-white transition"><Youtube size={18}/></a>
-                 <a href="#" className="bg-gray-800 p-2 rounded-full hover:bg-black hover:text-white transition"><Twitter size={18}/></a>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-gray-800 pt-8 mt-8">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-              <p className="text-gray-500 text-sm">© {new Date().getFullYear()} FreshLeaf. All Rights Reserved.</p>
-              
-              {/* Payment Methods */}
-              <div className="flex flex-wrap justify-center gap-3">
-                {['UPI', 'Visa', 'MasterCard', 'RuPay', 'NetBanking', 'Wallet', 'COD'].map((method, i) => (
-                   <div key={i} className="bg-white px-3 py-1.5 rounded-md text-[10px] font-bold text-gray-800 shadow-sm border border-gray-200">
-                     {method}
-                   </div>
-                ))}
-              </div>
-            </div>
-          </div>
         </div>
       </footer>
     </div>

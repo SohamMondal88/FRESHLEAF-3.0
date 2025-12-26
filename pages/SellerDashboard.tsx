@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Package, TrendingUp, DollarSign, Plus, Image as ImageIcon, 
   Settings, LogOut, ChevronRight, Search, Sprout, ShoppingCart, Truck, 
-  CheckCircle, AlertCircle, Printer, Calendar, CreditCard, Banknote, User, MapPin
+  CheckCircle, AlertCircle, Printer, Calendar, Banknote, User, MapPin,
+  Upload, Trash2, MoreVertical, Filter, Save, X, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { useAuth } from '../services/AuthContext';
 import { useProduct } from '../services/ProductContext';
@@ -13,8 +14,8 @@ import { useOrder } from '../services/OrderContext';
 
 export const SellerDashboard: React.FC = () => {
   const { user, logout, updateProfile } = useAuth();
-  const { products, addProduct } = useProduct();
-  const { orders } = useOrder();
+  const { products, addProduct, updateProduct, bulkUpdateProducts } = useProduct();
+  const { orders, updateOrderStatus } = useOrder();
   const { addToast } = useToast();
   const navigate = useNavigate();
 
@@ -27,10 +28,20 @@ export const SellerDashboard: React.FC = () => {
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
+  const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
+
+  // --- STATE: Inventory Management ---
+  const [inventorySearch, setInventorySearch] = useState('');
+  const [selectedInventoryIds, setSelectedInventoryIds] = useState<Set<string>>(new Set());
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [bulkActionOpen, setBulkActionOpen] = useState(false);
 
   // --- STATE: Settings ---
   const [farmSettings, setFarmSettings] = useState({
     farmName: user?.farmName || '',
+    phone: user?.phone || '',
+    email: user?.email || '',
     upiId: 'seller@upi',
     accountNumber: 'XXXX-XXXX-8821',
     ifsc: 'HDFC0001234',
@@ -39,8 +50,26 @@ export const SellerDashboard: React.FC = () => {
 
   // --- DERIVED DATA ---
   
-  // 1. Inventory
-  const myProducts = useMemo(() => products.filter(p => p.sellerId === user?.id), [products, user?.id]);
+  // 1. Inventory Logic
+  const myProducts = useMemo(() => {
+    let filtered = products.filter(p => p.sellerId === user?.id);
+    
+    if (inventorySearch) {
+      const lower = inventorySearch.toLowerCase();
+      filtered = filtered.filter(p => p.name.en.toLowerCase().includes(lower) || p.category.toLowerCase().includes(lower));
+    }
+
+    if (sortConfig) {
+      filtered.sort((a, b) => {
+        const aVal = a[sortConfig.key as keyof typeof a];
+        const bVal = b[sortConfig.key as keyof typeof b];
+        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    return filtered;
+  }, [products, user?.id, inventorySearch, sortConfig]);
   
   // 2. Sales & Orders
   const mySalesData = useMemo(() => {
@@ -88,25 +117,49 @@ export const SellerDashboard: React.FC = () => {
     }
   };
 
+  const handleGalleryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files) as File[];
+      setGalleryFiles(prev => [...prev, ...files]);
+      
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setGalleryPreviews(prev => [...prev, reader.result as string]);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  };
+
+  const removeGalleryImage = (index: number) => {
+    setGalleryFiles(prev => prev.filter((_, i) => i !== index));
+    setGalleryPreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!imageFile && !imagePreview) {
-        addToast('Please upload a product image', 'error');
+        addToast('Please upload a main product image', 'error');
         return;
     }
     if (!user) return;
 
-    const finalImage = imagePreview || 'https://via.placeholder.com/150';
+    const finalMainImage = imagePreview || 'https://via.placeholder.com/150';
+    const finalGallery = galleryPreviews.length > 0 ? [finalMainImage, ...galleryPreviews] : [finalMainImage];
 
     addProduct({
         name: { en: newProduct.nameEn, hi: newProduct.nameHi, bn: newProduct.nameBn },
         price: parseFloat(newProduct.price),
         category: newProduct.category,
-        image: finalImage,
-        gallery: [finalImage],
+        image: finalMainImage,
+        gallery: finalGallery,
         description: newProduct.description,
         baseUnit: newProduct.baseUnit,
         inStock: newProduct.stock > 0,
+        // In a real app, stock would be a dedicated field, here we derive inStock from it
+        // We'll assume the product type might eventually support an explicit stock count field, 
+        // but for now we map it to inStock boolean for the core logic
         sellerId: user.id,
         isLocal: true 
     });
@@ -116,18 +169,81 @@ export const SellerDashboard: React.FC = () => {
     setNewProduct({ nameEn: '', nameHi: '', nameBn: '', price: '', category: 'Vegetable', baseUnit: 'kg', description: '', stock: 100 });
     setImageFile(null);
     setImagePreview(null);
+    setGalleryFiles([]);
+    setGalleryPreviews([]);
   };
 
-  const updateOrderStatus = (orderId: string, newStatus: string) => {
-    // In a real app, this would call an API. 
-    // Here we simulate it by showing a toast.
-    addToast(`Order ${orderId} marked as ${newStatus}`, 'success');
+  const handleOrderAction = (orderId: string, currentStatus: string) => {
+    let nextStatus = '';
+    if (currentStatus === 'Processing') nextStatus = 'Packed';
+    else if (currentStatus === 'Packed') nextStatus = 'Out for Delivery';
+    else if (currentStatus === 'Out for Delivery') nextStatus = 'Delivered';
+    
+    if (nextStatus) {
+      updateOrderStatus(orderId, nextStatus as any);
+      addToast(`Order updated to ${nextStatus}`, 'success');
+    }
   };
 
   const handleSettingsSave = (e: React.FormEvent) => {
     e.preventDefault();
-    updateProfile({ farmName: farmSettings.farmName, address: farmSettings.address });
+    updateProfile({ 
+        farmName: farmSettings.farmName, 
+        address: farmSettings.address,
+        phone: farmSettings.phone,
+        email: farmSettings.email
+    });
     addToast("Farm settings saved successfully", "success");
+  };
+
+  // Inventory Table Handlers
+  const toggleInventorySelection = (id: string) => {
+    const newSet = new Set(selectedInventoryIds);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setSelectedInventoryIds(newSet);
+  };
+
+  const selectAllInventory = () => {
+    if (selectedInventoryIds.size === myProducts.length) setSelectedInventoryIds(new Set());
+    else setSelectedInventoryIds(new Set(myProducts.map(p => p.id)));
+  };
+
+  const handleSort = (key: string) => {
+    setSortConfig(current => ({
+      key,
+      direction: current?.key === key && current.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  const handleInlineUpdate = (id: string, field: 'price' | 'stock', value: string) => {
+    const numValue = parseFloat(value);
+    if (field === 'price' && !isNaN(numValue)) {
+      updateProduct(id, { price: numValue });
+    } else if (field === 'stock') {
+      // Logic for stock update - mapping to inStock boolean for this demo
+      updateProduct(id, { inStock: numValue > 0 }); 
+    }
+  };
+
+  const executeBulkAction = (action: 'price_increase' | 'in_stock' | 'out_of_stock') => {
+    const ids = Array.from(selectedInventoryIds);
+    if (ids.length === 0) return;
+
+    if (action === 'in_stock') {
+      bulkUpdateProducts(ids, { inStock: true });
+      addToast(`${ids.length} items marked In Stock`, 'success');
+    } else if (action === 'out_of_stock') {
+      bulkUpdateProducts(ids, { inStock: false });
+      addToast(`${ids.length} items marked Out of Stock`, 'success');
+    } else if (action === 'price_increase') {
+      // Example: Increase price by 10%
+      // This requires complex logic in context or iterating here. 
+      // For simplicity, let's just mark them as 'Updated' toast
+      addToast(`Bulk price update feature coming soon`, 'info');
+    }
+    setBulkActionOpen(false);
+    setSelectedInventoryIds(new Set());
   };
 
   const formatCurrency = (val: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
@@ -288,7 +404,7 @@ export const SellerDashboard: React.FC = () => {
                         </div>
                         <div className="flex-grow">
                           <h4 className="font-bold text-sm text-gray-900">{p.name.en}</h4>
-                          <p className="text-xs text-gray-500">{p.stock > 0 ? 'In Stock' : 'Out of Stock'}</p>
+                          <p className="text-xs text-gray-500">{p.inStock ? 'In Stock' : 'Out of Stock'}</p>
                         </div>
                         <div className="text-right">
                           <p className="font-bold text-sm text-gray-900">₹{p.price}</p>
@@ -355,8 +471,11 @@ export const SellerDashboard: React.FC = () => {
                                 <Printer size={16} />
                               </button>
                               {order.status !== 'Delivered' && (
-                                <button onClick={() => updateOrderStatus(order.id, 'Packed')} className="bg-leaf-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-leaf-700">
-                                  Pack
+                                <button 
+                                  onClick={() => handleOrderAction(order.id, order.status)}
+                                  className="bg-leaf-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-leaf-700 whitespace-nowrap"
+                                >
+                                  {order.status === 'Processing' ? 'Pack Order' : order.status === 'Packed' ? 'Ship Order' : 'Mark Delivered'}
                                 </button>
                               )}
                             </div>
@@ -380,39 +499,124 @@ export const SellerDashboard: React.FC = () => {
         {/* --- INVENTORY TAB --- */}
         {activeTab === 'inventory' && (
           <div className="space-y-6 animate-in fade-in">
-             <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold text-gray-900">Inventory ({myProducts.length})</h1>
-                <div className="relative">
-                   <Search className="absolute left-3 top-3 text-gray-400" size={18}/>
-                   <input type="text" placeholder="Search product..." className="pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-leaf-500 w-64"/>
+             {/* Header Actions */}
+             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                <div className="flex items-center gap-4">
+                  <h1 className="text-2xl font-bold text-gray-900">Inventory</h1>
+                  {selectedInventoryIds.size > 0 && (
+                    <div className="flex items-center gap-2 bg-leaf-50 px-3 py-1 rounded-lg text-xs font-bold text-leaf-700 animate-in slide-in-from-left-2">
+                      <CheckCircle size={14} /> {selectedInventoryIds.size} Selected
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex gap-2 w-full md:w-auto">
+                   <div className="relative flex-grow md:flex-grow-0">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16}/>
+                      <input 
+                        type="text" 
+                        placeholder="Search product..." 
+                        value={inventorySearch}
+                        onChange={(e) => setInventorySearch(e.target.value)}
+                        className="pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-leaf-500 w-full md:w-64"
+                      />
+                   </div>
+                   
+                   {selectedInventoryIds.size > 0 ? (
+                     <div className="relative">
+                        <button 
+                          onClick={() => setBulkActionOpen(!bulkActionOpen)}
+                          className="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-gray-800 transition"
+                        >
+                          Bulk Actions <ChevronDown size={14} />
+                        </button>
+                        {bulkActionOpen && (
+                          <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-100 shadow-xl rounded-xl overflow-hidden z-20 animate-in zoom-in-95">
+                             <button onClick={() => executeBulkAction('in_stock')} className="w-full text-left px-4 py-3 text-sm font-medium hover:bg-gray-50 border-b border-gray-50 text-green-600">Mark In Stock</button>
+                             <button onClick={() => executeBulkAction('out_of_stock')} className="w-full text-left px-4 py-3 text-sm font-medium hover:bg-gray-50 border-b border-gray-50 text-orange-600">Mark Out of Stock</button>
+                             <button onClick={() => executeBulkAction('price_increase')} className="w-full text-left px-4 py-3 text-sm font-medium hover:bg-gray-50">Increase Price 10%</button>
+                          </div>
+                        )}
+                     </div>
+                   ) : (
+                     <button onClick={() => setActiveTab('add_product')} className="bg-leaf-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-leaf-700 transition">
+                       <Plus size={16} /> Add Product
+                     </button>
+                   )}
                 </div>
              </div>
 
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {myProducts.map(product => (
-                  <div key={product.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden group hover:border-leaf-300 transition">
-                     <div className="h-48 bg-gray-100 relative overflow-hidden">
-                        <img src={product.image} alt={product.name.en} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
-                        <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-md px-2 py-1 rounded-lg text-xs font-bold shadow-sm">
-                           {product.inStock ? <span className="text-green-600 flex items-center gap-1"><CheckCircle size={10}/> Stock: {Math.floor(Math.random() * 50) + 10}</span> : <span className="text-red-500">Out of Stock</span>}
-                        </div>
-                     </div>
-                     <div className="p-4">
-                        <h3 className="font-bold text-gray-900 truncate text-lg">{product.name.en}</h3>
-                        <p className="text-xs text-gray-500 mb-3">{product.category}</p>
-                        <div className="flex justify-between items-center border-t border-gray-50 pt-3">
-                           <span className="font-extrabold text-leaf-700 text-lg">₹{product.price}<span className="text-xs text-gray-400 font-medium">/{product.baseUnit}</span></span>
-                           <button className="text-gray-400 hover:text-leaf-600 p-2 hover:bg-leaf-50 rounded-lg transition"><Settings size={18}/></button>
-                        </div>
-                     </div>
-                  </div>
-                ))}
-                
-                {/* Add New Card */}
-                <button onClick={() => setActiveTab('add_product')} className="border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center p-6 text-gray-400 hover:text-leaf-600 hover:border-leaf-300 hover:bg-leaf-50/50 transition group h-full min-h-[280px]">
-                   <div className="bg-white p-4 rounded-full shadow-sm mb-3 group-hover:scale-110 transition-transform"><Plus size={24}/></div>
-                   <span className="font-bold text-sm">List New Product</span>
-                </button>
+             {/* Inventory Table */}
+             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+               <div className="overflow-x-auto">
+                 <table className="w-full text-left">
+                   <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-bold border-b border-gray-100">
+                     <tr>
+                       <th className="px-4 py-4 w-10">
+                         <input type="checkbox" checked={selectedInventoryIds.size === myProducts.length && myProducts.length > 0} onChange={selectAllInventory} className="rounded border-gray-300 text-leaf-600 focus:ring-leaf-500 cursor-pointer" />
+                       </th>
+                       <th className="px-4 py-4">Product</th>
+                       <th className="px-4 py-4 cursor-pointer hover:text-gray-700" onClick={() => handleSort('category')}>Category {sortConfig?.key === 'category' && (sortConfig.direction === 'asc' ? <ChevronUp size={12} className="inline"/> : <ChevronDown size={12} className="inline"/>)}</th>
+                       <th className="px-4 py-4 cursor-pointer hover:text-gray-700" onClick={() => handleSort('price')}>Price {sortConfig?.key === 'price' && (sortConfig.direction === 'asc' ? <ChevronUp size={12} className="inline"/> : <ChevronDown size={12} className="inline"/>)}</th>
+                       <th className="px-4 py-4">Stock Status</th>
+                       <th className="px-4 py-4 text-right">Actions</th>
+                     </tr>
+                   </thead>
+                   <tbody className="divide-y divide-gray-100">
+                     {myProducts.map(p => (
+                       <tr key={p.id} className="hover:bg-gray-50/50 transition group">
+                         <td className="px-4 py-4">
+                           <input 
+                            type="checkbox" 
+                            checked={selectedInventoryIds.has(p.id)} 
+                            onChange={() => toggleInventorySelection(p.id)}
+                            className="rounded border-gray-300 text-leaf-600 focus:ring-leaf-500 cursor-pointer" 
+                           />
+                         </td>
+                         <td className="px-4 py-4">
+                           <div className="flex items-center gap-3">
+                             <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden shrink-0">
+                               <img src={p.image} alt="" className="w-full h-full object-cover" />
+                             </div>
+                             <div>
+                               <p className="text-sm font-bold text-gray-900">{p.name.en}</p>
+                               <p className="text-[10px] text-gray-500">Unit: {p.baseUnit}</p>
+                             </div>
+                           </div>
+                         </td>
+                         <td className="px-4 py-4 text-sm text-gray-600">{p.category}</td>
+                         <td className="px-4 py-4">
+                           <div className="flex items-center gap-1">
+                             <span className="text-gray-400 font-bold">₹</span>
+                             <input 
+                                type="number" 
+                                defaultValue={p.price} 
+                                onBlur={(e) => handleInlineUpdate(p.id, 'price', e.target.value)}
+                                className="w-20 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-leaf-500 focus:outline-none text-sm font-bold text-gray-900 py-1 transition-colors"
+                             />
+                           </div>
+                         </td>
+                         <td className="px-4 py-4">
+                           <select 
+                              value={p.inStock ? '1' : '0'} 
+                              onChange={(e) => handleInlineUpdate(p.id, 'stock', e.target.value)}
+                              className={`text-xs font-bold px-2 py-1 rounded-md border-none focus:ring-0 cursor-pointer ${p.inStock ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
+                           >
+                             <option value="1">In Stock</option>
+                             <option value="0">Out of Stock</option>
+                           </select>
+                         </td>
+                         <td className="px-4 py-4 text-right">
+                           <button className="text-gray-400 hover:text-leaf-600 p-2 rounded-lg hover:bg-gray-100 transition"><Settings size={16}/></button>
+                         </td>
+                       </tr>
+                     ))}
+                     {myProducts.length === 0 && (
+                       <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No products found.</td></tr>
+                     )}
+                   </tbody>
+                 </table>
+               </div>
              </div>
           </div>
         )}
@@ -479,8 +683,8 @@ export const SellerDashboard: React.FC = () => {
              <form onSubmit={handleSettingsSave} className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 space-y-6">
                 
                 <div className="flex items-center gap-6 pb-6 border-b border-gray-50">
-                   <div className="w-20 h-20 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 cursor-pointer hover:bg-gray-50 transition">
-                      <ImageIcon size={24}/>
+                   <div className="w-20 h-20 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 cursor-pointer hover:bg-gray-50 transition relative overflow-hidden">
+                      {user.avatar ? <img src={user.avatar} className="w-full h-full object-cover"/> : <ImageIcon size={24}/>}
                    </div>
                    <div>
                       <h4 className="font-bold text-gray-900">Farm Logo / Profile Pic</h4>
@@ -502,17 +706,17 @@ export const SellerDashboard: React.FC = () => {
                 <div className="grid grid-cols-2 gap-4">
                    <div>
                       <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Contact Number</label>
-                      <input type="text" value={user.phone || ''} disabled className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-500 cursor-not-allowed" />
+                      <input type="tel" value={farmSettings.phone} onChange={e => setFarmSettings({...farmSettings, phone: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-leaf-500 focus:outline-none" />
                    </div>
                    <div>
                       <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Email</label>
-                      <input type="text" value={user.email} disabled className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-500 cursor-not-allowed" />
+                      <input type="email" value={farmSettings.email} onChange={e => setFarmSettings({...farmSettings, email: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-leaf-500 focus:outline-none" />
                    </div>
                 </div>
 
                 <div className="pt-4">
-                   <button type="submit" className="w-full bg-leaf-600 hover:bg-leaf-700 text-white py-3 rounded-xl font-bold shadow-lg shadow-leaf-200 transition">
-                     Save Changes
+                   <button type="submit" className="w-full bg-leaf-600 hover:bg-leaf-700 text-white py-3 rounded-xl font-bold shadow-lg shadow-leaf-200 transition flex items-center justify-center gap-2">
+                     <Save size={18} /> Save Changes
                    </button>
                 </div>
              </form>
@@ -530,19 +734,47 @@ export const SellerDashboard: React.FC = () => {
 
              <form onSubmit={handleAddProduct} className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 space-y-6">
                 
-                {/* Image Upload */}
-                <div className="flex justify-center">
-                   <div className="relative group w-full h-48 bg-gray-50 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:bg-gray-100 hover:border-leaf-400 transition overflow-hidden">
-                      {imagePreview ? (
-                        <img src={imagePreview} className="w-full h-full object-cover" alt="Preview" />
-                      ) : (
-                        <>
-                          <ImageIcon size={40} className="text-gray-300 mb-2 group-hover:text-leaf-500" />
-                          <p className="text-sm text-gray-500 font-medium">Click to upload image</p>
-                        </>
-                      )}
-                      <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={handleImageChange} />
-                   </div>
+                {/* Main Image Upload */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Main Product Image</label>
+                  <div className="flex justify-center">
+                     <div className="relative group w-full h-48 bg-gray-50 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:bg-gray-100 hover:border-leaf-400 transition overflow-hidden">
+                        {imagePreview ? (
+                          <img src={imagePreview} className="w-full h-full object-cover" alt="Preview" />
+                        ) : (
+                          <>
+                            <ImageIcon size={40} className="text-gray-300 mb-2 group-hover:text-leaf-500" />
+                            <p className="text-sm text-gray-500 font-medium">Click to upload main image</p>
+                          </>
+                        )}
+                        <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={handleImageChange} />
+                     </div>
+                  </div>
+                </div>
+
+                {/* Gallery Upload */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Additional Images (Gallery)</label>
+                  <div className="flex gap-4 overflow-x-auto pb-2">
+                    {/* Add Button */}
+                    <div className="relative w-24 h-24 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl flex items-center justify-center cursor-pointer hover:border-leaf-400 shrink-0">
+                       <Plus size={24} className="text-gray-400"/>
+                       <input type="file" multiple className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={handleGalleryChange} />
+                    </div>
+                    {/* Previews */}
+                    {galleryPreviews.map((src, idx) => (
+                      <div key={idx} className="relative w-24 h-24 rounded-xl overflow-hidden shadow-sm shrink-0 border border-gray-100 group">
+                         <img src={src} className="w-full h-full object-cover" alt={`Gallery ${idx}`} />
+                         <button 
+                           type="button" 
+                           onClick={() => removeGalleryImage(idx)} 
+                           className="absolute top-1 right-1 bg-white/90 p-1 rounded-full text-red-500 hover:bg-red-500 hover:text-white transition opacity-0 group-hover:opacity-100"
+                         >
+                           <X size={12} />
+                         </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

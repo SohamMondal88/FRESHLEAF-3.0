@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ShoppingCart, Star, Heart, Eye, Minus, Plus, Zap, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ShoppingCart, Star, Heart, Eye, Minus, Plus, Zap, ChevronLeft, ChevronRight, Zap as BuyIcon } from 'lucide-react';
 import { Product } from '../../types';
 import { useCart } from '../../services/CartContext';
 import { useImage } from '../../services/ImageContext';
@@ -34,6 +34,7 @@ const getUnitOptions = (baseUnit: string) => {
 export const ProductCard: React.FC<Props> = ({ product, highlightTerm }) => {
   const { addToCart, addToWishlist, isInWishlist, removeFromWishlist } = useCart();
   const { getProductImage } = useImage();
+  const navigate = useNavigate();
   const [qty, setQty] = useState(1);
   const [isHovered, setIsHovered] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -61,10 +62,17 @@ export const ProductCard: React.FC<Props> = ({ product, highlightTerm }) => {
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // We pass the potentially custom image to the cart
     const cartProduct = { ...product, image: getProductImage(product.id, product.image) };
     addToCart(cartProduct, qty, unitLabel, displayPrice);
-    setQty(1); // Reset qty after add
+    setQty(1);
+  };
+
+  const handleBuyNow = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const cartProduct = { ...product, image: getProductImage(product.id, product.image) };
+    addToCart(cartProduct, qty, unitLabel, displayPrice);
+    navigate('/checkout');
   };
 
   const toggleWishlist = (e: React.MouseEvent) => {
@@ -99,7 +107,6 @@ export const ProductCard: React.FC<Props> = ({ product, highlightTerm }) => {
   const renderHighlightedText = (text: string, highlight?: string) => {
     if (!highlight || !highlight.trim()) return text;
     
-    // Escape regex special characters
     const escapedHighlight = highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const parts = text.split(new RegExp(`(${escapedHighlight})`, 'gi'));
     return (
@@ -132,7 +139,7 @@ export const ProductCard: React.FC<Props> = ({ product, highlightTerm }) => {
             />
           </Link>
           
-          {/* Gallery Controls (Visible on Hover and only if not using custom image overrides in standard gallery logic) */}
+          {/* Gallery Controls */}
           {product.gallery.length > 1 && (
             <>
               <button 
@@ -147,7 +154,6 @@ export const ProductCard: React.FC<Props> = ({ product, highlightTerm }) => {
               >
                 <ChevronRight size={16} />
               </button>
-              {/* Dots */}
               <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
                 {product.gallery.map((_, idx) => (
                   <div 
@@ -276,15 +282,22 @@ export const ProductCard: React.FC<Props> = ({ product, highlightTerm }) => {
               </div>
             </div>
 
-            {/* Action Footer */}
-            <button
-              onClick={handleAddToCart}
-              className="w-full bg-gray-900 hover:bg-leaf-600 text-white h-11 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-gray-200 hover:shadow-leaf-500/30 group-hover:scale-[1.02] active:scale-95"
-            >
-              <div className="bg-white/20 p-1 rounded-full"><Plus size={14} /></div>
-              Add {qty > 1 ? `${qty} items` : 'to Cart'}
-              {qty > 1 && <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px]">₹{totalPrice}</span>}
-            </button>
+            {/* Action Footer - Now with Buy Now button */}
+            <div className="flex gap-2">
+              <button
+                onClick={handleAddToCart}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 h-11 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 border border-gray-200"
+                title="Add to Cart"
+              >
+                <ShoppingCart size={14} /> Add
+              </button>
+              <button
+                onClick={handleBuyNow}
+                className="flex-[1.5] bg-gray-900 hover:bg-leaf-600 text-white h-11 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-lg shadow-gray-200 hover:shadow-leaf-500/30 active:scale-95 group"
+              >
+                <BuyIcon size={14} className="group-hover:fill-current" /> Buy Now
+              </button>
+            </div>
           </div>
         </div>
       </div>

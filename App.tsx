@@ -38,7 +38,8 @@ const App: React.FC = () => {
                 <HashRouter>
                   <Routes>
                     <Route path="/" element={<Layout />}>
-                      <Route index element={<Home />} />
+                      <Route index element={<Shop />} />
+                      <Route path="home" element={<Home />} />
                       <Route path="shop" element={<Shop />} />
                       <Route path="product/:id" element={<ProductDetails />} />
                       <Route path="cart" element={<Cart />} />
@@ -78,7 +79,7 @@ const App: React.FC = () => {
                       <Route path="*" element={<NotFound />} />
                     </Route>
                     
-                    {/* Dashboards outside main layout if needed, but keeping Seller Dashboard inside layout for consistent nav, or separate. Here separate to hide consumer nav. */}
+                    {/* Dashboards outside main layout if needed */}
                     <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/seller/dashboard" element={<SellerDashboard />} />
                   </Routes>
