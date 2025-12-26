@@ -41,33 +41,188 @@ const createProduct = (
 };
 
 export const PRODUCTS: Product[] = [
-  // --- FRUITS ---
-  createProduct('f-1', 'Apple Washington', 'वाशिंगटन सेब', 'ওয়াশিংটন আপেল', 'Imported Fruit', 135, 'https://images.unsplash.com/photo-1567306226416-28f0efdc88ce?auto=format&fit=crop&w=800&q=80', 'Crisp and sweet Washington apples.', 'kg'),
-  createProduct('f-2', 'Apple Shimla', 'शिमला सेब', 'শিমলা আপেল', 'Apple', 115, 'https://images.unsplash.com/photo-1570913149827-d2ac84ab3f9a?auto=format&fit=crop&w=800&q=80', 'Fresh apples from Shimla orchards.', 'kg', { isLocal: true }),
-  createProduct('f-3', 'Apple Green', 'हरा सेब', 'সবুজ আপেল', 'Apple', 165, 'https://images.unsplash.com/photo-1601275868399-45bec4f4cd9d?auto=format&fit=crop&w=800&q=80', 'Tangy and crunchy green apples.', 'kg'),
-  createProduct('f-4', 'Apricot', 'खुबानी', 'এপ্রিকট', 'Stone Fruit', 175, 'https://images.unsplash.com/photo-1599522316689-53e30e157796?auto=format&fit=crop&w=800&q=80', 'Sweet and velvety apricots.', 'kg'),
-  createProduct('f-5', 'Avocado', 'एवोकाडो', 'অ্যাভোকাডো', 'Exotic', 205, 'https://images.unsplash.com/photo-1523049673856-6485b5801825?auto=format&fit=crop&w=800&q=80', 'Creamy butter fruit.', 'pc', { isNew: true }),
-  createProduct('f-6', 'Banana Morris', 'मॉरिस केला', 'মরিস কলা', 'Banana', 31, 'https://images.unsplash.com/photo-1603833665858-e61d17a86224?auto=format&fit=crop&w=800&q=80', 'Sweet Morris bananas.', 'kg'),
-  createProduct('f-7', 'Banana', 'केला', 'কলা', 'Banana', 63, 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?auto=format&fit=crop&w=800&q=80', 'Regular Cavendish bananas.', 'kg'),
-  createProduct('f-8', 'Banana Poovam', 'पूवन केला', 'পুভাম কলা', 'Banana', 63, 'https://images.unsplash.com/photo-1481349518771-20055b2a7b24?auto=format&fit=crop&w=800&q=80', 'Small sweet Poovam bananas.', 'kg'),
-  createProduct('f-9', 'Cantaloupe', 'खरबूजा', 'খরমুজ', 'Melon', 31, 'https://images.unsplash.com/photo-1598511757337-fe2cafc31ba0?auto=format&fit=crop&w=800&q=80', 'Sweet muskmelon.', 'kg'),
-  createProduct('f-10', 'Custard Apple', 'सीताफल', 'আতা', 'Tropical', 57, 'https://images.unsplash.com/photo-1591185671239-22db14df3953?auto=format&fit=crop&w=800&q=80', 'Creamy custard apples.', 'kg', { isLocal: true }),
-  createProduct('f-11', 'Gooseberry', 'आंवला', 'আমলকী', 'Berry', 115, 'https://images.unsplash.com/photo-1603208761073-2b2207908d07?auto=format&fit=crop&w=800&q=80', 'Vitamin C rich Amla.', 'kg'),
-  createProduct('f-12', 'Grapes Black', 'काले अंगूर', 'কালো আঙ্গুর', 'Grapes', 85, 'https://images.unsplash.com/photo-1596363820253-b90343a42929?auto=format&fit=crop&w=800&q=80', 'Seedless black grapes.', 'kg'),
-  createProduct('f-13', 'Grapes Green', 'हरे अंगूर', 'সবুজ আঙ্গুর', 'Grapes', 95, 'https://images.unsplash.com/photo-1596363820465-672723a3cb86?auto=format&fit=crop&w=800&q=80', 'Sweet green grapes.', 'kg'),
-  createProduct('f-14', 'Guava', 'अमरूद', 'পেয়ারা', 'Tropical', 56, 'https://images.unsplash.com/photo-1536510344784-b46e96d866b0?auto=format&fit=crop&w=800&q=80', 'Fresh Indian guava.', 'kg'),
-  createProduct('f-15', 'Jackfruit', 'कटहल', 'কাঁঠাল', 'Tropical', 85, 'https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=800&q=80', 'Raw or ripe jackfruit.', 'kg'),
-  createProduct('f-16', 'Lychee', 'लीची', 'লিচু', 'Exotic', 215, 'https://images.unsplash.com/photo-1582046313462-843825700778?auto=format&fit=crop&w=800&q=80', 'Sweet juicy lychees.', 'kg'),
-  createProduct('f-17', 'Mango', 'आम', 'আম', 'Mango', 102, 'https://images.unsplash.com/photo-1601493700631-2b16ec4b4716?auto=format&fit=crop&w=800&q=80', 'King of fruits.', 'kg'),
-  createProduct('f-18', 'Orange', 'संतरा', 'কমলা', 'Citrus', 70, 'https://images.unsplash.com/photo-1611080626919-7cf5a9dbab5b?auto=format&fit=crop&w=800&q=80', 'Fresh Nagpur oranges.', 'kg'),
-  createProduct('f-19', 'Papaya', 'पपीता', 'পেঁপে', 'Tropical', 38, 'https://images.unsplash.com/photo-1617112848923-cc2234396a8d?auto=format&fit=crop&w=800&q=80', 'Ripe sweet papaya.', 'pc'),
-  createProduct('f-20', 'Pears', 'नाशपाती', 'নাশপাতি', 'Imported Fruit', 97, 'https://images.unsplash.com/photo-1615485499978-f79b51c7755c?auto=format&fit=crop&w=800&q=80', 'Imported pears.', 'kg'),
-  createProduct('f-21', 'Pineapple', 'अननास', 'আনারস', 'Tropical', 35, 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?auto=format&fit=crop&w=800&q=80', 'Fresh pineapple.', 'pc'),
-  createProduct('f-22', 'Pomegranate Kabul', 'काबुली अनार', 'কাবুলি বেদানা', 'Exotic', 125, 'https://images.unsplash.com/photo-1541345263-12d9927806f1?auto=format&fit=crop&w=800&q=80', 'Deep red pomegranate.', 'kg'),
-  createProduct('f-23', 'Sapota', 'चीकू', 'সবেদা', 'Tropical', 55, 'https://images.unsplash.com/photo-1615486511484-92e172cc416d?auto=format&fit=crop&w=800&q=80', 'Sweet sapota (Chiku).', 'kg'),
-  createProduct('f-24', 'Sugar Cane', 'गन्ना', 'आঁখ', 'Other', 30, 'https://images.unsplash.com/photo-1543351939-50eb82006742?auto=format&fit=crop&w=800&q=80', 'Fresh sugar cane stalks.', 'pc'),
-  createProduct('f-25', 'Sweet Lime (Mosambi)', 'मौसम्बी', 'মৌসাম্বি', 'Citrus', 50, 'https://images.unsplash.com/photo-1615485500662-7201de3cb377?auto=format&fit=crop&w=800&q=80', 'Juicy sweet lime.', 'kg'),
-  createProduct('f-26', 'Watermelon', 'तरबूज', 'তরমুজ', 'Melon', 28, 'https://images.unsplash.com/photo-1587049352846-4a222e784d38?auto=format&fit=crop&w=800&q=80', 'Dark green watermelon.', 'pc'),
+// --- FRUITS ---
+createProduct(
+  'f-1', 'Apple Washington', 'वाशिंगटन सेब', 'ওয়াশিংটন আপেল',
+  'Imported Fruit', 135,
+  './images/apple.png',
+  'Crisp and sweet Washington apples.', 'kg'
+),
+
+createProduct(
+  'f-2', 'Apple Shimla', 'शिमला सेब', 'শিমলা আপেল',
+  'Apple', 115,
+  './images/apple.png',
+  'Fresh apples from Shimla orchards.', 'kg', { isLocal: true }
+),
+
+createProduct(
+  'f-3', 'Apple Green', 'हरा सेब', 'সবুজ আপেল',
+  'Apple', 165,
+  './images/apple.png',
+  'Tangy and crunchy green apples.', 'kg'
+),
+
+createProduct(
+  'f-4', 'Apricot', 'खुबानी', 'এপ্রিকট',
+  'Stone Fruit', 175,
+  './images/apricot.png',
+  'Sweet and velvety apricots.', 'kg'
+),
+
+createProduct(
+  'f-5', 'Avocado', 'एवोकाडो', 'অ্যাভোকাডো',
+  'Exotic', 205,
+  './images/avocado.png',
+  'Creamy butter fruit.', 'pc', { isNew: true }
+),
+
+createProduct(
+  'f-6', 'Banana Morris', 'मॉरिस केला', 'মরিস কলা',
+  'Banana', 31,
+  './images/Banana-Morris.png',
+  'Sweet Morris bananas.', 'kg'
+),
+
+createProduct(
+  'f-7', 'Banana', 'केला', 'কলা',
+  'Banana', 63,
+  './images/banana.png',
+  'Regular Cavendish bananas.', 'kg'
+),
+
+createProduct(
+  'f-8', 'Banana Poovam', 'पूवन केला', 'পুভাম কলা',
+  'Banana', 63,
+  './images/Banana-Poovam.png',
+  'Small sweet Poovam bananas.', 'kg'
+),
+
+createProduct(
+  'f-9', 'Cantaloupe', 'खरबूजा', 'খরমুজ',
+  'Melon', 31,
+  './images/Cantaloupe.png',
+  'Sweet muskmelon.', 'kg'
+),
+
+createProduct(
+  'f-10', 'Custard Apple', 'सीताफल', 'আতা',
+  'Tropical', 57,
+  './images/custardapple.png',
+  'Creamy custard apples.', 'kg', { isLocal: true }
+),
+
+createProduct(
+  'f-11', 'Gooseberry', 'आंवला', 'আমলকী',
+  'Berry', 115,
+  './images/Gooseberry.png',
+  'Vitamin C rich Amla.', 'kg'
+),
+
+createProduct(
+  'f-12', 'Grapes Black', 'काले अंगूर', 'কালো আঙ্গুর',
+  'Grapes', 85,
+  './images/grapesblack.png',
+  'Seedless black grapes.', 'kg'
+),
+
+createProduct(
+  'f-13', 'Grapes Green', 'हरे अंगूर', 'সবুজ আঙ্গুর',
+  'Grapes', 95,
+  './images/grapesgreen.png',
+  'Sweet green grapes.', 'kg'
+),
+
+createProduct(
+  'f-14', 'Guava', 'अमरूद', 'পেয়ারা',
+  'Tropical', 56,
+  './images/guava.png',
+  'Fresh Indian guava.', 'kg'
+),
+
+createProduct(
+  'f-15', 'Jackfruit', 'कटहल', 'কাঁঠাল',
+  'Tropical', 85,
+  './images/jackfruit.png',
+  'Raw or ripe jackfruit.', 'kg'
+),
+
+createProduct(
+  'f-16', 'Lychee', 'लीची', 'লিচু',
+  'Exotic', 215,
+  './images/lychee.png',
+  'Sweet juicy lychees.', 'kg'
+),
+
+createProduct(
+  'f-17', 'Mango', 'आम', 'আম',
+  'Mango', 102,
+  './images/mango.png',
+  'King of fruits.', 'kg'
+),
+
+createProduct(
+  'f-18', 'Orange', 'संतरा', 'কমলা',
+  'Citrus', 70,
+  './images/orange.png',
+  'Fresh Nagpur oranges.', 'kg'
+),
+
+createProduct(
+  'f-19', 'Papaya', 'पपीता', 'পেঁপে',
+  'Tropical', 38,
+  './images/papaya.png',
+  'Ripe sweet papaya.', 'pc'
+),
+
+createProduct(
+  'f-20', 'Pears', 'नाशपाती', 'নাশপাতি',
+  'Imported Fruit', 97,
+  './images/pear.png',
+  'Imported pears.', 'kg'
+),
+
+createProduct(
+  'f-21', 'Pineapple', 'अननास', 'আনারস',
+  'Tropical', 35,
+  './images/pineapple.png',
+  'Fresh pineapple.', 'pc'
+),
+
+createProduct(
+  'f-22', 'Pomegranate Kabul', 'काबुली अनार', 'কাবুলি বেদানা',
+  'Exotic', 125,
+  './images/Pomegranate-Kabul.png',
+  'Deep red pomegranate.', 'kg'
+),
+
+createProduct(
+  'f-23', 'Sapota', 'चीकू', 'সবেদা',
+  'Tropical', 55,
+  './images/Sapota.png',
+  'Sweet sapota (Chiku).', 'kg'
+),
+
+createProduct(
+  'f-24', 'Sugar Cane', 'गन्ना', 'আঁখ',
+  'Other', 30,
+  './images/sugarcane.png',
+  'Fresh sugar cane stalks.', 'pc'
+),
+
+createProduct(
+  'f-25', 'Sweet Lime (Mosambi)', 'मौसम्बी', 'মৌসাম্বি',
+  'Citrus', 50,
+  './images/mosambi.png',
+  'Juicy sweet lime.', 'kg'
+),
+
+createProduct(
+  'f-26', 'Watermelon', 'तरबूज', 'তরমুজ',
+  'Melon', 28,
+  './images/watermelon.png',
+  'Dark green watermelon.', 'pc'
+),
 
   // --- VEGETABLES ---
   createProduct('v-1', 'Onion Big', 'बड़ा प्याज', 'বড় পেঁয়াজ', 'Bulb', 34, 'https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?auto=format&fit=crop&w=800&q=80', 'Large red onions.', 'kg'),
