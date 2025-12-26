@@ -1,5 +1,6 @@
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import { CartProvider } from './services/CartContext';
 import { AuthProvider } from './services/AuthContext';
 import { OrderProvider } from './services/OrderContext';
@@ -36,6 +37,7 @@ const App: React.FC = () => {
             <ImageProvider>
               <CartProvider>
                 <HashRouter>
+                  <Analytics />
                   <Routes>
                     <Route path="/" element={<Layout />}>
                       <Route index element={<Shop />} />
