@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Bot, User, Minimize2, Loader2, Brain, Zap, Globe, MapPin, Sparkles, ChevronRight, ShoppingBag, Leaf } from 'lucide-react';
 import { GoogleGenAI, Chat } from "@google/genai";
@@ -23,7 +22,7 @@ const QUICK_ACTIONS = [
 
 export const ChatBot: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [mode, setMode] = useState<ChatMode>('thinking');
+  const [mode, setMode] = useState<ChatMode>('lite');
   const [messages, setMessages] = useState<Message[]>([
     { role: 'model', text: 'Namaste! I am your FreshLeaf assistant. How can I help you find the freshest produce today?', timestamp: new Date() }
   ]);
@@ -40,7 +39,6 @@ export const ChatBot: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isOpen, isLoading]);
 
-  // Get User Location for Maps
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -55,7 +53,6 @@ export const ChatBot: React.FC = () => {
     }
   }, []);
 
-  // Initialize Chat based on Mode
   useEffect(() => {
     const initChat = async () => {
       try {
@@ -64,7 +61,6 @@ export const ChatBot: React.FC = () => {
 
         const ai = new GoogleGenAI({ apiKey });
         
-        // Context Construction
         const productContext = products.map(p => 
           `- ${p.name.en} (${p.name.hi || ''}): ₹${p.price}/${p.baseUnit}. ${p.inStock ? 'In Stock' : 'Out'}.`
         ).join('\n');
@@ -86,7 +82,7 @@ export const ChatBot: React.FC = () => {
         - Use emojis to make the conversation lively.
         `;
 
-        let modelName = 'gemini-3-pro-preview';
+        let modelName = 'gemini-3-flash-preview';
         let config: any = { systemInstruction };
 
         switch (mode) {
@@ -95,10 +91,10 @@ export const ChatBot: React.FC = () => {
             config.thinkingConfig = { thinkingBudget: 32768 };
             break;
           case 'lite':
-            modelName = 'gemini-2.5-flash-lite';
+            modelName = 'gemini-3-flash-preview';
             break;
           case 'search':
-            modelName = 'gemini-2.5-flash';
+            modelName = 'gemini-3-flash-preview';
             config.tools = [{ googleSearch: {} }];
             break;
           case 'maps':
@@ -160,7 +156,7 @@ export const ChatBot: React.FC = () => {
 
   const handleQuickAction = (action: string) => {
     navigate(action);
-    if (window.innerWidth < 768) setIsOpen(false); // Close on mobile navigation
+    if (window.innerWidth < 768) setIsOpen(false);
   };
 
   const getModeIcon = (m: ChatMode) => {
@@ -181,14 +177,12 @@ export const ChatBot: React.FC = () => {
     }
   };
 
-  // Helper for formatting time
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   return (
     <>
-      {/* Floating Action Button */}
       <button
         onClick={() => setIsOpen(prev => !prev)}
         className={`fixed bottom-6 right-6 z-50 p-4 rounded-full shadow-2xl transition-all duration-300 flex items-center justify-center border-4 border-white/20 backdrop-blur-sm group ${
@@ -201,8 +195,6 @@ export const ChatBot: React.FC = () => {
           <>
             <MessageCircle size={28} className="absolute group-hover:scale-0 transition-transform duration-300" />
             <Bot size={28} className="absolute scale-0 group-hover:scale-100 transition-transform duration-300" />
-            
-            {/* Notification Badge */}
             <span className="absolute -top-1 -right-1 flex h-4 w-4">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500"></span>
@@ -211,15 +203,10 @@ export const ChatBot: React.FC = () => {
         )}
       </button>
 
-      {/* Chat Window */}
       {isOpen && (
         <div className="fixed bottom-24 right-4 md:right-6 z-50 w-[95vw] md:w-[400px] h-[600px] max-h-[80vh] bg-white rounded-3xl shadow-2xl flex flex-col border border-gray-100 animate-in fade-in slide-in-from-bottom-8 duration-300 overflow-hidden font-sans">
-          
-          {/* Header */}
           <div className="bg-gradient-to-r from-leaf-700 to-leaf-600 p-4 text-white shadow-lg relative overflow-hidden">
-            {/* Decorative circles */}
             <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
-            
             <div className="flex items-center justify-between mb-4 relative z-10">
               <div className="flex items-center gap-3">
                 <div className="bg-white/20 p-2 rounded-xl backdrop-blur-sm border border-white/10">
@@ -240,8 +227,6 @@ export const ChatBot: React.FC = () => {
                 <Minimize2 size={18} />
               </button>
             </div>
-            
-            {/* Mode Switcher */}
             <div className="flex bg-black/20 p-1 rounded-xl backdrop-blur-md">
               {(['thinking', 'lite', 'search', 'maps'] as ChatMode[]).map((m) => (
                 <button
@@ -260,19 +245,15 @@ export const ChatBot: React.FC = () => {
             </div>
           </div>
 
-          {/* Messages Area */}
-          <div className="flex-grow overflow-y-auto p-4 bg-gray-50 space-y-5 scrollbar-thin scrollbar-thumb-gray-200">
+          <div className="flex-grow overflow-y-auto p-4 bg-gray-50 space-y-5">
             {messages.map((msg, idx) => (
               <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-in slide-in-from-bottom-2 duration-300`}>
-                
-                {/* Message Bubble */}
                 <div className="flex items-end gap-2 max-w-[90%]">
                   {msg.role === 'model' && (
                     <div className="w-6 h-6 rounded-full bg-leaf-100 flex items-center justify-center text-leaf-600 shrink-0 mb-1">
                       <Bot size={14} />
                     </div>
                   )}
-                  
                   <div
                     className={`p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm relative group ${
                       msg.role === 'user'
@@ -281,21 +262,16 @@ export const ChatBot: React.FC = () => {
                     }`}
                   >
                     {msg.text}
-                    
-                    {/* Timestamp */}
                     <span className={`text-[10px] absolute -bottom-5 ${msg.role === 'user' ? 'right-0 text-gray-400' : 'left-0 text-gray-400'} opacity-0 group-hover:opacity-100 transition-opacity`}>
                       {formatTime(msg.timestamp)}
                     </span>
                   </div>
-
                   {msg.role === 'user' && (
                     <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 shrink-0 mb-1">
                       <User size={14} />
                     </div>
                   )}
                 </div>
-
-                {/* Grounding Sources */}
                 {msg.groundingChunks && msg.groundingChunks.length > 0 && (
                   <div className="mt-2 ml-8 max-w-[85%] space-y-2">
                     {msg.groundingChunks.map((chunk: any, i: number) => {
@@ -307,23 +283,12 @@ export const ChatBot: React.FC = () => {
                           </a>
                         );
                       }
-                      if (chunk.maps) {
-                         return (
-                          <a key={i} href={chunk.maps.googleMapsUri || "#"} target="_blank" rel="noopener noreferrer" className="block bg-green-50/50 border border-green-100 p-2.5 rounded-xl hover:bg-green-50 transition text-xs group">
-                             <div className="font-bold text-green-700 flex items-center gap-1 mb-0.5"><MapPin size={12}/> {chunk.maps.title} <ChevronRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity ml-auto"/></div>
-                             <div className="text-green-600 truncate">{chunk.maps.formattedAddress}</div>
-                             {chunk.maps.rating && <div className="text-green-600 mt-1 flex items-center gap-1 font-bold bg-green-100 w-fit px-1.5 py-0.5 rounded">★ {chunk.maps.rating}</div>}
-                          </a>
-                         );
-                      }
                       return null;
                     })}
                   </div>
                 )}
               </div>
             ))}
-            
-            {/* Thinking Indicator */}
             {isLoading && (
               <div className="flex justify-start animate-in fade-in duration-300">
                 <div className="flex items-end gap-2">
@@ -341,7 +306,6 @@ export const ChatBot: React.FC = () => {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Quick Actions (Chips) */}
           <div className="px-4 py-3 bg-white border-t border-gray-100 flex gap-2 overflow-x-auto scrollbar-hide">
             {QUICK_ACTIONS.map((action, i) => (
               <button 
@@ -354,7 +318,6 @@ export const ChatBot: React.FC = () => {
             ))}
           </div>
 
-          {/* Input Area */}
           <form onSubmit={handleSend} className="p-4 bg-white border-t border-gray-100">
             <div className="relative flex items-center gap-2">
               <input
@@ -372,9 +335,6 @@ export const ChatBot: React.FC = () => {
                 <Send size={18} className={isLoading ? 'opacity-0' : 'opacity-100'} />
                 {isLoading && <Loader2 size={18} className="absolute animate-spin" />}
               </button>
-            </div>
-            <div className="text-[10px] text-center text-gray-400 mt-2 font-medium">
-              AI can make mistakes. Check important info.
             </div>
           </form>
         </div>
