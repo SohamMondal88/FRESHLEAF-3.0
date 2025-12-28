@@ -91,9 +91,9 @@ export const ProductCard: React.FC<Props> = ({ product, highlightTerm }) => {
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <div className="relative block aspect-[4/3] overflow-hidden bg-gray-50 rounded-t-3xl">
+        <div className="relative block aspect-[4/3] overflow-hidden bg-white rounded-t-3xl border-b border-gray-50">
           <Link to={`/product/${product.id}`} className="block w-full h-full">
-            <img src={displayImage} alt={product.name.en} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+            <img src={displayImage} alt={product.name.en} className="w-full h-full object-contain p-4 transition-transform duration-700 group-hover:scale-110" />
           </Link>
           
           <div className="absolute top-3 left-3 flex flex-col gap-2 z-10">
@@ -108,7 +108,12 @@ export const ProductCard: React.FC<Props> = ({ product, highlightTerm }) => {
         <div className="p-5 flex-grow flex flex-col">
           <Link to={`/product/${product.id}`} className="block mb-3">
             <h3 className="font-bold text-gray-900 text-lg leading-snug line-clamp-1">{renderHighlightedText(product.name.en, highlightTerm)}</h3>
-            <p className="text-xs text-gray-500 truncate font-hindi mt-1">{product.name.hi}</p>
+            {/* Multilingual names as requested */}
+            <div className="flex gap-2 items-center mt-1">
+               <span className="text-xs font-bold text-leaf-700 bg-leaf-50 px-2 py-0.5 rounded font-hindi border border-leaf-100">{product.name.bn}</span>
+               <span className="text-xs font-medium text-gray-400">|</span>
+               <span className="text-xs text-gray-500 font-hindi">{product.name.hi}</span>
+            </div>
           </Link>
           
           <div className="mb-4">
@@ -124,7 +129,10 @@ export const ProductCard: React.FC<Props> = ({ product, highlightTerm }) => {
 
           <div className="mt-auto pt-3 border-t border-gray-50">
             <div className="flex items-center justify-between mb-4">
-              <span className="font-extrabold text-xl text-gray-900">₹{displayPrice}</span>
+              <div className="flex flex-col">
+                 <span className="font-extrabold text-xl text-gray-900">₹{displayPrice}</span>
+                 {oldDisplayPrice && <span className="text-xs text-gray-400 line-through">₹{oldDisplayPrice}</span>}
+              </div>
               <div className="flex items-center bg-gray-50 border border-gray-100 rounded-lg p-0.5">
                   <button onClick={(e) => { e.preventDefault(); setQty(Math.max(1, qty - 1)); }} className="w-7 h-7 flex items-center justify-center bg-white rounded-md text-gray-600 shadow-sm transition-all" disabled={qty <= 1}><Minus size={14} /></button>
                   <span className="w-8 text-center text-xs font-bold text-gray-900">{qty}</span>

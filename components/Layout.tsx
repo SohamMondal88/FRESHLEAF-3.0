@@ -1,9 +1,17 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Menu, X, User, Search, Leaf, Phone, MapPin, Facebook, Twitter, Instagram, LogOut, Crown, ChevronRight, Mail, ShieldCheck, MessageCircle, Youtube, ShoppingBag, Mic, Sprout, ArrowRight, Heart, Chrome, Smartphone, Play } from 'lucide-react';
+import { 
+  ShoppingCart, Menu, X, User, Search, Leaf, Phone, MapPin, 
+  Facebook, Twitter, Instagram, LogOut, Crown, ChevronRight, 
+  Mail, ShieldCheck, MessageCircle, Youtube, ShoppingBag, Mic, 
+  Sprout, ArrowRight, Heart, Chrome, Smartphone, Play, Linkedin,
+  Package, LogIn, UserPlus, LayoutDashboard, HelpCircle
+} from 'lucide-react';
 import { useCart } from '../services/CartContext';
 import { useAuth } from '../services/AuthContext';
 import { useProduct } from '../services/ProductContext';
+import { usePincode } from '../services/PincodeContext';
 import { ChatBot } from './ChatBot';
 import { BackToTop } from './BackToTop';
 import { Product } from '../types';
@@ -16,18 +24,24 @@ export const Layout: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [suggestions, setSuggestions] = useState<Product[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [isListening, setIsListening] = useState(false); // Voice search state
+  const [isListening, setIsListening] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
-  const { cartItems } = useCart();
+  // Contexts
+  const { cartItems, wishlist } = useCart();
   const { user, logout } = useAuth();
   const { products } = useProduct();
+  const { pincode, setPincode, isServiceable, showModal, setShowModal } = usePincode();
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Pincode Input State
+  const [pincodeInput, setPincodeInput] = useState('');
+  const [pincodeLoading, setPincodeLoading] = useState(false);
+  const [pincodeError, setPincodeError] = useState('');
+
   const totalItems = cartItems.reduce((acc, item) => acc + item.quantity, 0);
 
-  // Handle scroll effect for navbar
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10);
@@ -36,31 +50,31 @@ export const Layout: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Close mobile menu on route change
   useEffect(() => {
     setIsMenuOpen(false);
-    setShowSuggestions(false); // Close suggestions on nav
+    setShowSuggestions(false);
   }, [location]);
 
-  // Lock body scroll when mobile menu is open
   useEffect(() => {
-    if (isMenuOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
+    if (isMenuOpen) document.body.style.overflow = 'hidden';
+    else document.body.style.overflow = 'unset';
   }, [isMenuOpen]);
 
-  // Search Suggestion Logic
+  // Fuzzy Search Implementation
+  const fuzzyMatch = (text: string, search: string) => {
+    const cleanText = text.toLowerCase().replace(/\s/g, '');
+    const cleanSearch = search.toLowerCase().replace(/\s/g, '');
+    return cleanText.includes(cleanSearch);
+  };
+
   useEffect(() => {
     if (searchTerm.trim().length > 1) {
-      const lowerTerm = searchTerm.toLowerCase();
       const matches = products.filter(p => 
-        p.name.en.toLowerCase().includes(lowerTerm) || 
-        p.category.toLowerCase().includes(lowerTerm) ||
-        p.name.hi.includes(searchTerm) || // Hindi search support
-        p.name.bn.includes(searchTerm)    // Bengali search support
-      ).slice(0, 5); // Limit to 5 suggestions
+        fuzzyMatch(p.name.en, searchTerm) || 
+        fuzzyMatch(p.category, searchTerm) ||
+        p.name.hi.includes(searchTerm) || 
+        p.name.bn.includes(searchTerm)
+      ).slice(0, 5);
       setSuggestions(matches);
       setShowSuggestions(true);
     } else {
@@ -69,7 +83,6 @@ export const Layout: React.FC = () => {
     }
   }, [searchTerm, products]);
 
-  // Click Outside to Close Search
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
@@ -80,7 +93,6 @@ export const Layout: React.FC = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Voice Search Logic
   const startVoiceSearch = () => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -89,10 +101,7 @@ export const Layout: React.FC = () => {
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
 
-      recognition.onstart = () => {
-        setIsListening(true);
-      };
-      
+      recognition.onstart = () => setIsListening(true);
       recognition.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript;
         setSearchTerm(transcript);
@@ -101,22 +110,10 @@ export const Layout: React.FC = () => {
         setIsListening(false);
         if (isMenuOpen) setIsMenuOpen(false);
       };
-
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-      
-      recognition.onerror = (event: any) => {
-        console.error("Speech recognition error", event.error);
-        setIsListening(false);
-        if (event.error === 'not-allowed') {
-          alert("Microphone access blocked. Please enable microphone permissions in your browser settings to use voice search.");
-        }
-      };
-
+      recognition.onend = () => setIsListening(false);
       recognition.start();
     } else {
-      alert("Voice search is not supported in this browser. Please use Chrome, Edge, or Safari.");
+      alert("Voice search is not supported in this browser.");
     }
   };
 
@@ -126,31 +123,22 @@ export const Layout: React.FC = () => {
       navigate(`/shop?q=${encodeURIComponent(searchTerm)}`);
       setIsMenuOpen(false);
       setShowSuggestions(false);
-      // We don't clear searchTerm here so user sees what they searched
     }
   };
 
-  const handleSuggestionClick = (productId: string) => {
-    navigate(`/product/${productId}`);
-    setShowSuggestions(false);
-    setSearchTerm('');
-  };
-
-  // Helper to highlight matched text
-  const HighlightedText = ({ text, highlight }: { text: string, highlight: string }) => {
-    if (!highlight.trim()) return <>{text}</>;
-    const parts = text.split(new RegExp(`(${highlight})`, 'gi'));
-    return (
-      <span>
-        {parts.map((part, i) => 
-          part.toLowerCase() === highlight.toLowerCase() ? (
-            <span key={i} className="text-leaf-600 font-bold bg-leaf-50">{part}</span>
-          ) : (
-            part
-          )
-        )}
-      </span>
-    );
+  const handlePincodeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pincodeInput.length !== 6) {
+        setPincodeError("Please enter a valid 6-digit pincode");
+        return;
+    }
+    setPincodeLoading(true);
+    setPincodeError('');
+    const success = await setPincode(pincodeInput);
+    setPincodeLoading(false);
+    if (!success) {
+        setPincodeError("Sorry, we do not deliver to this location yet.");
+    }
   };
 
   const navLinks = [
@@ -164,25 +152,59 @@ export const Layout: React.FC = () => {
   return (
     <div className="flex flex-col min-h-screen font-sans text-gray-800 bg-gray-50/30">
       
-      {/* Top Bar - Premium Dark Gradient */}
+      {/* Pincode Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+            <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl relative border border-gray-100 animate-in zoom-in-95">
+                {!isServiceable && (
+                    <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={20}/></button>
+                )}
+                <div className="text-center mb-6">
+                    <div className="bg-leaf-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-leaf-600">
+                        <MapPin size={32} />
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900">Check Delivery</h3>
+                    <p className="text-gray-500 text-sm mt-1">Enter your pincode to check product availability in your area.</p>
+                </div>
+                <form onSubmit={handlePincodeSubmit}>
+                    <input 
+                        type="text" 
+                        maxLength={6}
+                        placeholder="Ex: 700001"
+                        value={pincodeInput}
+                        onChange={(e) => setPincodeInput(e.target.value.replace(/[^0-9]/g, ''))}
+                        className="w-full text-center text-lg font-bold tracking-widest border border-gray-200 bg-gray-50 rounded-xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-leaf-500 mb-4"
+                    />
+                    {pincodeError && <p className="text-red-500 text-xs text-center mb-4 font-bold">{pincodeError}</p>}
+                    <button 
+                        type="submit" 
+                        disabled={pincodeLoading || pincodeInput.length !== 6}
+                        className="w-full bg-leaf-600 hover:bg-leaf-700 text-white font-bold py-3 rounded-xl transition shadow-lg shadow-leaf-200 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                        {pincodeLoading ? 'Checking...' : 'Verify Pincode'}
+                    </button>
+                </form>
+            </div>
+        </div>
+      )}
+
+      {/* Top Bar */}
       <div className="bg-gradient-to-r from-gray-900 to-leaf-900 text-white py-2 px-4 text-[11px] md:text-xs font-medium tracking-wide relative z-50">
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex items-center gap-4 md:gap-6">
-            <span className="flex items-center gap-1.5 text-leaf-200">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span> 
-              Delivering to Metro Cities
-            </span>
-            <span className="hidden sm:flex items-center gap-1.5 text-white/80 hover:text-white transition-colors cursor-pointer">
+            <button onClick={() => setShowModal(true)} className="flex items-center gap-1.5 hover:text-leaf-300 transition-colors">
+              <MapPin size={12} className={isServiceable ? "text-green-400" : "text-gray-400"} /> 
+              {pincode ? `Delivering to ${pincode}` : "Select Location"}
+            </button>
+            <span className="hidden sm:flex items-center gap-1.5 text-white/80">
               <Phone size={12} /> +91 98765 43210
             </span>
           </div>
           <div className="flex gap-4 items-center">
-            {/* Seller Link */}
             <Link to="/seller" className="flex items-center gap-1 text-white hover:text-yellow-300 transition-colors">
                <Sprout size={12} /> Become a Seller
             </Link>
             <div className="w-px h-3 bg-white/20 hidden sm:block"></div>
-            
             {user?.isPro ? (
               <span className="flex items-center gap-1.5 text-yellow-400 font-bold bg-white/10 px-2 py-0.5 rounded-full backdrop-blur-sm border border-white/10">
                 <Crown size={12} fill="currentColor" /> Pro Member
@@ -198,7 +220,7 @@ export const Layout: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Navbar - Glassmorphism */}
+      {/* Main Navbar */}
       <nav 
         className={`sticky top-0 z-40 transition-all duration-300 w-full border-b ${
           isScrolled 
@@ -208,8 +230,6 @@ export const Layout: React.FC = () => {
       >
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center gap-4 lg:gap-8">
-            
-            {/* Logo Section */}
             <Link to="/" className="flex items-center gap-2.5 group flex-shrink-0">
               <div className="bg-gradient-to-br from-leaf-500 to-leaf-600 p-2 rounded-xl text-white shadow-lg shadow-leaf-200 group-hover:scale-105 transition-transform duration-300">
                 <Leaf size={24} fill="currentColor" className="text-white" />
@@ -222,7 +242,6 @@ export const Layout: React.FC = () => {
               </div>
             </Link>
 
-            {/* Desktop Navigation Links - Hidden on Tablet (md) and Mobile */}
             <div className="hidden lg:flex items-center gap-1 bg-gray-50/50 p-1 rounded-full border border-gray-100/50">
               {navLinks.map((link) => (
                 <Link
@@ -239,7 +258,6 @@ export const Layout: React.FC = () => {
               ))}
             </div>
 
-            {/* Advanced Search Bar (with Auto-suggestions) */}
             <div ref={searchRef} className="hidden md:block relative w-full max-w-[240px] xl:max-w-xs group z-50">
               <form onSubmit={handleSearchSubmit} className="relative">
                 <input 
@@ -251,19 +269,15 @@ export const Layout: React.FC = () => {
                   className={`w-full pl-10 pr-10 py-2.5 bg-gray-100/80 border-transparent border-2 rounded-full focus:bg-white focus:border-leaf-500/30 focus:ring-4 focus:ring-leaf-500/10 transition-all outline-none text-sm placeholder-gray-400 ${isListening ? 'ring-4 ring-red-100 border-red-200 bg-white placeholder-red-400' : ''}`}
                 />
                 <Search size={18} className={`absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors ${isListening ? 'text-red-500' : 'text-gray-400 group-focus-within:text-leaf-600'}`} />
-                
-                {/* Voice Search Button */}
                 <button 
                   type="button" 
                   onClick={startVoiceSearch}
                   className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-all duration-300 ${isListening ? 'bg-red-500 text-white animate-pulse scale-110' : 'text-gray-400 hover:text-leaf-600 hover:bg-gray-200'}`}
-                  title="Search by Voice"
                 >
                   <Mic size={16} />
                 </button>
               </form>
               
-              {/* Auto-Suggestions Dropdown */}
               {showSuggestions && (
                 <div className="absolute top-[calc(100%+8px)] left-0 w-full bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-2">
                   {suggestions.length > 0 ? (
@@ -272,14 +286,12 @@ export const Layout: React.FC = () => {
                         {suggestions.map((product) => (
                           <li key={product.id}>
                             <button 
-                              onClick={() => handleSuggestionClick(product.id)}
+                              onClick={() => { navigate(`/product/${product.id}`); setShowSuggestions(false); setSearchTerm(''); }}
                               className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-50 transition-colors text-left"
                             >
                               <img src={product.image} alt="" className="w-10 h-10 rounded-lg object-cover bg-gray-100" />
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-gray-900 truncate">
-                                  <HighlightedText text={product.name.en} highlight={searchTerm} />
-                                </p>
+                                <p className="text-sm font-bold text-gray-900 truncate">{product.name.en}</p>
                                 <p className="text-xs text-gray-500 truncate">{product.category}</p>
                               </div>
                               <span className="text-xs font-bold text-leaf-700">₹{product.price}</span>
@@ -287,33 +299,15 @@ export const Layout: React.FC = () => {
                           </li>
                         ))}
                       </ul>
-                      <button 
-                        onClick={handleSearchSubmit}
-                        className="w-full bg-gray-50 py-2.5 text-xs font-bold text-leaf-700 hover:bg-leaf-50 border-t border-gray-100 transition-colors"
-                      >
-                        View all results for "{searchTerm}"
-                      </button>
                     </>
                   ) : (
-                    <div className="p-4 text-center text-sm text-gray-500">
-                      No products found.
-                    </div>
+                    <div className="p-4 text-center text-sm text-gray-500">No products found.</div>
                   )}
                 </div>
               )}
             </div>
 
-            {/* Actions Area */}
             <div className="flex items-center gap-3 sm:gap-4">
-              {/* Mobile Search Toggle (Visible on Mobile only) */}
-              <button 
-                onClick={() => setIsMenuOpen(true)}
-                className="md:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-full"
-              >
-                <Search size={22} />
-              </button>
-
-              {/* User Account - Visible on Tablet and Desktop */}
               <div className="hidden md:block">
                  {user ? (
                   <Link to={user.role === 'seller' ? '/seller/dashboard' : '/account'} className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border border-gray-100 hover:border-leaf-200 hover:bg-leaf-50/50 transition-all group">
@@ -329,7 +323,13 @@ export const Layout: React.FC = () => {
                 )}
               </div>
 
-              {/* Cart Button */}
+              <Link to="/wishlist" className="relative group p-2.5 rounded-full bg-gray-100/80 text-gray-700 hover:bg-red-50 hover:text-red-500 transition-all">
+                <Heart size={22} className="group-hover:scale-110 transition-transform"/>
+                {wishlist.length > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
+                )}
+              </Link>
+
               <Link to="/cart" className="relative group">
                 <div className="p-2.5 rounded-full bg-gray-100/80 text-gray-700 group-hover:bg-leaf-500 group-hover:text-white transition-all duration-300">
                   <ShoppingCart size={22} className="group-hover:scale-110 transition-transform" />
@@ -341,11 +341,7 @@ export const Layout: React.FC = () => {
                 )}
               </Link>
 
-              {/* Menu Toggle - Visible on Mobile AND Tablet (hidden only on lg+) */}
-              <button
-                className="lg:hidden p-2 text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
-                onClick={() => setIsMenuOpen(true)}
-              >
+              <button className="lg:hidden p-2 text-gray-700 hover:bg-gray-100 rounded-full transition-colors" onClick={() => setIsMenuOpen(true)}>
                 <Menu size={24} />
               </button>
             </div>
@@ -353,307 +349,253 @@ export const Layout: React.FC = () => {
         </div>
       </nav>
 
-      {/* Off-Canvas Menu Drawer - Visible on Mobile AND Tablet */}
+      {/* Modern Menu Drawer */}
       <div className={`fixed inset-0 z-50 lg:hidden transition-all duration-500 ${isMenuOpen ? 'visible' : 'invisible'}`}>
-        {/* Backdrop */}
         <div 
-          className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-500 ${isMenuOpen ? 'opacity-100' : 'opacity-0'}`}
+          className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-500 ${isMenuOpen ? 'opacity-100' : 'opacity-0'}`} 
           onClick={() => setIsMenuOpen(false)}
-        ></div>
+        />
         
-        {/* Drawer Panel */}
-        <div className={`absolute top-0 right-0 h-full w-[85%] max-w-sm bg-white shadow-2xl transition-transform duration-500 ease-out transform ${isMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-          <div className="flex flex-col h-full">
-            
-            {/* Drawer Header */}
-            <div className="p-5 bg-gradient-to-br from-leaf-600 to-leaf-800 text-white">
-              <div className="flex justify-between items-start mb-6">
-                 {user ? (
-                   <div className="flex items-center gap-3">
-                     <img src={user.avatar} alt="Profile" className="w-12 h-12 rounded-full border-2 border-white/30 shadow-md" />
-                     <div>
-                       <h3 className="font-bold text-lg">{user.name}</h3>
-                       <p className="text-white/70 text-xs">{user.email}</p>
-                     </div>
-                   </div>
-                 ) : (
-                   <div className="flex items-center gap-3">
-                     <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
-                       <User size={24} />
-                     </div>
-                     <div>
-                       <h3 className="font-bold text-lg">Welcome Guest</h3>
-                       <Link to="/login" onClick={() => setIsMenuOpen(false)} className="text-white/90 text-xs hover:underline flex items-center gap-1">
-                         Login / Register <ChevronRight size={10} />
-                       </Link>
-                     </div>
-                   </div>
-                 )}
-                 <button 
-                  onClick={() => setIsMenuOpen(false)} 
-                  className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-              
-              {/* Mobile Search (Only visible if search bar in nav is hidden, i.e., mobile) */}
-              <form onSubmit={handleSearchSubmit} className="relative md:hidden">
-                <input 
-                  type="text" 
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder={isListening ? "Listening..." : "Search products..."}
-                  className="w-full pl-10 pr-10 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:bg-white focus:text-gray-900 focus:placeholder-gray-500 text-white placeholder-white/60 text-sm transition-all"
-                />
-                <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/60" />
-                <button 
-                  type="button" 
-                  onClick={startVoiceSearch}
-                  className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
-                >
-                  <Mic size={16} />
-                </button>
-              </form>
-            </div>
+        <div className={`absolute top-0 right-0 h-full w-[85%] max-w-sm bg-white shadow-2xl transition-transform duration-500 ease-out transform ${isMenuOpen ? 'translate-x-0' : 'translate-x-full'} flex flex-col`}>
+          
+          {/* Header / User Profile */}
+          <div className="bg-gradient-to-br from-leaf-800 to-leaf-600 p-6 text-white shrink-0 relative overflow-hidden">
+              <div className="absolute top-[-20%] right-[-10%] w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
+              <div className="absolute bottom-[-10%] left-[-10%] w-24 h-24 bg-yellow-400/20 rounded-full blur-xl"></div>
 
-            {/* Drawer Links */}
-            <div className="flex-grow overflow-y-auto py-4 px-2">
-              <div className="space-y-1">
-                {navLinks.map((link) => (
-                  <Link
-                    key={link.path}
-                    to={link.path}
-                    className={`flex items-center justify-between px-4 py-3 rounded-xl font-medium transition-colors ${
-                      location.pathname === link.path 
-                        ? 'bg-leaf-50 text-leaf-700' 
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    {link.name}
-                    <ChevronRight size={16} className="text-gray-400" />
+              <div className="relative z-10">
+                  <div className="flex justify-between items-start mb-6">
+                      <div className="bg-white/20 p-2 rounded-xl backdrop-blur-sm border border-white/20">
+                          <Leaf size={24} className="text-white" />
+                      </div>
+                      <button onClick={() => setIsMenuOpen(false)} className="bg-white/10 p-2 rounded-full hover:bg-white/20 transition">
+                          <X size={20} />
+                      </button>
+                  </div>
+
+                  {user ? (
+                      <div className="flex items-center gap-4" onClick={() => { navigate('/account'); setIsMenuOpen(false); }}>
+                          <img src={user.avatar} alt={user.name} className="w-14 h-14 rounded-full border-2 border-white/50 object-cover bg-white" />
+                          <div>
+                              <h3 className="font-bold text-lg leading-tight">{user.name}</h3>
+                              <p className="text-leaf-100 text-xs">{user.email}</p>
+                              <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                  View Profile <ChevronRight size={10} />
+                              </span>
+                          </div>
+                      </div>
+                  ) : (
+                      <div>
+                          <h3 className="text-2xl font-bold mb-1">Welcome!</h3>
+                          <p className="text-leaf-100 text-sm mb-4">Login to access your orders & offers.</p>
+                          <div className="flex gap-3">
+                              <Link to="/login" onClick={() => setIsMenuOpen(false)} className="flex-1 bg-white text-leaf-800 py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg hover:bg-gray-50 transition">
+                                  <LogIn size={16} /> Login
+                              </Link>
+                              <Link to="/signup" onClick={() => setIsMenuOpen(false)} className="flex-1 bg-leaf-900/30 border border-white/30 text-white py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-leaf-900/50 transition">
+                                  <UserPlus size={16} /> Sign Up
+                              </Link>
+                          </div>
+                      </div>
+                  )}
+              </div>
+          </div>
+
+          {/* Scrollable Content */}
+          <div className="flex-grow overflow-y-auto p-4 space-y-6">
+
+              {/* Quick Links Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                  <Link to="/orders" onClick={() => setIsMenuOpen(false)} className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex flex-col items-center justify-center gap-2 hover:bg-leaf-50 hover:border-leaf-200 transition group shadow-sm">
+                      <Package size={24} className="text-leaf-600 group-hover:scale-110 transition-transform" />
+                      <span className="text-xs font-bold text-gray-700">My Orders</span>
                   </Link>
-                ))}
-              </div>
-
-              <div className="h-px bg-gray-100 my-4 mx-4"></div>
-
-              <div className="space-y-1">
-                <Link to="/seller" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-leaf-700 font-bold hover:bg-leaf-50 rounded-xl">
-                  <Sprout size={20} /> Sell on FreshLeaf
-                </Link>
-                
-                {user ? (
-                  <>
-                    <Link to={user.role === 'seller' ? '/seller/dashboard' : '/account'} onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-xl">
-                      <User size={20} className="text-gray-400" /> My Account
-                    </Link>
-                    <Link to="/orders" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-xl">
-                      <ShoppingBag size={20} className="text-gray-400" /> My Orders
-                    </Link>
-                    <button onClick={() => { logout(); setIsMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl text-left">
-                      <LogOut size={20} /> Logout
-                    </button>
-                  </>
-                ) : (
-                  <Link to="/login" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-leaf-700 font-bold hover:bg-leaf-50 rounded-xl">
-                    <User size={20} /> Login / Signup
+                  <Link to="/wishlist" onClick={() => setIsMenuOpen(false)} className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex flex-col items-center justify-center gap-2 hover:bg-red-50 hover:border-red-200 transition group shadow-sm">
+                      <Heart size={24} className="text-red-500 group-hover:scale-110 transition-transform" />
+                      <span className="text-xs font-bold text-gray-700">Wishlist</span>
                   </Link>
-                )}
-                <Link to="/subscription" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-yellow-600 font-bold hover:bg-yellow-50 rounded-xl">
-                  <Crown size={20} /> Pro Membership
-                </Link>
+                  <Link to="/cart" onClick={() => setIsMenuOpen(false)} className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex flex-col items-center justify-center gap-2 hover:bg-blue-50 hover:border-blue-200 transition group shadow-sm">
+                      <div className="relative">
+                          <ShoppingBag size={24} className="text-blue-600 group-hover:scale-110 transition-transform" />
+                          {totalItems > 0 && <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />}
+                      </div>
+                      <span className="text-xs font-bold text-gray-700">Cart ({totalItems})</span>
+                  </Link>
+                  <Link to="/shop" onClick={() => setIsMenuOpen(false)} className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex flex-col items-center justify-center gap-2 hover:bg-orange-50 hover:border-orange-200 transition group shadow-sm">
+                      <LayoutDashboard size={24} className="text-orange-500 group-hover:scale-110 transition-transform" />
+                      <span className="text-xs font-bold text-gray-700">Explore</span>
+                  </Link>
               </div>
-            </div>
 
-            {/* Drawer Footer */}
-            <div className="p-4 bg-gray-50 text-xs text-gray-500 text-center border-t border-gray-100">
-              <p>&copy; 2023 FreshLeaf. All rights reserved.</p>
-            </div>
+              {/* Categories */}
+              <div>
+                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 ml-2">Shop By Category</h4>
+                  <div className="space-y-1">
+                      {[
+                          { name: 'Fresh Fruits', icon: '🍎', path: '/shop?category=Fruit' },
+                          { name: 'Daily Vegetables', icon: '🥦', path: '/shop?category=Veg' },
+                          { name: 'Leafy Greens', icon: '🥬', path: '/shop?category=Leafy' },
+                          { name: 'Exotic & Imported', icon: '🥑', path: '/shop?category=Exotic' },
+                      ].map((cat, i) => (
+                          <Link
+                              key={i}
+                              to={cat.path}
+                              onClick={() => setIsMenuOpen(false)}
+                              className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition active:scale-95 group"
+                          >
+                              <span className="text-xl bg-gray-100 w-10 h-10 flex items-center justify-center rounded-lg group-hover:bg-white group-hover:shadow-sm transition">{cat.icon}</span>
+                              <span className="font-bold text-gray-700 text-sm flex-grow">{cat.name}</span>
+                              <ChevronRight size={16} className="text-gray-400 group-hover:translate-x-1 transition-transform" />
+                          </Link>
+                      ))}
+                  </div>
+              </div>
+
+              {/* Main Nav Links */}
+              <div>
+                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 ml-2">Menu</h4>
+                  <div className="space-y-1">
+                      {navLinks.map((link) => (
+                          <Link
+                              key={link.path}
+                              to={link.path}
+                              onClick={() => setIsMenuOpen(false)}
+                              className={`flex items-center gap-3 p-3 rounded-xl transition font-medium ${location.pathname === link.path ? 'bg-leaf-50 text-leaf-700 font-bold' : 'text-gray-600 hover:bg-gray-50'}`}
+                          >
+                              <span className="text-sm">{link.name}</span>
+                          </Link>
+                      ))}
+                      <Link to="/contact" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 p-3 rounded-xl text-gray-600 hover:bg-gray-50 transition font-medium">
+                          <span className="text-sm">Help Center</span>
+                      </Link>
+                  </div>
+              </div>
+
+              {/* Seller CTA */}
+              <Link to="/seller" onClick={() => setIsMenuOpen(false)} className="block bg-gradient-to-r from-yellow-400 to-orange-400 p-4 rounded-2xl text-white shadow-lg relative overflow-hidden group hover:shadow-xl transition-all">
+                  <div className="relative z-10 flex items-center justify-between">
+                      <div>
+                          <h4 className="font-bold text-lg mb-1">Become a Seller</h4>
+                          <p className="text-xs text-white/90">Sell produce directly to customers</p>
+                      </div>
+                      <div className="bg-white/20 p-2 rounded-full"><Sprout size={20} /></div>
+                  </div>
+                  <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+              </Link>
+
+          </div>
+
+          {/* Footer */}
+          <div className="p-4 border-t border-gray-100 bg-gray-50">
+              <div className="flex justify-center gap-6 mb-4">
+                  <a href="#" className="text-gray-400 hover:text-blue-600 transition p-2 hover:bg-blue-50 rounded-full"><Facebook size={20} /></a>
+                  <a href="#" className="text-gray-400 hover:text-blue-400 transition p-2 hover:bg-blue-50 rounded-full"><Twitter size={20} /></a>
+                  <a href="#" className="text-gray-400 hover:text-pink-600 transition p-2 hover:bg-pink-50 rounded-full"><Instagram size={20} /></a>
+              </div>
+              {user && (
+                  <button onClick={() => { logout(); setIsMenuOpen(false); }} className="w-full flex items-center justify-center gap-2 text-red-500 font-bold text-sm py-2.5 rounded-xl hover:bg-red-50 transition border border-transparent hover:border-red-100">
+                      <LogOut size={16} /> Sign Out
+                  </button>
+              )}
+              <p className="text-center text-[10px] text-gray-400 mt-3 font-medium">v2.4.0 • © 2024 FreshLeaf Technologies</p>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
       <main className="flex-grow">
         <Outlet />
       </main>
 
       <ChatBot />
       <BackToTop />
+      
+      {/* Enhanced Responsive Footer */}
+      <footer className="bg-gray-900 text-white pt-16 pb-8 border-t border-gray-800 font-sans mt-20 relative overflow-hidden">
+         {/* Background Pattern */}
+         <div className="absolute inset-0 opacity-5 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+         
+         <div className="container mx-auto px-4 relative z-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
+               {/* Brand & Socials */}
+               <div className="space-y-6">
+                  <div className="flex items-center gap-2">
+                     <div className="bg-leaf-500 p-2 rounded-xl text-white">
+                        <Leaf size={24} fill="currentColor" />
+                     </div>
+                     <h2 className="text-2xl font-extrabold tracking-tight">FreshLeaf</h2>
+                  </div>
+                  <p className="text-gray-400 text-sm leading-relaxed">
+                     FreshLeaf connects local farmers directly to your kitchen. We ensure the freshest organic produce is delivered to your doorstep within 24 hours of harvest.
+                  </p>
+                  <div className="flex gap-4">
+                     {[Facebook, Twitter, Instagram, Linkedin, Youtube].map((Icon, idx) => (
+                        <a key={idx} href="#" className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 hover:bg-leaf-600 hover:text-white hover:scale-110 transition-all duration-300">
+                           <Icon size={18} />
+                        </a>
+                     ))}
+                  </div>
+               </div>
 
-      {/* Advanced Cool Footer */}
-      <footer className="bg-gray-950 text-white pt-20 pb-10 border-t border-gray-900 font-sans mt-20 relative overflow-hidden">
-        {/* Decorative background blobs */}
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-            <div className="absolute -top-24 -left-24 w-96 h-96 bg-leaf-900/20 rounded-full blur-3xl"></div>
-            <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-gray-900/40 rounded-full blur-3xl"></div>
-        </div>
+               {/* Quick Links */}
+               <div>
+                  <h3 className="font-bold text-lg mb-6">Quick Links</h3>
+                  <ul className="space-y-3 text-sm text-gray-400">
+                     <li><Link to="/home" className="hover:text-leaf-400 transition-colors flex items-center gap-2"><ChevronRight size={14}/> Home</Link></li>
+                     <li><Link to="/shop" className="hover:text-leaf-400 transition-colors flex items-center gap-2"><ChevronRight size={14}/> Shop Now</Link></li>
+                     <li><Link to="/about" className="hover:text-leaf-400 transition-colors flex items-center gap-2"><ChevronRight size={14}/> Our Story</Link></li>
+                     <li><Link to="/blog" className="hover:text-leaf-400 transition-colors flex items-center gap-2"><ChevronRight size={14}/> Fresh Blog</Link></li>
+                     <li><Link to="/contact" className="hover:text-leaf-400 transition-colors flex items-center gap-2"><ChevronRight size={14}/> Contact Us</Link></li>
+                  </ul>
+               </div>
 
-        <div className="container mx-auto px-4 relative z-10">
-            
-            {/* Newsletter - Glassmorphism Style */}
-            <div className="relative bg-gradient-to-r from-leaf-900 to-leaf-800 rounded-3xl p-8 md:p-12 mb-16 flex flex-col lg:flex-row items-center justify-between gap-8 shadow-2xl border border-leaf-700/50 overflow-hidden">
-                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-                <div className="absolute -right-20 -top-20 w-64 h-64 bg-leaf-500 rounded-full blur-[100px] opacity-40"></div>
-                
-                <div className="relative z-10 text-center lg:text-left max-w-xl">
-                    <div className="inline-flex items-center gap-2 bg-leaf-700/50 border border-leaf-600/30 rounded-full px-4 py-1 mb-4 backdrop-blur-sm">
-                        <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
-                        <span className="text-xs font-bold text-leaf-100 uppercase tracking-widest">Weekly Harvest News</span>
-                    </div>
-                    <h3 className="text-3xl md:text-4xl font-extrabold mb-3 text-white tracking-tight">Unlock 15% Off Your First Order</h3>
-                    <p className="text-leaf-200 text-lg">Join the farm family! Get exclusive deals, seasonal recipes, and organic farming tips delivered to your inbox.</p>
-                </div>
+               {/* My Account & Support */}
+               <div>
+                  <h3 className="font-bold text-lg mb-6">My Account</h3>
+                  <ul className="space-y-3 text-sm text-gray-400">
+                     {!user ? (
+                        <>
+                           <li><Link to="/login" className="hover:text-leaf-400 transition-colors flex items-center gap-2"><ChevronRight size={14}/> Login</Link></li>
+                           <li><Link to="/signup" className="hover:text-leaf-400 transition-colors flex items-center gap-2"><ChevronRight size={14}/> Register</Link></li>
+                        </>
+                     ) : (
+                        <>
+                           <li><Link to="/account" className="hover:text-leaf-400 transition-colors flex items-center gap-2"><ChevronRight size={14}/> Dashboard</Link></li>
+                           <li><Link to="/orders" className="hover:text-leaf-400 transition-colors flex items-center gap-2"><ChevronRight size={14}/> My Orders</Link></li>
+                        </>
+                     )}
+                     <li><Link to="/wishlist" className="hover:text-leaf-400 transition-colors flex items-center gap-2"><ChevronRight size={14}/> Wishlist</Link></li>
+                     <li><Link to="/shipping-policy" className="hover:text-leaf-400 transition-colors flex items-center gap-2"><ChevronRight size={14}/> Shipping Policy</Link></li>
+                     <li><Link to="/refund-policy" className="hover:text-leaf-400 transition-colors flex items-center gap-2"><ChevronRight size={14}/> Returns & Refunds</Link></li>
+                  </ul>
+               </div>
 
-                <div className="relative z-10 w-full lg:w-auto">
-                    <form className="flex flex-col sm:flex-row gap-3">
-                        <div className="relative">
-                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-leaf-300" size={20} />
-                            <input 
-                                type="email" 
-                                placeholder="Enter your email address" 
-                                className="bg-leaf-950/50 border border-leaf-600/50 text-white placeholder-leaf-400 pl-12 pr-6 py-4 rounded-xl w-full sm:w-80 focus:outline-none focus:border-leaf-400 focus:ring-2 focus:ring-leaf-500/20 transition-all backdrop-blur-sm" 
-                            />
-                        </div>
-                        <button className="bg-white text-leaf-900 px-8 py-4 rounded-xl font-bold hover:bg-leaf-50 transition shadow-lg hover:shadow-xl hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2">
-                            Subscribe <ArrowRight size={18} />
-                        </button>
-                    </form>
-                    <p className="text-leaf-400/60 text-xs mt-3 text-center lg:text-left">By subscribing, you agree to our Terms & Privacy Policy.</p>
-                </div>
+               {/* Newsletter & Contact */}
+               <div>
+                  <h3 className="font-bold text-lg mb-6">Stay Connected</h3>
+                  <p className="text-gray-400 text-sm mb-4">Subscribe for exclusive deals and organic farming tips.</p>
+                  <div className="flex gap-2 mb-6">
+                     <input type="email" placeholder="Your Email" className="bg-gray-800 border border-gray-700 text-white px-4 py-2.5 rounded-lg text-sm w-full focus:outline-none focus:border-leaf-500" />
+                     <button className="bg-leaf-600 hover:bg-leaf-700 px-4 py-2.5 rounded-lg text-white transition-colors">
+                        <ArrowRight size={18} />
+                     </button>
+                  </div>
+                  <div className="text-sm text-gray-400 space-y-2">
+                     <p className="flex items-center gap-2"><Phone size={16} className="text-leaf-500"/> +91 98765 43210</p>
+                     <p className="flex items-center gap-2"><Mail size={16} className="text-leaf-500"/> support@freshleaf.in</p>
+                     <p className="flex items-start gap-2"><MapPin size={16} className="text-leaf-500 mt-1"/> 123 Green Market, Sector 4,<br/>Kolkata, West Bengal 700091</p>
+                  </div>
+               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 mb-16 border-b border-gray-800 pb-12">
-                
-                {/* Brand Column (Span 4) */}
-                <div className="lg:col-span-4 space-y-6">
-                    <Link to="/" className="flex items-center gap-3 group w-fit">
-                        <div className="bg-gradient-to-br from-leaf-500 to-leaf-700 p-2.5 rounded-xl text-white shadow-lg group-hover:scale-110 transition-transform duration-300">
-                            <Leaf size={28} fill="currentColor" />
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-3xl font-extrabold text-white tracking-tight">Fresh<span className="text-leaf-500">Leaf</span></span>
-                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.3em] ml-0.5">Organic Market</span>
-                        </div>
-                    </Link>
-                    <p className="text-gray-400 leading-relaxed">
-                        FreshLeaf bridges the gap between verified organic farmers and your kitchen. We ensure fair prices for farmers and chemical-free, nutrient-rich produce for your family.
-                    </p>
-                    <div className="flex gap-4 pt-2">
-                        {/* Socials with glow effect */}
-                        {['facebook', 'twitter', 'instagram', 'youtube'].map(social => (
-                            <a href="#" key={social} className="w-10 h-10 rounded-full bg-gray-900 border border-gray-800 flex items-center justify-center text-gray-400 hover:text-white hover:border-leaf-600 hover:bg-leaf-600/10 hover:shadow-[0_0_15px_rgba(76,175,80,0.5)] transition-all duration-300">
-                                {social === 'facebook' && <Facebook size={18} />}
-                                {social === 'twitter' && <Twitter size={18} />}
-                                {social === 'instagram' && <Instagram size={18} />}
-                                {social === 'youtube' && <Youtube size={18} />}
-                            </a>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Links Column 1 (Span 2) */}
-                <div className="lg:col-span-2">
-                    <h4 className="text-white font-bold text-lg mb-6 flex items-center gap-2">Shop <span className="h-1 w-8 bg-leaf-600 rounded-full block"></span></h4>
-                    <ul className="space-y-4">
-                        {['Fresh Vegetables', 'Seasonal Fruits', 'Exotic Collection', 'Leafy Greens', 'Root Vegetables', 'Value Packs'].map(item => (
-                            <li key={item}>
-                                <Link to="/shop" className="text-gray-400 hover:text-leaf-400 transition-colors flex items-center gap-2 group">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-gray-700 group-hover:bg-leaf-500 transition-colors"></span>
-                                    {item}
-                                </Link>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-
-                {/* Links Column 2 (Span 2) */}
-                <div className="lg:col-span-2">
-                    <h4 className="text-white font-bold text-lg mb-6 flex items-center gap-2">Company <span className="h-1 w-8 bg-leaf-600 rounded-full block"></span></h4>
-                    <ul className="space-y-4">
-                        {[
-                            {name: 'About Us', path: '/about'},
-                            {name: 'Our Farmers', path: '/about'},
-                            {name: 'Blog & Recipes', path: '/blog'},
-                            {name: 'Become a Seller', path: '/seller'},
-                            {name: 'Careers', path: '#'},
-                            {name: 'Contact Support', path: '/contact'},
-                        ].map(item => (
-                            <li key={item.name}>
-                                <Link to={item.path} className="text-gray-400 hover:text-leaf-400 transition-colors flex items-center gap-2 group">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-gray-700 group-hover:bg-leaf-500 transition-colors"></span>
-                                    {item.name}
-                                </Link>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-
-                {/* App & Contact Column (Span 4) */}
-                <div className="lg:col-span-4 space-y-8">
-                    <div>
-                        <h4 className="text-white font-bold text-lg mb-6">Experience the Mobile App</h4>
-                        <p className="text-gray-400 mb-6 text-sm">Get live order tracking, exclusive app-only deals, and express delivery slots.</p>
-                        <div className="flex flex-wrap gap-4">
-                            <button className="flex items-center gap-3 bg-gray-900 border border-gray-800 hover:border-gray-600 hover:bg-gray-800 px-4 py-2.5 rounded-xl transition-all group">
-                                <Smartphone size={28} className="text-gray-300 group-hover:text-white" />
-                                <div className="text-left">
-                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Download on</p>
-                                    <p className="text-sm font-bold text-white">App Store</p>
-                                </div>
-                            </button>
-                            <button className="flex items-center gap-3 bg-gray-900 border border-gray-800 hover:border-gray-600 hover:bg-gray-800 px-4 py-2.5 rounded-xl transition-all group">
-                                <div className="relative">
-                                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></div>
-                                    <Play size={28} fill="currentColor" className="text-gray-300 group-hover:text-white" />
-                                </div>
-                                <div className="text-left">
-                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Get it on</p>
-                                    <p className="text-sm font-bold text-white">Google Play</p>
-                                </div>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="p-6 bg-gray-900/50 border border-gray-800 rounded-2xl">
-                        <div className="flex items-start gap-4">
-                            <div className="bg-leaf-500/20 p-3 rounded-full text-leaf-500">
-                                <Phone size={24} />
-                            </div>
-                            <div>
-                                <p className="text-gray-400 text-sm mb-1">24/7 Customer Support</p>
-                                <p className="text-xl font-extrabold text-white tracking-wide">+91 98765 43210</p>
-                                <p className="text-xs text-gray-500 mt-1">support@freshleaf.in</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+               <p className="text-gray-500 text-sm">© {new Date().getFullYear()} FreshLeaf Technologies Pvt Ltd. All rights reserved.</p>
+               <div className="flex gap-6 text-sm text-gray-500">
+                  <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+                  <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
+                  <Link to="/disclaimer" className="hover:text-white transition-colors">Disclaimer</Link>
+               </div>
             </div>
-
-            {/* Bottom Bar */}
-            <div className="flex flex-col-reverse md:flex-row justify-between items-center gap-6 text-sm">
-                <div className="text-gray-500 font-medium flex items-center gap-1">
-                    © {new Date().getFullYear()} FreshLeaf Technologies Pvt Ltd. <span className="hidden md:inline mx-2">|</span> Made with <Heart size={12} className="inline text-red-500 mx-0.5" fill="currentColor"/> in India
-                </div>
-                
-                <div className="flex items-center gap-6">
-                    <Link to="/privacy" className="text-gray-500 hover:text-white transition-colors">Privacy Policy</Link>
-                    <Link to="/terms" className="text-gray-500 hover:text-white transition-colors">Terms of Service</Link>
-                    <Link to="/disclaimer" className="text-gray-500 hover:text-white transition-colors">Sitemap</Link>
-                </div>
-
-                {/* Payment Icons (Simulated) */}
-                <div className="flex items-center gap-3 opacity-70 grayscale hover:grayscale-0 transition-all duration-500">
-                   {['Visa', 'Mastercard', 'UPI', 'RuPay', 'Wallet'].map((p, i) => (
-                       <div key={i} className="bg-white px-2 py-1 rounded text-[10px] font-extrabold text-gray-900 border border-gray-300">
-                           {p}
-                       </div>
-                   ))}
-                </div>
-            </div>
-        </div>
+         </div>
       </footer>
     </div>
   );

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Star, Truck, Shield, Minus, Plus, MapPin, CheckCircle, ArrowLeft, Info, Heart } from 'lucide-react';
@@ -73,7 +74,7 @@ export const ProductDetails: React.FC = () => {
             {/* Gallery Section */}
             <div className="md:w-1/2 p-6 md:p-10 bg-gray-50/50">
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden aspect-square mb-6 relative group">
-                <img src={mainImage} alt={product.name.en} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                <img src={mainImage} alt={product.name.en} className="w-full h-full object-contain p-8 transition-transform duration-500 group-hover:scale-105" />
                 {product.isOrganic && (
                    <span className="absolute top-4 left-4 bg-leaf-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">Organic</span>
                 )}
@@ -85,25 +86,27 @@ export const ProductDetails: React.FC = () => {
                 </button>
               </div>
               
-              {/* Thumbnails */}
-              <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
-                <button 
-                    onClick={() => setMainImage(getProductImage(product.id, product.image))}
-                    className={`w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 transition-all ${mainImage === getProductImage(product.id, product.image) ? 'border-leaf-500 scale-105 shadow-md' : 'border-transparent hover:border-gray-300'}`}
-                  >
-                    <img src={getProductImage(product.id, product.image)} alt="" className="w-full h-full object-cover" />
-                </button>
-
-                {product.gallery.map((img, idx) => (
+              {/* Thumbnails - Only show if more than 1 image */}
+              {product.gallery.length > 1 && (
+                <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
                   <button 
-                    key={idx}
-                    onClick={() => setMainImage(img)}
-                    className={`w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 transition-all ${mainImage === img ? 'border-leaf-500 scale-105 shadow-md' : 'border-transparent hover:border-gray-300'}`}
-                  >
-                    <img src={img} alt="" className="w-full h-full object-cover" />
+                      onClick={() => setMainImage(getProductImage(product.id, product.image))}
+                      className={`w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 transition-all ${mainImage === getProductImage(product.id, product.image) ? 'border-leaf-500 scale-105 shadow-md' : 'border-transparent hover:border-gray-300'}`}
+                    >
+                      <img src={getProductImage(product.id, product.image)} alt="" className="w-full h-full object-cover" />
                   </button>
-                ))}
-              </div>
+
+                  {product.gallery.map((img, idx) => (
+                    <button 
+                      key={idx}
+                      onClick={() => setMainImage(img)}
+                      className={`w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 transition-all ${mainImage === img ? 'border-leaf-500 scale-105 shadow-md' : 'border-transparent hover:border-gray-300'}`}
+                    >
+                      <img src={img} alt="" className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Details Section */}

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -28,8 +29,6 @@ export const SellerDashboard: React.FC = () => {
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
-  const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
 
   // --- STATE: Inventory Management ---
   const [inventorySearch, setInventorySearch] = useState('');
@@ -117,26 +116,6 @@ export const SellerDashboard: React.FC = () => {
     }
   };
 
-  const handleGalleryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const files = Array.from(e.target.files) as File[];
-      setGalleryFiles(prev => [...prev, ...files]);
-      
-      files.forEach(file => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setGalleryPreviews(prev => [...prev, reader.result as string]);
-        };
-        reader.readAsDataURL(file);
-      });
-    }
-  };
-
-  const removeGalleryImage = (index: number) => {
-    setGalleryFiles(prev => prev.filter((_, i) => i !== index));
-    setGalleryPreviews(prev => prev.filter((_, i) => i !== index));
-  };
-
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!imageFile && !imagePreview) {
@@ -146,7 +125,8 @@ export const SellerDashboard: React.FC = () => {
     if (!user) return;
 
     const finalMainImage = imagePreview || 'https://via.placeholder.com/150';
-    const finalGallery = galleryPreviews.length > 0 ? [finalMainImage, ...galleryPreviews] : [finalMainImage];
+    // Strict Single Image Policy
+    const finalGallery = [finalMainImage]; 
 
     addProduct({
         name: { en: newProduct.nameEn, hi: newProduct.nameHi, bn: newProduct.nameBn },
@@ -157,9 +137,6 @@ export const SellerDashboard: React.FC = () => {
         description: newProduct.description,
         baseUnit: newProduct.baseUnit,
         inStock: newProduct.stock > 0,
-        // In a real app, stock would be a dedicated field, here we derive inStock from it
-        // We'll assume the product type might eventually support an explicit stock count field, 
-        // but for now we map it to inStock boolean for the core logic
         sellerId: user.id,
         isLocal: true 
     });
@@ -169,8 +146,6 @@ export const SellerDashboard: React.FC = () => {
     setNewProduct({ nameEn: '', nameHi: '', nameBn: '', price: '', category: 'Vegetable', baseUnit: 'kg', description: '', stock: 100 });
     setImageFile(null);
     setImagePreview(null);
-    setGalleryFiles([]);
-    setGalleryPreviews([]);
   };
 
   const handleOrderAction = (orderId: string, currentStatus: string) => {
@@ -221,7 +196,6 @@ export const SellerDashboard: React.FC = () => {
     if (field === 'price' && !isNaN(numValue)) {
       updateProduct(id, { price: numValue });
     } else if (field === 'stock') {
-      // Logic for stock update - mapping to inStock boolean for this demo
       updateProduct(id, { inStock: numValue > 0 }); 
     }
   };
@@ -237,9 +211,6 @@ export const SellerDashboard: React.FC = () => {
       bulkUpdateProducts(ids, { inStock: false });
       addToast(`${ids.length} items marked Out of Stock`, 'success');
     } else if (action === 'price_increase') {
-      // Example: Increase price by 10%
-      // This requires complex logic in context or iterating here. 
-      // For simplicity, let's just mark them as 'Updated' toast
       addToast(`Bulk price update feature coming soon`, 'info');
     }
     setBulkActionOpen(false);
@@ -247,8 +218,6 @@ export const SellerDashboard: React.FC = () => {
   };
 
   const formatCurrency = (val: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
-
-  // --- COMPONENTS ---
 
   const Chart = () => (
     <div className="relative h-64 w-full bg-white rounded-2xl p-4 flex items-end gap-2 overflow-hidden border border-gray-100">
@@ -752,30 +721,7 @@ export const SellerDashboard: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Gallery Upload */}
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Additional Images (Gallery)</label>
-                  <div className="flex gap-4 overflow-x-auto pb-2">
-                    {/* Add Button */}
-                    <div className="relative w-24 h-24 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl flex items-center justify-center cursor-pointer hover:border-leaf-400 shrink-0">
-                       <Plus size={24} className="text-gray-400"/>
-                       <input type="file" multiple className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={handleGalleryChange} />
-                    </div>
-                    {/* Previews */}
-                    {galleryPreviews.map((src, idx) => (
-                      <div key={idx} className="relative w-24 h-24 rounded-xl overflow-hidden shadow-sm shrink-0 border border-gray-100 group">
-                         <img src={src} className="w-full h-full object-cover" alt={`Gallery ${idx}`} />
-                         <button 
-                           type="button" 
-                           onClick={() => removeGalleryImage(idx)} 
-                           className="absolute top-1 right-1 bg-white/90 p-1 rounded-full text-red-500 hover:bg-red-500 hover:text-white transition opacity-0 group-hover:opacity-100"
-                         >
-                           <X size={12} />
-                         </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                {/* Removed Gallery Upload Section to enforce Single Image Policy */}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                    <div>

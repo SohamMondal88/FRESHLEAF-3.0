@@ -1,7 +1,7 @@
 
 import { Product, BlogPost, Testimonial, Order } from './types';
 
-// Helper to create products with 3 images
+// Helper to create products with 1 image
 const createProduct = (
   id: string, 
   en: string, 
@@ -14,14 +14,8 @@ const createProduct = (
   baseUnit: string = 'kg',
   flags: { isNew?: boolean; isOrganic?: boolean; isLocal?: boolean } = {}
 ): Product => {
-  // Generate 2 extra variation images by appending random query params to Unsplash URLs 
-  // or using generic food fallbacks if the main img isn't Unsplash.
-  // For this demo, we assume Unsplash URLs and tweak params for variety.
-  const gallery = [
-    imgMain,
-    `${imgMain}&fp-x=0.5&fp-y=0.5&fit=crop&crop=focalpoint&w=800&h=800&q=80`, // Zoomed/Cropped variation
-    `${imgMain}&sat=-20&con=10&w=800&q=80` // Different lighting variation
-  ];
+  // Only use the main image, no extra variations
+  const gallery = [imgMain];
 
   return {
     id,
@@ -42,187 +36,109 @@ const createProduct = (
 
 export const PRODUCTS: Product[] = [
 // --- FRUITS ---
-createProduct(
-  'f-1', 'Apple Washington', 'वाशिंगटन सेब', 'ওয়াশিংটন আপেল',
-  'Imported Fruit', 135,
-  './images/apple.png',
-  'Crisp and sweet Washington apples.', 'kg'
-),
+createProduct('f-1', 'Apple Washington', 'वाशिंगटन सेब', 'ওয়াশিংটন আপেল', 'Imported Fruit', 135,
+'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766939617/ixecdq2lpuifqrpgzfd5.png?auto=format&fit=crop&w=800&q=80',
+'Crisp and sweet Washington apples.', 'kg'),
 
-createProduct(
-  'f-2', 'Apple Shimla', 'शिमला सेब', 'শিমলা আপেল',
-  'Apple', 115,
-  './images/apple.png',
-  'Fresh apples from Shimla orchards.', 'kg', { isLocal: true }
-),
+createProduct('f-2', 'Apple Shimla', 'शिमला सेब', 'শিমলা আপেল', 'Apple', 115,
+'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766939605/ejxryzkod1q4ajeqmhtl.png?auto=format&fit=crop&w=800&q=80',
+'Fresh apples from Shimla orchards.', 'kg', { isLocal: true }),
 
-createProduct(
-  'f-3', 'Apple Green', 'हरा सेब', 'সবুজ আপেল',
-  'Apple', 165,
-  './images/apple.png',
-  'Tangy and crunchy green apples.', 'kg'
-),
+createProduct('f-3', 'Apple Green', 'हरा सेब', 'সবুজ আপেল', 'Apple', 165,
+'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766939600/jtfmibiogoiyfwvwclm2.png?auto=format&fit=crop&w=800&q=80',
+'Tangy and crunchy green apples.', 'kg'),
 
-createProduct(
-  'f-4', 'Apricot', 'खुबानी', 'এপ্রিকট',
-  'Stone Fruit', 175,
-  './images/apricot.png',
-  'Sweet and velvety apricots.', 'kg'
-),
+createProduct('f-4', 'Apricot', 'खुबानी', 'এপ্রিকট', 'Stone Fruit', 175,
+'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766939600/ffny0gdtiftpkbzhpicd.png?auto=format&fit=crop&w=800&q=80',
+'Sweet and velvety apricots.', 'kg'),
 
-createProduct(
-  'f-5', 'Avocado', 'एवोकाडो', 'অ্যাভোকাডো',
-  'Exotic', 205,
-  './images/avocado.png',
-  'Creamy butter fruit.', 'pc', { isNew: true }
-),
+createProduct('f-5', 'Avocado', 'एवोकाडो', 'অ্যাভোকাডো', 'Exotic', 205,
+'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766939613/aiuqyostlqt0peqqlram.png?auto=format&fit=crop&w=800&q=80',
+'Creamy butter fruit.', 'pc', { isNew: true }),
 
-createProduct(
-  'f-6', 'Banana Morris', 'मॉरिस केला', 'মরিস কলা',
-  'Banana', 31,
-  './images/Banana-Morris.png',
-  'Sweet Morris bananas.', 'kg'
-),
+createProduct('f-6', 'Banana Morris', 'मॉरिस केला', 'মরিস কলা', 'Banana', 31,
+'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766937887/fyxrsj42a2yqmns3f7qz.png?auto=format&fit=crop&w=800&q=80',
+'Sweet Morris bananas.', 'kg'),
 
-createProduct(
-  'f-7', 'Banana', 'केला', 'কলা',
-  'Banana', 63,
-  './images/banana.png',
-  'Regular Cavendish bananas.', 'kg'
-),
+createProduct('f-7', 'Banana', 'केला', 'কলা', 'Banana', 63,
+'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766937899/euhquaugebvpeefno6xq.png?auto=format&fit=crop&w=800&q=80',
+'Regular Cavendish bananas.', 'kg'),
 
-createProduct(
-  'f-8', 'Banana Poovam', 'पूवन केला', 'পুভাম কলা',
-  'Banana', 63,
-  './images/Banana-Poovam.png',
-  'Small sweet Poovam bananas.', 'kg'
-),
+createProduct('f-8', 'Banana Poovam', 'पूवन केला', 'পুভাম কলা', 'Banana', 63,
+'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766937910/bjz3tilfaim9edlbgbpp.png?auto=format&fit=crop&w=800&q=80',
+'Small sweet Poovam bananas.', 'kg'),
 
-createProduct(
-  'f-9', 'Cantaloupe', 'खरबूजा', 'খরমুজ',
-  'Melon', 31,
-  './images/Cantaloupe.png',
-  'Sweet muskmelon.', 'kg'
-),
+createProduct('f-9', 'Cantaloupe', 'खरबूजा', 'খরমুজ', 'Melon', 31,
+'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766937907/ocrvfkmhqvpzjhscmwzx.png?auto=format&fit=crop&w=800&q=80',
+'Sweet muskmelon.', 'kg'),
 
-createProduct(
-  'f-10', 'Custard Apple', 'सीताफल', 'আতা',
-  'Tropical', 57,
-  './images/custardapple.png',
-  'Creamy custard apples.', 'kg', { isLocal: true }
-),
+createProduct('f-10', 'Custard Apple', 'सीताफल', 'আতা', 'Tropical', 57,
+'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766937906/ornukmf9ie8v05nh4cpl.png?auto=format&fit=crop&w=800&q=80',
+'Creamy custard apples.', 'kg', { isLocal: true }),
 
-createProduct(
-  'f-11', 'Gooseberry', 'आंवला', 'আমলকী',
-  'Berry', 115,
-  './images/Gooseberry.png',
-  'Vitamin C rich Amla.', 'kg'
-),
+createProduct('f-11', 'Gooseberry', 'आंवला', 'আমলকী', 'Berry', 115,
+'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766937901/btlln5qz6azws5xv8ncz.png?auto=format&fit=crop&w=800&q=80',
+'Vitamin C rich Amla.', 'kg'),
 
-createProduct(
-  'f-12', 'Grapes Black', 'काले अंगूर', 'কালো আঙ্গুর',
-  'Grapes', 85,
-  './images/grapesblack.png',
-  'Seedless black grapes.', 'kg'
-),
+createProduct('f-12', 'Grapes Black', 'काले अंगूर', 'কালো আঙ্গুর', 'Grapes', 85,
+'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766937892/lgre6zvclzdhjymjsg7f.png?auto=format&fit=crop&w=800&q=80',
+'Seedless black grapes.', 'kg'),
 
-createProduct(
-  'f-13', 'Grapes Green', 'हरे अंगूर', 'সবুজ আঙ্গুর',
-  'Grapes', 95,
-  './images/grapesgreen.png',
-  'Sweet green grapes.', 'kg'
-),
+createProduct('f-13', 'Grapes Green', 'हरे अंगूर', 'সবুজ আঙ্গুর', 'Grapes', 95,
+'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766937906/o9t7hadqjjojtmwj88he.png?auto=format&fit=crop&w=800&q=80',
+'Sweet green grapes.', 'kg'),
 
-createProduct(
-  'f-14', 'Guava', 'अमरूद', 'পেয়ারা',
-  'Tropical', 56,
-  './images/guava.png',
-  'Fresh Indian guava.', 'kg'
-),
+createProduct('f-14', 'Guava', 'अमरूद', 'পেয়ারা', 'Tropical', 56,
+'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766937902/phs1kpct8iaiewawush5.png?auto=format&fit=crop&w=800&q=80',
+'Fresh Indian guava.', 'kg'),
 
-createProduct(
-  'f-15', 'Jackfruit', 'कटहल', 'কাঁঠাল',
-  'Tropical', 85,
-  './images/jackfruit.png',
-  'Raw or ripe jackfruit.', 'kg'
-),
+createProduct('f-15', 'Jackfruit', 'कटहल', 'কাঁঠাল', 'Tropical', 85,
+'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766938856/tqqbnjnxoim2ei2wyxch.png?auto=format&fit=crop&w=800&q=80',
+'Raw or ripe jackfruit.', 'kg'),
 
-createProduct(
-  'f-16', 'Lychee', 'लीची', 'লিচু',
-  'Exotic', 215,
-  './images/lychee.png',
-  'Sweet juicy lychees.', 'kg'
-),
+createProduct('f-16', 'Lychee', 'लीची', 'লিচু', 'Exotic', 215,
+'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766937887/cksw3droojgm6uj3yicb.png?auto=format&fit=crop&w=800&q=80',
+'Sweet juicy lychees.', 'kg'),
 
-createProduct(
-  'f-17', 'Mango', 'आम', 'আম',
-  'Mango', 102,
-  './images/mango.png',
-  'King of fruits.', 'kg'
-),
+createProduct('f-17', 'Mango', 'आम', 'আম', 'Mango', 102,
+'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766937904/s8k5jgwn205uylmlkrhn.png?auto=format&fit=crop&w=800&q=80',
+'King of fruits.', 'kg'),
 
-createProduct(
-  'f-18', 'Orange', 'संतरा', 'কমলা',
-  'Citrus', 70,
-  './images/orange.png',
-  'Fresh Nagpur oranges.', 'kg'
-),
+createProduct('f-18', 'Orange', 'संतरा', 'কমলা', 'Citrus', 70,
+'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766937888/gfelltfxttsxrysbs8vz.png?auto=format&fit=crop&w=800&q=80',
+'Fresh Nagpur oranges.', 'kg'),
 
-createProduct(
-  'f-19', 'Papaya', 'पपीता', 'পেঁপে',
-  'Tropical', 38,
-  './images/papaya.png',
-  'Ripe sweet papaya.', 'pc'
-),
+createProduct('f-19', 'Papaya', 'पपीता', 'পেঁপে', 'Tropical', 38,
+'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766937882/cvfbbha181hsvbj6lsmn.png?auto=format&fit=crop&w=800&q=80',
+'Ripe sweet papaya.', 'pc'),
 
-createProduct(
-  'f-20', 'Pears', 'नाशपाती', 'নাশপাতি',
-  'Imported Fruit', 97,
-  './images/pear.png',
-  'Imported pears.', 'kg'
-),
+createProduct('f-20', 'Pears', 'नाशपाती', 'নাশপাতি', 'Imported Fruit', 97,
+'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766937892/hudui8ie2eavndkn8qzl.png?auto=format&fit=crop&w=800&q=80',
+'Imported pears.', 'kg'),
 
-createProduct(
-  'f-21', 'Pineapple', 'अननास', 'আনারস',
-  'Tropical', 35,
-  './images/pineapple.png',
-  'Fresh pineapple.', 'pc'
-),
+createProduct('f-21', 'Pineapple', 'अननास', 'আনারস', 'Tropical', 35,
+'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766937900/fo4bg6wlj2yexf58gyjn.png?auto=format&fit=crop&w=800&q=80',
+'Fresh pineapple.', 'pc'),
 
-createProduct(
-  'f-22', 'Pomegranate Kabul', 'काबुली अनार', 'কাবুলি বেদানা',
-  'Exotic', 125,
-  './images/Pomegranate-Kabul.png',
-  'Deep red pomegranate.', 'kg'
-),
+createProduct('f-22', 'Pomegranate Kabul', 'काबुली अनार', 'কাবুলি বেদানা', 'Exotic', 125,
+'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766936622/tgrvkrascpifpkoerxhi.png?auto=format&fit=crop&w=800&q=80',
+'Deep red pomegranate.', 'kg'),
 
-createProduct(
-  'f-23', 'Sapota', 'चीकू', 'সবেদা',
-  'Tropical', 55,
-  './images/Sapota.png',
-  'Sweet sapota (Chiku).', 'kg'
-),
+createProduct('f-23', 'Sapota', 'चीकू', 'সবেদা', 'Tropical', 55,
+'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766937880/fuywf8z0qj9oudm4bofi.png?auto=format&fit=crop&w=800&q=80',
+'Sweet sapota (Chiku).', 'kg'),
 
-createProduct(
-  'f-24', 'Sugar Cane', 'गन्ना', 'আঁখ',
-  'Other', 30,
-  './images/sugarcane.png',
-  'Fresh sugar cane stalks.', 'pc'
-),
+createProduct('f-24', 'Sugar Cane', 'गन्ना', 'আঁখ', 'Other', 30,
+'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766936562/kg0uucgzxrqjaivarxne.png?auto=format&fit=crop&w=800&q=80',
+'Fresh sugar cane stalks.', 'pc'),
 
-createProduct(
-  'f-25', 'Sweet Lime (Mosambi)', 'मौसम्बी', 'মৌসাম্বি',
-  'Citrus', 50,
-  './images/mosambi.png',
-  'Juicy sweet lime.', 'kg'
-),
+createProduct('f-25', 'Sweet Lime (Mosambi)', 'मौसम्बी', 'মৌসাম্বি', 'Citrus', 50,
+'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766938847/avhoxluckapqxi8cko0q.png?auto=format&fit=crop&w=800&q=80',
+'Juicy sweet lime.', 'kg'),
 
-createProduct(
-  'f-26', 'Watermelon', 'तरबूज', 'তরমুজ',
-  'Melon', 28,
-  './images/watermelon.png',
-  'Dark green watermelon.', 'pc'
-),
+createProduct('f-26', 'Watermelon', 'तरबूज', 'তরমুজ', 'Melon', 28,
+'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766937877/erqv1dkc7dy1n1bjqkak.png?auto=format&fit=crop&w=800&q=80',
+'Dark green watermelon.', 'pc'),
 
   // --- VEGETABLES ---
   createProduct('v-1', 'Onion Big', 'बड़ा प्याज', 'বড় পেঁয়াজ', 'Bulb', 34, 'https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?auto=format&fit=crop&w=800&q=80', 'Large red onions.', 'kg'),
@@ -359,23 +275,23 @@ export const BLOG_POSTS: BlogPost[] = [
 export const TESTIMONIALS: Testimonial[] = [
   {
     id: '1',
-    name: 'Anjali Gupta',
-    location: 'Mumbai',
-    comment: 'The quality of FreshLeaf vegetables is unmatched. The delivery is always on time!',
+    name: 'Aditi Roy',
+    location: 'Salt Lake, Kolkata',
+    comment: 'Finally, a place where I get authentic Gobindobhog rice and fresh potol without going to the market. The delivery to Salt Lake is super fast!',
     rating: 5
   },
   {
     id: '2',
-    name: 'Rahul Sen',
-    location: 'Kolkata',
-    comment: 'I love the bilingual names. It helps my mother order easily. Great initiative.',
+    name: 'Rajesh Ghosh',
+    location: 'Howrah, West Bengal',
+    comment: 'The quality of Himsagar mangoes this season was unmatched. FreshLeaf is now my go-to for all seasonal fruits. Highly recommended for freshness.',
     rating: 5
   },
   {
     id: '3',
-    name: 'Vikram Singh',
-    location: 'Delhi',
-    comment: 'Fresh mangoes were perfectly packed. Will definitely order again.',
+    name: 'Sneha Das',
+    location: 'Ballygunge, Kolkata',
+    comment: 'I love that they list the Bengali names. My mother finds it so easy to order her daily vegetables. The spinach and brinjal were very fresh.',
     rating: 4
   }
 ];

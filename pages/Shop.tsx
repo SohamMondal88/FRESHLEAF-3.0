@@ -1,33 +1,41 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
-  ChevronLeft, ChevronRight, Search, X, Filter, SlidersHorizontal, 
-  ArrowUpDown, Star, Leaf, Check, MapPin, Zap, ChevronDown, RefreshCw
+  Search, X, Filter, SlidersHorizontal, ArrowUpDown, Star, Leaf, 
+  MapPin, Zap, ChevronDown, RefreshCw, Grid, List, Sun, Droplets, 
+  BookOpen, ShoppingCart, Check, Info, Layout, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useProduct } from '../services/ProductContext';
+import { useCart } from '../services/CartContext';
+import { useImage } from '../services/ImageContext';
 import { ProductCard } from '../components/ui/ProductCard';
 
 export const Shop: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { products } = useProduct();
+  const { addToCart } = useCart();
+  const { getProductImage } = useImage();
   
   // URL Params
   const query = searchParams.get('q') || '';
   const categoryParam = searchParams.get('category') || 'All';
 
   // --- LOCAL STATE ---
-  // Determine max price dynamically from products
   const maxProductPrice = useMemo(() => Math.max(...products.map(p => p.price), 1000), [products]);
   
   const [priceRange, setPriceRange] = useState<number>(1000); 
   const [selectedCategory, setSelectedCategory] = useState(categoryParam);
   const [sortOption, setSortOption] = useState('featured');
+  // 'grid' = Standard Shop, 'journal' = Catalogue View
+  const [viewMode, setViewMode] = useState<'grid' | 'journal'>('grid'); 
   const [filters, setFilters] = useState({
     organic: false,
     local: false,
     onSale: false,
-    inStock: false
+    inStock: false,
+    rating4Plus: false
   });
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
@@ -37,10 +45,17 @@ export const Shop: React.FC = () => {
     setSelectedCategory(categoryParam);
   }, [categoryParam]);
 
-  // Sync initial price range
   useEffect(() => {
     setPriceRange(maxProductPrice);
   }, [maxProductPrice]);
+
+  // --- MOCK DATA FOR JOURNAL VIEW ---
+  const getProductDetails = (product: any) => ({
+    origin: product.isLocal ? 'Local Farms, West Bengal' : 'Sourced from Nashik/Himachal',
+    harvestTime: 'Daily 6:00 AM',
+    benefits: ['Rich in Fiber', 'Vitamin Boost', 'Antioxidant'].slice(0, 2),
+    calories: Math.floor(Math.random() * 80 + 20)
+  });
 
   // --- DERIVED DATA ---
   const categories = useMemo(() => {
@@ -51,7 +66,6 @@ export const Shop: React.FC = () => {
     return cats;
   }, [products]);
 
-  // --- FILTERING LOGIC ---
   const filteredProducts = useMemo(() => {
     return products.filter(product => {
       // 1. Search Query
@@ -65,7 +79,12 @@ export const Shop: React.FC = () => {
       }
 
       // 2. Category
-      if (selectedCategory !== 'All' && product.category !== selectedCategory) return false;
+      if (selectedCategory !== 'All' && product.category !== selectedCategory) {
+         // Special handling for broad categories in nav
+         if (selectedCategory === 'Fruits' && !['Fruit', 'Mango', 'Banana', 'Apple', 'Citrus', 'Melon', 'Grapes', 'Berry', 'Stone Fruit', 'Imported Fruit', 'Exotic'].includes(product.category)) return false;
+         if (selectedCategory === 'Vegetables' && !['Fruit Veg', 'Root Veg', 'Bulb', 'Other Veg', 'Beans/Legumes', 'Flower Veg'].includes(product.category)) return false;
+         if (!['Fruits', 'Vegetables', 'All'].includes(selectedCategory) && product.category !== selectedCategory) return false;
+      }
 
       // 3. Price
       if (product.price > priceRange) return false;
@@ -75,6 +94,7 @@ export const Shop: React.FC = () => {
       if (filters.local && !product.isLocal) return false;
       if (filters.inStock && !product.inStock) return false;
       if (filters.onSale && !product.oldPrice) return false;
+      if (filters.rating4Plus && product.rating < 4) return false;
 
       return true;
     }).sort((a, b) => {
@@ -83,22 +103,21 @@ export const Shop: React.FC = () => {
         case 'price-high': return b.price - a.price;
         case 'rating': return b.rating - a.rating;
         case 'name': return a.name.en.localeCompare(b.name.en);
-        default: return 0; // Featured (original order or logic)
+        default: return 0;
       }
     });
   }, [products, query, selectedCategory, priceRange, filters, sortOption]);
 
   // Pagination Logic
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 12;
+  const itemsPerPage = viewMode === 'grid' ? 12 : 8; // Fewer items in journal view
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
   const currentProducts = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [query, selectedCategory, priceRange, filters, sortOption]);
+  }, [query, selectedCategory, priceRange, filters, sortOption, viewMode]);
 
   // --- HANDLERS ---
   const handleCategoryChange = (cat: string) => {
@@ -116,10 +135,17 @@ export const Shop: React.FC = () => {
 
   const clearFilters = () => {
     setPriceRange(maxProductPrice);
-    setFilters({ organic: false, local: false, onSale: false, inStock: false });
+    setFilters({ organic: false, local: false, onSale: false, inStock: false, rating4Plus: false });
     setSelectedCategory('All');
     setSearchParams({});
     setSortOption('featured');
+  };
+
+  const goToPage = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+        setCurrentPage(page);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   const activeFilterCount = [
@@ -129,134 +155,91 @@ export const Shop: React.FC = () => {
   ].filter(Boolean).length;
 
   return (
-    <div className="min-h-screen bg-gray-50/50">
+    <div className="min-h-screen bg-[#fdfbf7] font-sans text-gray-800">
       
-      {/* 1. COMPACT HEADER */}
-      <div className="bg-white border-b border-gray-200 sticky top-[64px] z-30 shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            
-            {/* Breadcrumb / Title */}
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              <span onClick={() => { clearFilters(); navigate('/shop'); }} className="cursor-pointer hover:text-leaf-600">Shop</span>
-              <ChevronRight size={14} />
-              <span className="font-bold text-gray-900">{selectedCategory === 'All' ? 'All Products' : selectedCategory}</span>
-              <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs font-bold">{filteredProducts.length}</span>
+      {/* 1. HERO SLIDER */}
+      <div className="relative h-[350px] md:h-[450px] overflow-hidden flex items-center justify-center">
+         <div className="absolute inset-0">
+            <img 
+              src="https://images.unsplash.com/photo-1610348725531-843dff563e2c?auto=format&fit=crop&w=1600&q=80" 
+              alt="Hero" 
+              className="w-full h-full object-cover brightness-[0.7]"
+            />
+         </div>
+         <div className="relative z-10 text-center text-white px-4 animate-in slide-in-from-bottom-8 duration-700">
+            <div className="inline-flex items-center gap-2 border border-white/30 bg-white/10 backdrop-blur-md px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mb-6">
+               <BookOpen size={14} /> The Market • Vol. 12
             </div>
+            <h1 className="text-5xl md:text-7xl font-serif font-medium mb-4 leading-tight">
+               Nature's <span className="italic font-light">Inventory</span>
+            </h1>
+            <p className="text-lg text-white/90 max-w-lg mx-auto font-light leading-relaxed">
+               Explore our curated selection of organic produce, harvested daily and delivered fresh to your doorstep.
+            </p>
+         </div>
+      </div>
 
-            {/* Mobile Filter Toggle & Sort */}
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={() => setIsMobileFilterOpen(true)}
-                className="lg:hidden flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-lg font-bold text-sm transition"
+      {/* 2. STICKY CATEGORY NAV */}
+      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm transition-all duration-300">
+        <div className="container mx-auto px-4 overflow-x-auto scrollbar-hide">
+          <div className="flex justify-start md:justify-center min-w-max gap-8">
+            {['All', 'Fruits', 'Vegetables', 'Leafy', 'Exotic'].map(cat => (
+              <button
+                key={cat}
+                onClick={() => handleCategoryChange(cat)}
+                className={`py-4 text-sm font-bold uppercase tracking-widest border-b-2 transition-all ${
+                  selectedCategory === cat 
+                    ? 'border-leaf-600 text-leaf-800' 
+                    : 'border-transparent text-gray-400 hover:text-gray-900'
+                }`}
               >
-                <Filter size={16} /> Filters {activeFilterCount > 0 && <span className="bg-leaf-600 text-white w-5 h-5 flex items-center justify-center rounded-full text-[10px]">{activeFilterCount}</span>}
+                {cat}
               </button>
-
-              <div className="relative">
-                <button 
-                  onClick={() => setIsSortOpen(!isSortOpen)}
-                  className="flex items-center gap-2 bg-white border border-gray-200 hover:border-leaf-500 text-gray-700 px-4 py-2 rounded-lg font-bold text-sm transition min-w-[160px] justify-between"
-                >
-                  <span className="flex items-center gap-2"><ArrowUpDown size={14} /> 
-                    {sortOption === 'featured' ? 'Featured' : 
-                     sortOption === 'price-low' ? 'Price: Low to High' : 
-                     sortOption === 'price-high' ? 'Price: High to Low' : 
-                     sortOption === 'rating' ? 'Highest Rated' : 'Name'}
-                  </span>
-                  <ChevronDown size={14} className={`transition-transform ${isSortOpen ? 'rotate-180' : ''}`} />
-                </button>
-                
-                {isSortOpen && (
-                  <>
-                    <div className="fixed inset-0 z-10" onClick={() => setIsSortOpen(false)}></div>
-                    <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-100 rounded-xl shadow-xl z-20 py-1 animate-in fade-in zoom-in-95 duration-100">
-                      {[
-                        { label: 'Featured', value: 'featured' },
-                        { label: 'Price: Low to High', value: 'price-low' },
-                        { label: 'Price: High to Low', value: 'price-high' },
-                        { label: 'Highest Rated', value: 'rating' },
-                        { label: 'Name (A-Z)', value: 'name' }
-                      ].map(opt => (
-                        <button
-                          key={opt.value}
-                          onClick={() => { setSortOption(opt.value); setIsSortOpen(false); }}
-                          className={`w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-gray-50 transition ${sortOption === opt.value ? 'text-leaf-600 bg-leaf-50' : 'text-gray-700'}`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
+            ))}
           </div>
-
-          {/* Active Filters Bar */}
-          {activeFilterCount > 0 && (
-            <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-100 items-center animate-in slide-in-from-top-2">
-              <span className="text-xs font-bold text-gray-400 mr-2 uppercase tracking-wide">Active Filters:</span>
-              
-              {selectedCategory !== 'All' && (
-                <button onClick={() => handleCategoryChange('All')} className="bg-leaf-50 border border-leaf-100 text-leaf-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 hover:bg-leaf-100 transition">
-                  {selectedCategory} <X size={12} />
-                </button>
-              )}
-              {priceRange < maxProductPrice && (
-                <button onClick={() => setPriceRange(maxProductPrice)} className="bg-leaf-50 border border-leaf-100 text-leaf-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 hover:bg-leaf-100 transition">
-                  Max: ₹{priceRange} <X size={12} />
-                </button>
-              )}
-              {Object.entries(filters).map(([key, isActive]) => isActive && (
-                <button key={key} onClick={() => toggleFilter(key as keyof typeof filters)} className="bg-leaf-50 border border-leaf-100 text-leaf-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 hover:bg-leaf-100 transition capitalize">
-                  {key.replace(/([A-Z])/g, ' $1').trim()} <X size={12} />
-                </button>
-              ))}
-              
-              <button onClick={clearFilters} className="text-xs font-bold text-red-500 hover:text-red-700 ml-auto hover:underline">
-                Clear All
-              </button>
-            </div>
-          )}
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex flex-col lg:flex-row gap-8">
+      <div className="container mx-auto px-4 py-12">
+        <div className="flex flex-col lg:flex-row gap-10">
           
-          {/* 2. SIDEBAR FILTER (Desktop) */}
-          <aside className="hidden lg:block w-72 flex-shrink-0 space-y-8 h-fit sticky top-[160px]">
+          {/* 3. SIDEBAR FILTER */}
+          <aside className="hidden lg:block w-72 flex-shrink-0 space-y-8 sticky top-32 h-fit">
             
-            {/* Categories */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-              <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <SlidersHorizontal size={18} /> Categories
-              </h3>
-              <div className="space-y-1 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-                <button
-                   onClick={() => handleCategoryChange('All')}
-                   className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition ${selectedCategory === 'All' ? 'bg-leaf-50 text-leaf-700 font-bold' : 'text-gray-600 hover:bg-gray-50'}`}
-                >
-                  <span>All Products</span>
-                  <span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded text-xs">{products.length}</span>
-                </button>
-                {Object.entries(categories).map(([cat, count]) => (
-                  <button
-                    key={cat}
-                    onClick={() => handleCategoryChange(cat)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition ${selectedCategory === cat ? 'bg-leaf-50 text-leaf-700 font-bold' : 'text-gray-600 hover:bg-gray-50'}`}
+            {/* Search */}
+            <div className="relative">
+               <Search className="absolute left-4 top-3.5 text-gray-400" size={18}/>
+               <input 
+                 type="text" 
+                 value={query}
+                 onChange={(e) => { setSearchParams({ ...Object.fromEntries(searchParams), q: e.target.value }); }}
+                 placeholder="Search catalogue..." 
+                 className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-leaf-500 focus:ring-4 focus:ring-leaf-500/10 transition shadow-sm"
+               />
+            </div>
+
+            {/* View Mode Toggle */}
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+               <h3 className="font-bold text-gray-900 mb-3 text-xs uppercase tracking-wide">Display Mode</h3>
+               <div className="grid grid-cols-2 gap-2 bg-gray-100 p-1 rounded-xl">
+                  <button 
+                    onClick={() => setViewMode('grid')}
+                    className={`flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition ${viewMode === 'grid' ? 'bg-white shadow-sm text-leaf-700' : 'text-gray-500 hover:text-gray-700'}`}
                   >
-                    <span>{cat}</span>
-                    <span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded text-xs">{count}</span>
+                    <Grid size={16}/> Grid
                   </button>
-                ))}
-              </div>
+                  <button 
+                    onClick={() => setViewMode('journal')}
+                    className={`flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition ${viewMode === 'journal' ? 'bg-white shadow-sm text-leaf-700' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                    <BookOpen size={16}/> Journal
+                  </button>
+               </div>
             </div>
 
             {/* Price Slider */}
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-               <h3 className="font-bold text-gray-900 mb-4">Price Range</h3>
+               <h3 className="font-bold text-gray-900 mb-6 text-sm uppercase tracking-wide">Price Range</h3>
                <div className="px-2">
                  <input 
                   type="range" 
@@ -264,26 +247,27 @@ export const Shop: React.FC = () => {
                   max={maxProductPrice} 
                   value={priceRange} 
                   onChange={(e) => setPriceRange(Number(e.target.value))}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-leaf-600"
+                  className="w-full h-2 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-leaf-600"
                  />
-                 <div className="flex justify-between mt-3 text-sm font-bold text-gray-700">
+                 <div className="flex justify-between mt-4 text-sm font-medium text-gray-600">
                    <span>₹0</span>
-                   <span className="text-leaf-600 bg-leaf-50 px-2 py-1 rounded">₹{priceRange}</span>
+                   <span className="text-leaf-700 bg-leaf-50 px-3 py-1 rounded-lg font-bold border border-leaf-100">₹{priceRange}</span>
                  </div>
                </div>
             </div>
 
             {/* Checkbox Filters */}
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-              <h3 className="font-bold text-gray-900 mb-4">Product Status</h3>
+              <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide">Refine By</h3>
               <div className="space-y-3">
                 {[
-                  { key: 'organic', label: 'Organic Only', icon: Leaf, color: 'text-green-500' },
-                  { key: 'local', label: 'Local Farm', icon: MapPin, color: 'text-blue-500' },
-                  { key: 'onSale', label: 'On Sale', icon: Zap, color: 'text-yellow-500' },
-                  { key: 'inStock', label: 'In Stock Only', icon: Check, color: 'text-gray-900' }
+                  { key: 'organic', label: 'Organic Certified', icon: Leaf, color: 'text-green-500' },
+                  { key: 'local', label: 'Locally Sourced', icon: MapPin, color: 'text-blue-500' },
+                  { key: 'rating4Plus', label: '4★ & Above', icon: Star, color: 'text-yellow-500' },
+                  { key: 'onSale', label: 'On Sale', icon: Zap, color: 'text-orange-500' },
+                  { key: 'inStock', label: 'In Stock', icon: Check, color: 'text-gray-400' }
                 ].map(({ key, label, icon: Icon, color }) => (
-                  <label key={key} className="flex items-center gap-3 cursor-pointer group">
+                  <label key={key} className="flex items-center gap-3 cursor-pointer group p-2 hover:bg-gray-50 rounded-lg transition -mx-2">
                     <div className={`w-5 h-5 rounded border flex items-center justify-center transition ${filters[key as keyof typeof filters] ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300 group-hover:border-leaf-400'}`}>
                       {filters[key as keyof typeof filters] && <Check size={12} className="text-white" />}
                     </div>
@@ -293,73 +277,237 @@ export const Shop: React.FC = () => {
                       checked={filters[key as keyof typeof filters]}
                       onChange={() => toggleFilter(key as keyof typeof filters)}
                     />
-                    <span className="text-sm text-gray-700 group-hover:text-gray-900 flex items-center gap-2">
-                      <Icon size={14} className={color} /> {label}
+                    <span className="text-sm text-gray-600 group-hover:text-gray-900 flex items-center gap-2 font-medium">
+                      <Icon size={14} className={color} fill={key === 'rating4Plus' ? 'currentColor' : 'none'} /> {label}
                     </span>
                   </label>
                 ))}
               </div>
             </div>
-
-            {/* Banner Ad */}
-            <div className="bg-gradient-to-br from-leaf-800 to-leaf-600 rounded-2xl p-6 text-white text-center relative overflow-hidden group">
-               <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
-               <div className="relative z-10">
-                 <h4 className="text-2xl font-extrabold mb-2">Join Pro</h4>
-                 <p className="text-leaf-100 text-sm mb-4">Get free delivery on every order!</p>
-                 <button onClick={() => navigate('/subscription')} className="bg-white text-leaf-700 px-6 py-2 rounded-full font-bold text-sm hover:bg-leaf-50 transition shadow-lg">Upgrade Now</button>
-               </div>
-            </div>
-
           </aside>
 
-          {/* 3. PRODUCT GRID */}
+          {/* 4. MAIN CONTENT */}
           <main className="flex-1">
+             
+             {/* Header Bar */}
+             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                   <span className="font-bold text-gray-900 text-lg">{selectedCategory === 'All' ? 'All Products' : selectedCategory}</span>
+                   <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs font-bold">{filteredProducts.length} items</span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                   <button 
+                      onClick={() => setIsMobileFilterOpen(true)}
+                      className="lg:hidden flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-lg font-bold text-sm transition"
+                   >
+                      <Filter size={16} /> Filters
+                   </button>
+
+                   <div className="relative">
+                      <button 
+                        onClick={() => setIsSortOpen(!isSortOpen)}
+                        className="flex items-center gap-2 bg-white border border-gray-200 hover:border-leaf-500 text-gray-700 px-4 py-2 rounded-lg font-bold text-sm transition min-w-[180px] justify-between"
+                      >
+                        <span className="flex items-center gap-2"><ArrowUpDown size={14} /> 
+                          {sortOption === 'featured' ? 'Sort: Featured' : 
+                           sortOption === 'price-low' ? 'Price: Low to High' : 
+                           sortOption === 'price-high' ? 'Price: High to Low' : 
+                           sortOption === 'rating' ? 'Highest Rated' : 'Name (A-Z)'}
+                        </span>
+                        <ChevronDown size={14} className={`transition-transform ${isSortOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                      
+                      {isSortOpen && (
+                        <>
+                          <div className="fixed inset-0 z-10" onClick={() => setIsSortOpen(false)}></div>
+                          <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-100 rounded-xl shadow-xl z-20 py-2 animate-in fade-in zoom-in-95 duration-100">
+                            {[
+                              { label: 'Featured', value: 'featured' },
+                              { label: 'Price: Low to High', value: 'price-low' },
+                              { label: 'Price: High to Low', value: 'price-high' },
+                              { label: 'Highest Rated', value: 'rating' },
+                              { label: 'Name (A-Z)', value: 'name' }
+                            ].map(opt => (
+                              <button
+                                key={opt.value}
+                                onClick={() => { setSortOption(opt.value); setIsSortOpen(false); }}
+                                className={`w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-gray-50 transition ${sortOption === opt.value ? 'text-leaf-600 bg-leaf-50' : 'text-gray-700'}`}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                   </div>
+                </div>
+             </div>
+
+             {/* Active Filters */}
+             {activeFilterCount > 0 && (
+                <div className="flex flex-wrap gap-2 mb-6 animate-in slide-in-from-top-2">
+                  <span className="text-xs font-bold text-gray-400 mr-2 uppercase tracking-wide self-center">Active:</span>
+                  
+                  {selectedCategory !== 'All' && (
+                    <button onClick={() => handleCategoryChange('All')} className="bg-white border border-leaf-200 text-leaf-700 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 hover:bg-leaf-50 transition shadow-sm">
+                      {selectedCategory} <X size={12} />
+                    </button>
+                  )}
+                  {priceRange < maxProductPrice && (
+                    <button onClick={() => setPriceRange(maxProductPrice)} className="bg-white border border-leaf-200 text-leaf-700 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 hover:bg-leaf-50 transition shadow-sm">
+                      Max: ₹{priceRange} <X size={12} />
+                    </button>
+                  )}
+                  {Object.entries(filters).map(([key, isActive]) => isActive && (
+                    <button key={key} onClick={() => toggleFilter(key as keyof typeof filters)} className="bg-white border border-leaf-200 text-leaf-700 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 hover:bg-leaf-50 transition shadow-sm capitalize">
+                      {key.replace(/([A-Z])/g, ' $1').replace('4 Plus', '+').trim()} <X size={12} />
+                    </button>
+                  ))}
+                  
+                  <button onClick={clearFilters} className="text-xs font-bold text-red-500 hover:text-red-700 ml-auto hover:underline px-2">
+                    Clear All
+                  </button>
+                </div>
+             )}
+
+             {/* Products Grid or Journal */}
              {filteredProducts.length > 0 ? (
                <>
-                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6 animate-in fade-in duration-500">
-                    {currentProducts.map(product => (
-                      <ProductCard key={product.id} product={product} highlightTerm={query} />
-                    ))}
-                 </div>
+                 {viewMode === 'grid' ? (
+                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6 animate-in fade-in duration-500">
+                      {currentProducts.map(product => (
+                        <ProductCard key={product.id} product={product} highlightTerm={query} />
+                      ))}
+                   </div>
+                 ) : (
+                   <div className="space-y-6 animate-in fade-in duration-500">
+                      {currentProducts.map(product => {
+                        const details = getProductDetails(product);
+                        return (
+                          <div key={product.id} className="group bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-xl transition-all duration-300 flex flex-col md:flex-row gap-8 items-center">
+                             {/* Image */}
+                             <div className="w-full md:w-48 h-48 shrink-0 bg-gray-50 rounded-2xl overflow-hidden relative cursor-pointer" onClick={() => navigate(`/product/${product.id}`)}>
+                                <img src={getProductImage(product.id, product.image)} alt={product.name.en} className="w-full h-full object-cover mix-blend-multiply p-4 transition-transform duration-500 group-hover:scale-110" />
+                                {product.isOrganic && (
+                                  <div className="absolute top-3 left-3 bg-green-100 text-green-800 text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider">Organic</div>
+                                )}
+                             </div>
+
+                             {/* Content */}
+                             <div className="flex-grow space-y-4 text-center md:text-left w-full">
+                                <div>
+                                   <div className="flex flex-col md:flex-row md:items-center gap-2 mb-1">
+                                      <h3 className="text-2xl font-bold text-gray-900 font-serif cursor-pointer hover:text-leaf-700 transition-colors" onClick={() => navigate(`/product/${product.id}`)}>{product.name.en}</h3>
+                                      <div className="flex justify-center md:justify-start gap-2 text-xs text-gray-500">
+                                         <span className="bg-gray-100 px-2 py-0.5 rounded border border-gray-200">{product.name.hi}</span>
+                                         <span className="bg-gray-100 px-2 py-0.5 rounded border border-gray-200">{product.name.bn}</span>
+                                      </div>
+                                   </div>
+                                   <p className="text-gray-600 leading-relaxed line-clamp-2">{product.description}</p>
+                                </div>
+
+                                {/* Details Grid */}
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-4 border-y border-gray-100">
+                                   <div className="text-center md:text-left">
+                                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1 flex items-center justify-center md:justify-start gap-1"><MapPin size={10}/> Origin</p>
+                                      <p className="text-sm font-bold text-gray-700 truncate">{details.origin}</p>
+                                   </div>
+                                   <div className="text-center md:text-left">
+                                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1 flex items-center justify-center md:justify-start gap-1"><Sun size={10}/> Harvest</p>
+                                      <p className="text-sm font-bold text-gray-700">{details.harvestTime}</p>
+                                   </div>
+                                   <div className="text-center md:text-left hidden sm:block">
+                                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1 flex items-center justify-center md:justify-start gap-1"><Droplets size={10}/> Nutrition</p>
+                                      <p className="text-sm font-bold text-gray-700">{details.benefits[0]}</p>
+                                   </div>
+                                   <div className="text-center md:text-left hidden sm:block">
+                                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1 flex items-center justify-center md:justify-start gap-1"><Star size={10}/> Rating</p>
+                                      <p className="text-sm font-bold text-gray-700 flex items-center justify-center md:justify-start gap-1">4.8 <span className="text-yellow-400">★</span></p>
+                                   </div>
+                                </div>
+                             </div>
+
+                             {/* Action */}
+                             <div className="flex flex-row md:flex-col items-center gap-4 w-full md:w-auto justify-between border-t md:border-t-0 md:border-l border-gray-100 pt-4 md:pt-0 md:pl-8">
+                                <div className="text-left md:text-right">
+                                   <p className="text-xs text-gray-400 font-medium">Price per {product.baseUnit}</p>
+                                   <p className="text-3xl font-extrabold text-gray-900">₹{product.price}</p>
+                                </div>
+                                <button 
+                                  onClick={() => addToCart(product)}
+                                  className="bg-gray-900 text-white w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center shadow-lg hover:bg-leaf-600 hover:scale-110 transition-all active:scale-95"
+                                  title="Add to Cart"
+                                >
+                                   <ShoppingCart size={20} />
+                                </button>
+                             </div>
+                          </div>
+                        );
+                      })}
+                   </div>
+                 )}
 
                  {/* Pagination */}
                  {totalPages > 1 && (
-                  <div className="flex justify-center items-center gap-2 mt-12">
-                    <button 
-                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                      className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-gray-200 text-gray-600 hover:bg-leaf-50 hover:text-leaf-600 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
-                    >
-                      <ChevronLeft size={18} />
-                    </button>
-                    
-                    <span className="text-sm font-bold text-gray-500">Page {currentPage} of {totalPages}</span>
+                    <div className="flex justify-center items-center gap-2 mt-16">
+                        <button
+                            onClick={() => goToPage(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className="p-3 rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
+                        >
+                            <ChevronLeft size={20} />
+                        </button>
 
-                    <button 
-                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                      disabled={currentPage === totalPages}
-                      className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-gray-200 text-gray-600 hover:bg-leaf-50 hover:text-leaf-600 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
-                    >
-                      <ChevronRight size={18} />
-                    </button>
-                  </div>
-                )}
+                        <div className="flex items-center gap-2 bg-white p-1.5 rounded-xl border border-gray-200 shadow-sm overflow-x-auto max-w-full">
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                                // Logic to show limited pages if totalPages is huge
+                                if (totalPages > 7 && Math.abs(currentPage - page) > 2 && page !== 1 && page !== totalPages) {
+                                     if (Math.abs(currentPage - page) === 3) return <span key={page} className="text-gray-300 px-1">...</span>;
+                                     return null;
+                                }
+
+                                return (
+                                    <button
+                                        key={page}
+                                        onClick={() => goToPage(page)}
+                                        className={`w-10 h-10 rounded-lg text-sm font-bold transition flex items-center justify-center shrink-0 ${
+                                            currentPage === page
+                                                ? 'bg-leaf-600 text-white shadow-md'
+                                                : 'text-gray-600 hover:bg-gray-100'
+                                        }`}
+                                    >
+                                        {page}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <button
+                            onClick={() => goToPage(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            className="p-3 rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
+                        >
+                            <ChevronRight size={20} />
+                        </button>
+                    </div>
+                 )}
                </>
              ) : (
-               <div className="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-sm animate-in zoom-in-95">
-                 <div className="bg-gray-50 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6">
-                   <Search size={40} className="text-gray-300" />
+               <div className="bg-white rounded-[2rem] p-16 text-center border border-gray-100 shadow-sm animate-in zoom-in-95 flex flex-col items-center">
+                 <div className="bg-gray-50 w-32 h-32 rounded-full flex items-center justify-center mb-6 relative">
+                   <div className="absolute inset-0 bg-leaf-100 rounded-full animate-ping opacity-20"></div>
+                   <Search size={48} className="text-leaf-300" />
                  </div>
-                 <h3 className="text-2xl font-bold text-gray-900 mb-2">No products found</h3>
-                 <p className="text-gray-500 mb-8 max-w-md mx-auto">
-                   We couldn't find any items matching your current filters. Try adjusting the price range or clearing some filters.
+                 <h3 className="text-2xl font-extrabold text-gray-900 mb-3">No harvests found</h3>
+                 <p className="text-gray-500 mb-8 max-w-md mx-auto leading-relaxed">
+                   We couldn't find any items matching your current filters. Try adjusting the price range or clearing some filters to see more results.
                  </p>
                  <button 
                   onClick={clearFilters}
-                  className="bg-leaf-600 hover:bg-leaf-700 text-white px-8 py-3 rounded-xl font-bold transition shadow-lg shadow-leaf-200 flex items-center gap-2 mx-auto"
+                  className="bg-gray-900 hover:bg-gray-800 text-white px-8 py-3.5 rounded-xl font-bold transition shadow-lg hover:shadow-xl flex items-center gap-2"
                  >
-                   <RefreshCw size={18} /> Clear All Filters
+                   <RefreshCw size={18} /> Clear Filters & Show All
                  </button>
                </div>
              )}
@@ -367,9 +515,9 @@ export const Shop: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. MOBILE FILTER DRAWER */}
+      {/* 5. MOBILE FILTER DRAWER */}
       {isMobileFilterOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className="fixed inset-0 z-[60] lg:hidden">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsMobileFilterOpen(false)}></div>
           <div className="absolute inset-y-0 right-0 w-full max-w-xs bg-white shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
             <div className="p-5 border-b border-gray-100 flex items-center justify-between bg-gray-50">
@@ -400,16 +548,17 @@ export const Shop: React.FC = () => {
 
                {/* Mobile Status */}
                <div>
-                  <h4 className="font-bold text-gray-800 mb-3 text-sm uppercase tracking-wide">Status</h4>
+                  <h4 className="font-bold text-gray-800 mb-3 text-sm uppercase tracking-wide">Refine By</h4>
                   <div className="space-y-3">
                     {[
-                      { key: 'organic', label: 'Organic' },
-                      { key: 'local', label: 'Local Farm' },
-                      { key: 'onSale', label: 'On Sale' },
-                      { key: 'inStock', label: 'In Stock' }
-                    ].map(({ key, label }) => (
+                      { key: 'organic', label: 'Organic Certified', icon: Leaf },
+                      { key: 'local', label: 'Locally Sourced', icon: MapPin },
+                      { key: 'rating4Plus', label: '4★ & Above', icon: Star },
+                      { key: 'onSale', label: 'On Sale', icon: Zap },
+                      { key: 'inStock', label: 'In Stock Only', icon: Check }
+                    ].map(({ key, label, icon: Icon }) => (
                       <label key={key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <span className="text-sm font-bold text-gray-700">{label}</span>
+                        <span className="text-sm font-bold text-gray-700 flex items-center gap-2"><Icon size={14}/> {label}</span>
                         <input type="checkbox" className="w-5 h-5 accent-leaf-600 rounded" checked={filters[key as keyof typeof filters]} onChange={() => toggleFilter(key as keyof typeof filters)} />
                       </label>
                     ))}
@@ -418,7 +567,7 @@ export const Shop: React.FC = () => {
             </div>
 
             <div className="p-5 border-t border-gray-100 bg-gray-50 flex gap-3">
-              <button onClick={clearFilters} className="flex-1 py-3 text-gray-600 font-bold hover:text-red-500">Reset</button>
+              <button onClick={clearFilters} className="flex-1 py-3 text-gray-600 font-bold hover:text-red-500 transition">Reset</button>
               <button onClick={() => setIsMobileFilterOpen(false)} className="flex-[2] bg-leaf-600 text-white py-3 rounded-xl font-bold shadow-lg">Apply Filters</button>
             </div>
           </div>
