@@ -1,5 +1,6 @@
+
 import React, { useState, useRef, useMemo } from 'react';
-import { BarChart3, Users, ShoppingBag, DollarSign, TrendingUp, Package, Bell, Search, Settings, Image as ImageIcon, Upload, Trash2, Home, CheckSquare, Square, Edit, Layers, Tag, X, Check } from 'lucide-react';
+import { BarChart3, Users, ShoppingBag, DollarSign, TrendingUp, Package, Bell, Search, Settings, Image as ImageIcon, Upload, Trash2, Home, CheckSquare, Square, Edit, Layers, Tag, X, Check, Menu } from 'lucide-react';
 import { useImage } from '../services/ImageContext';
 import { useProduct } from '../services/ProductContext';
 
@@ -8,6 +9,7 @@ export const Dashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const { customImages, uploadImage, removeImage, getProductImage } = useImage();
   const { products, bulkUpdateProducts } = useProduct();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
@@ -85,14 +87,23 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="bg-gray-50 min-h-screen font-sans flex">
+      {/* Mobile Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div className="fixed inset-0 bg-black/60 z-30 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>
+      )}
+
       {/* Sidebar */}
-      <div className="w-64 bg-leaf-900 text-white flex-shrink-0 hidden lg:flex flex-col p-6 z-20 h-screen sticky top-0">
-        <h1 className="text-2xl font-bold mb-10 flex items-center gap-2">Fresh<span className="text-leaf-400">Admin</span></h1>
+      <div className={`fixed lg:sticky top-0 h-screen w-64 bg-leaf-900 text-white flex-shrink-0 flex flex-col p-6 z-40 transition-transform duration-300 lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="flex justify-between items-center mb-10">
+            <h1 className="text-2xl font-bold flex items-center gap-2">Fresh<span className="text-leaf-400">Admin</span></h1>
+            <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-1 rounded-full hover:bg-white/10"><X size={20}/></button>
+        </div>
+        
         <nav className="space-y-2 flex-grow">
-           <button onClick={() => setActiveTab('overview')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${activeTab === 'overview' ? 'bg-white/10 text-white' : 'text-leaf-100 hover:bg-white/5'}`}>
+           <button onClick={() => { setActiveTab('overview'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${activeTab === 'overview' ? 'bg-white/10 text-white' : 'text-leaf-100 hover:bg-white/5'}`}>
              <BarChart3 size={20}/> Dashboard
            </button>
-           <button onClick={() => setActiveTab('products')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${activeTab === 'products' ? 'bg-white/10 text-white' : 'text-leaf-100 hover:bg-white/5'}`}>
+           <button onClick={() => { setActiveTab('products'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${activeTab === 'products' ? 'bg-white/10 text-white' : 'text-leaf-100 hover:bg-white/5'}`}>
              <Package size={20}/> Product Management
            </button>
            <button className="w-full flex items-center gap-3 px-4 py-3 text-leaf-100 hover:bg-white/5 rounded-xl transition"><ShoppingBag size={20}/> Orders</button>
@@ -110,15 +121,18 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-grow p-8 overflow-y-auto h-screen relative">
+      <div className="flex-grow p-4 md:p-8 overflow-y-auto h-screen relative w-full">
         {/* Header */}
-        <div className="flex justify-between items-center mb-10">
-           <div>
-             <h1 className="text-2xl font-bold text-gray-900">{activeTab === 'overview' ? 'Dashboard Overview' : 'Product Management'}</h1>
-             <p className="text-gray-500">{activeTab === 'overview' ? "Welcome back, here's what's happening today." : "Manage products, update stock, and prices in bulk."}</p>
-           </div>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
            <div className="flex items-center gap-4">
-              <a href="/" className="flex items-center gap-2 text-sm font-bold text-leaf-600 hover:bg-leaf-50 px-3 py-2 rounded-lg transition"><Home size={18}/> View Site</a>
+             <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 bg-white border border-gray-200 rounded-lg text-gray-700 shadow-sm"><Menu size={20}/></button>
+             <div>
+                <h1 className="text-2xl font-bold text-gray-900">{activeTab === 'overview' ? 'Dashboard Overview' : 'Product Management'}</h1>
+                <p className="text-gray-500 text-sm md:text-base">{activeTab === 'overview' ? "Welcome back, here's what's happening today." : "Manage products, update stock, and prices in bulk."}</p>
+             </div>
+           </div>
+           <div className="flex items-center gap-4 w-full md:w-auto">
+              <a href="/" className="flex items-center gap-2 text-sm font-bold text-leaf-600 hover:bg-leaf-50 px-3 py-2 rounded-lg transition ml-auto md:ml-0"><Home size={18}/> <span className="hidden sm:inline">View Site</span></a>
               <button className="p-2 bg-white rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"><Bell size={20}/></button>
               <button className="p-2 bg-white rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"><Settings size={20}/></button>
            </div>

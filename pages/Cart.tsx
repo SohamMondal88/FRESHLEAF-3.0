@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Trash2, Plus, Minus, ArrowLeft, ShoppingBag, AlertTriangle, X, Lock } from 'lucide-react';
@@ -101,26 +102,42 @@ export const Cart: React.FC = () => {
 
               <div className="divide-y divide-gray-100">
                 {cartItems.map((item) => (
-                  <div key={`${item.id}-${item.selectedUnit}`} className="grid grid-cols-1 md:grid-cols-12 gap-6 p-6 items-center hover:bg-gray-50/50 transition">
-                    <div className="col-span-1 md:col-span-6 flex items-center gap-6">
-                      <div className="w-20 h-20 rounded-xl bg-gray-100 p-1 flex-shrink-0 border border-gray-100">
+                  <div key={`${item.id}-${item.selectedUnit}`} className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6 p-4 md:p-6 items-center hover:bg-gray-50/50 transition">
+                    
+                    {/* Mobile: Product Info & Image */}
+                    <div className="col-span-1 md:col-span-6 flex items-start md:items-center gap-4">
+                      <div className="w-16 h-16 md:w-20 md:h-20 rounded-xl bg-gray-100 p-1 flex-shrink-0 border border-gray-100">
                          <img src={getProductImage(item.id, item.image)} alt={item.name.en} className="w-full h-full object-cover rounded-lg mix-blend-multiply" />
                       </div>
-                      <div>
-                        <h3 className="font-bold text-gray-900 text-lg">{item.name.en}</h3>
-                        <p className="text-sm text-gray-500 mb-2 font-hindi">{item.name.hi}</p>
-                        <span className="inline-block bg-white border border-gray-200 text-gray-600 text-xs font-bold px-2 py-1 rounded">
+                      <div className="flex-grow">
+                        <h3 className="font-bold text-gray-900 text-base md:text-lg">{item.name.en}</h3>
+                        <p className="text-sm text-gray-500 mb-1 font-hindi">{item.name.hi}</p>
+                        <span className="inline-block bg-white border border-gray-200 text-gray-600 text-[10px] md:text-xs font-bold px-2 py-0.5 rounded">
                           {item.selectedUnit}
                         </span>
+                        {/* Mobile Price display inline */}
+                        <div className="md:hidden mt-2 font-bold text-leaf-700">
+                            {formatPrice(item.price)} <span className="text-xs text-gray-400 font-normal">/ unit</span>
+                        </div>
                       </div>
+                      {/* Mobile Remove Button (Top Right) */}
+                      <button 
+                            onClick={() => initiateRemove(item.id, item.selectedUnit, item.name.en)} 
+                            className="md:hidden text-gray-400 hover:text-red-500 p-2 rounded-full transition"
+                            title="Remove Item"
+                         >
+                            <Trash2 size={18} />
+                      </button>
                     </div>
                     
-                    <div className="col-span-1 md:col-span-2 text-gray-700 font-medium md:text-center flex justify-between md:block">
-                      <span className="md:hidden font-medium text-gray-500">Unit Price:</span>
+                    {/* Desktop Price */}
+                    <div className="hidden md:block col-span-1 md:col-span-2 text-gray-700 font-medium text-center">
                       {formatPrice(item.price)}
                     </div>
 
-                    <div className="col-span-1 md:col-span-2 flex justify-center">
+                    {/* Quantity Controls (Responsive) */}
+                    <div className="col-span-1 md:col-span-2 flex justify-between md:justify-center items-center mt-2 md:mt-0">
+                      <span className="md:hidden text-sm font-bold text-gray-500 uppercase">Quantity:</span>
                       <div className="flex items-center border border-gray-200 rounded-lg bg-white shadow-sm">
                         <button onClick={() => updateQuantity(item.id, item.selectedUnit, item.quantity - 1)} className="p-2 hover:bg-gray-100 text-gray-600 rounded-l-lg"><Minus size={14} /></button>
                         <span className="px-3 text-sm font-bold text-gray-800 w-8 text-center">{item.quantity}</span>
@@ -128,13 +145,15 @@ export const Cart: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="col-span-1 md:col-span-2 text-right flex items-center justify-between md:block">
-                       <span className="md:hidden font-medium text-gray-500">Subtotal:</span>
+                    {/* Total Price */}
+                    <div className="col-span-1 md:col-span-2 flex justify-between md:block text-right mt-2 md:mt-0 pt-2 md:pt-0 border-t md:border-t-0 border-gray-50">
+                       <span className="md:hidden font-bold text-gray-500">Subtotal:</span>
                        <div className="flex items-center justify-end gap-4">
                          <span className="font-bold text-gray-900 text-lg">{formatPrice(item.price * item.quantity)}</span>
+                         {/* Desktop Remove Button */}
                          <button 
                             onClick={() => initiateRemove(item.id, item.selectedUnit, item.name.en)} 
-                            className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-full transition"
+                            className="hidden md:block text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-full transition"
                             title="Remove Item"
                          >
                             <Trash2 size={18} />

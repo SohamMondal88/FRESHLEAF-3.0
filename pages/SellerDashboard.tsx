@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Package, TrendingUp, DollarSign, Plus, Image as ImageIcon, 
   Settings, LogOut, ChevronRight, Search, Sprout, ShoppingCart, Truck, 
   CheckCircle, AlertCircle, Printer, Calendar, Banknote, User, MapPin,
-  Upload, Trash2, MoreVertical, Filter, Save, X, ChevronDown, ChevronUp
+  Upload, Trash2, MoreVertical, Filter, Save, X, ChevronDown, ChevronUp, Menu
 } from 'lucide-react';
 import { useAuth } from '../services/AuthContext';
 import { useProduct } from '../services/ProductContext';
@@ -21,6 +21,7 @@ export const SellerDashboard: React.FC = () => {
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'inventory' | 'payments' | 'settings' | 'add_product'>('overview');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   // --- STATE: Add Product ---
   const [newProduct, setNewProduct] = useState({
@@ -253,14 +254,22 @@ export const SellerDashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex font-sans">
       
+      {/* Mobile Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div className="fixed inset-0 bg-black/60 z-30 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>
+      )}
+
       {/* SIDEBAR */}
-      <aside className="w-72 bg-gray-900 text-white hidden lg:flex flex-col fixed h-full z-30 shadow-xl">
-        <div className="p-6 border-b border-gray-800 flex items-center gap-3">
-           <div className="bg-leaf-500 p-2 rounded-xl text-white shadow-lg shadow-leaf-900/50"><Sprout size={24} fill="currentColor"/></div>
-           <div>
-             <h2 className="font-bold text-lg tracking-tight">Seller Hub</h2>
-             <p className="text-xs text-gray-400">Partner Dashboard</p>
+      <aside className={`fixed lg:sticky top-0 h-screen w-72 bg-gray-900 text-white flex-shrink-0 flex flex-col z-40 shadow-xl transition-transform duration-300 lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="p-6 border-b border-gray-800 flex items-center justify-between gap-3">
+           <div className="flex items-center gap-3">
+             <div className="bg-leaf-500 p-2 rounded-xl text-white shadow-lg shadow-leaf-900/50"><Sprout size={24} fill="currentColor"/></div>
+             <div>
+               <h2 className="font-bold text-lg tracking-tight">Seller Hub</h2>
+               <p className="text-xs text-gray-400">Partner Dashboard</p>
+             </div>
            </div>
+           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-gray-400 hover:text-white"><X size={20}/></button>
         </div>
         
         <nav className="p-4 space-y-1.5 flex-grow">
@@ -274,7 +283,7 @@ export const SellerDashboard: React.FC = () => {
           ].map(item => (
             <button 
               key={item.id}
-              onClick={() => setActiveTab(item.id as any)} 
+              onClick={() => { setActiveTab(item.id as any); setIsSidebarOpen(false); }}
               className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-sm font-bold transition-all ${
                 activeTab === item.id 
                   ? 'bg-leaf-600 text-white shadow-lg shadow-leaf-900/20' 
@@ -304,11 +313,14 @@ export const SellerDashboard: React.FC = () => {
       </aside>
 
       {/* MAIN CONTENT */}
-      <main className="flex-grow lg:ml-72 p-4 md:p-8 overflow-y-auto">
+      <main className="flex-grow lg:ml-0 p-4 md:p-8 overflow-y-auto w-full">
         
         {/* Mobile Header */}
         <div className="lg:hidden flex justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm">
-           <div className="flex items-center gap-2 font-bold text-gray-900"><Sprout className="text-leaf-600"/> Seller Hub</div>
+           <div className="flex items-center gap-3">
+             <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-gray-100 rounded-lg text-gray-700"><Menu size={20}/></button>
+             <div className="flex items-center gap-2 font-bold text-gray-900"><Sprout className="text-leaf-600"/> Seller Hub</div>
+           </div>
            <button onClick={logout} className="p-2 bg-gray-100 rounded-full"><LogOut size={18}/></button>
         </div>
 
@@ -746,7 +758,7 @@ export const SellerDashboard: React.FC = () => {
                    </div>
                    <div>
                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Name (Bengali)</label>
-                     <input type="text" className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-leaf-500 focus:outline-none font-hindi" placeholder="e.g. লাল পেঁয়াজ" value={newProduct.nameBn} onChange={e => setNewProduct({...newProduct, nameBn: e.target.value})} />
+                     <input type="text" className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-leaf-500 focus:outline-none font-hindi" placeholder="e.g. लाल पेঁয়াজ" value={newProduct.nameBn} onChange={e => setNewProduct({...newProduct, nameBn: e.target.value})} />
                    </div>
                 </div>
 

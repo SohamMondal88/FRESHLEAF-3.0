@@ -63,7 +63,7 @@ const Mobile3DCarousel: React.FC<{
   const displayProducts = products.slice(0, 10); 
 
   return (
-    <div className={`py-10 border-b border-gray-50 last:border-0 ${bgColor} animate-in fade-in slide-in-from-bottom-4 duration-700`}>
+    <div className={`py-10 border-b border-gray-50 last:border-0 ${bgColor} animate-in fade-in slide-in-from-bottom-4 duration-700 md:hidden`}>
       <div className="flex justify-between items-end px-6 mb-6">
         <div>
             <h3 className="text-2xl font-extrabold text-gray-900 leading-none tracking-tight">{title}</h3>
@@ -107,7 +107,6 @@ const Mobile3DCarousel: React.FC<{
                 let opacity = 'opacity-50';
                 let blur = 'blur-[1px]';
                 let zIndex = 'z-0';
-                let rotate = 'rotate-y-0';
                 
                 if (isActive) {
                     scale = 'scale-100';
@@ -169,11 +168,11 @@ export const Shop: React.FC = () => {
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
   
-  // Device Check
-  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+  // Device Check - Treat Tablets (>=768px) as "Grid View" devices
+  const [isLargeScreen, setIsLargeScreen] = useState(window.innerWidth >= 768);
 
   useEffect(() => {
-    const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
+    const handleResize = () => setIsLargeScreen(window.innerWidth >= 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -369,8 +368,8 @@ export const Shop: React.FC = () => {
       {/* MAIN LAYOUT */}
       <div className="container mx-auto px-0 md:px-4 py-8">
         
-        {/* MOBILE VIEW: CAROUSELS (Only if Default View) */}
-        {!isDesktop && isDefaultView ? (
+        {/* MOBILE VIEW: CAROUSELS (Only if Default View and Small Screen) */}
+        {!isLargeScreen && isDefaultView ? (
           <div className="space-y-2 pb-20">
              
              {/* Search Bar */}
@@ -473,10 +472,11 @@ export const Shop: React.FC = () => {
 
           </div>
         ) : (
-          /* DESKTOP VIEW (OR FILTERED MOBILE): GRID LAYOUT */
+          /* TABLET/DESKTOP VIEW (OR FILTERED MOBILE): GRID LAYOUT */
           <div className="flex flex-col lg:flex-row gap-10 animate-in fade-in slide-in-from-bottom-4 px-4 md:px-0">
             
-            {/* SIDEBAR FILTER (Hidden on Mobile) */}
+            {/* SIDEBAR FILTER (Hidden on Mobile, Visible on Laptop/Desktop) */}
+            {/* For Tablets, we will use the Mobile Filter Drawer to save space, or you can use lg:block */}
             <aside className="hidden lg:block w-72 flex-shrink-0 space-y-8 sticky top-32 h-fit">
               <div className="relative">
                  <Search className="absolute left-4 top-3.5 text-gray-400" size={18}/>
