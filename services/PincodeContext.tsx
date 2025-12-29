@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 interface PincodeContextType {
@@ -11,9 +12,6 @@ interface PincodeContextType {
 
 const PincodeContext = createContext<PincodeContextType | undefined>(undefined);
 
-// Mock Serviceable Pincodes
-const VALID_PINCODES = ['110001', '400001', '700001', '560001', '122001', '201301'];
-
 export const PincodeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [pincode, setPincodeState] = useState<string | null>(null);
   const [isServiceable, setIsServiceable] = useState(false);
@@ -26,7 +24,7 @@ export const PincodeProvider: React.FC<{ children: ReactNode }> = ({ children })
       setIsServiceable(true); // Assuming stored means valid
     } else {
       // Prompt user on first visit after a delay
-      const timer = setTimeout(() => setShowModal(true), 3000);
+      const timer = setTimeout(() => setShowModal(true), 1500);
       return () => clearTimeout(timer);
     }
   }, []);
@@ -35,9 +33,9 @@ export const PincodeProvider: React.FC<{ children: ReactNode }> = ({ children })
     // Simulate Backend API Call
     await new Promise(resolve => setTimeout(resolve, 800));
     
-    // Simple logic: Check if it starts with valid prefixes or is in list
-    // In a real app, this hits an API
-    const isValid = VALID_PINCODES.includes(code) || code.startsWith('11') || code.startsWith('40') || code.startsWith('70');
+    // Strict Logic: Must be 6 digits and start with '7433'
+    // Regex: ^7433 verifies start, \d{2}$ verifies exactly 2 digits follow
+    const isValid = /^(7433\d{2})$/.test(code);
     
     if (isValid) {
       setPincodeState(code);

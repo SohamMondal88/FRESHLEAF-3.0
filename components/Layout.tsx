@@ -3,10 +3,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { 
   ShoppingCart, Menu, X, User, Search, Leaf, Phone, MapPin, 
-  Facebook, Twitter, Instagram, LogOut, Crown, ChevronRight, 
-  Mail, ShieldCheck, MessageCircle, Youtube, ShoppingBag, Mic, 
-  Sprout, ArrowRight, Heart, Chrome, Smartphone, Play, Linkedin,
-  Package, LogIn, UserPlus, LayoutDashboard, HelpCircle
+  Facebook, Twitter, Instagram, Linkedin, Youtube, LogOut, Crown, ChevronRight, 
+  Mail, ShoppingBag, Mic, Sprout, ArrowRight, Heart, 
+  Package, LogIn, UserPlus, LayoutDashboard, Navigation, Lock
 } from 'lucide-react';
 import { useCart } from '../services/CartContext';
 import { useAuth } from '../services/AuthContext';
@@ -39,6 +38,8 @@ export const Layout: React.FC = () => {
   const [pincodeInput, setPincodeInput] = useState('');
   const [pincodeLoading, setPincodeLoading] = useState(false);
   const [pincodeError, setPincodeError] = useState('');
+  const [micPermission, setMicPermission] = useState<'default' | 'granted' | 'denied'>('default');
+  const [locPermission, setLocPermission] = useState<'default' | 'granted' | 'denied'>('default');
 
   const totalItems = cartItems.reduce((acc, item) => acc + item.quantity, 0);
 
@@ -93,6 +94,32 @@ export const Layout: React.FC = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const requestMicPermission = async () => {
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      setMicPermission('granted');
+    } catch (err) {
+      setMicPermission('denied');
+      alert("Microphone access denied. Voice search will be unavailable.");
+    }
+  };
+
+  const requestLocationPermission = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLocPermission('granted');
+          // Demo: If location is found, autofill a valid pincode for UX
+          setPincodeInput('743301'); 
+        },
+        (error) => {
+          setLocPermission('denied');
+          alert("Location access denied. Please enter pincode manually.");
+        }
+      );
+    }
+  };
+
   const startVoiceSearch = () => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -113,7 +140,7 @@ export const Layout: React.FC = () => {
       recognition.onend = () => setIsListening(false);
       recognition.start();
     } else {
-      alert("Voice search is not supported in this browser.");
+      requestMicPermission(); // Try asking for permission if not working
     }
   };
 
@@ -128,10 +155,12 @@ export const Layout: React.FC = () => {
 
   const handlePincodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pincodeInput.length !== 6) {
-        setPincodeError("Please enter a valid 6-digit pincode");
+    // Validate client side quickly before async check
+    if (!/^(7433\d{2})$/.test(pincodeInput)) {
+        setPincodeError("We only deliver to pincodes starting with 7433XX");
         return;
     }
+    
     setPincodeLoading(true);
     setPincodeError('');
     const success = await setPincode(pincodeInput);
@@ -152,36 +181,71 @@ export const Layout: React.FC = () => {
   return (
     <div className="flex flex-col min-h-screen font-sans text-gray-800 bg-gray-50/30">
       
-      {/* Pincode Modal */}
+      {/* Enhanced Welcome & Setup Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-            <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl relative border border-gray-100 animate-in zoom-in-95">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
+            {/* Backdrop with blur */}
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-md"></div>
+            
+            <div className="bg-white/90 backdrop-blur-xl rounded-[2rem] p-8 max-w-sm w-full shadow-2xl relative border border-white/50 animate-in zoom-in-95 overflow-hidden">
+                {/* Decorative Elements */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-leaf-400/20 rounded-full blur-3xl -mr-10 -mt-10"></div>
+                <div className="absolute bottom-0 left-0 w-32 h-32 bg-yellow-400/20 rounded-full blur-3xl -ml-10 -mb-10"></div>
+
                 {!isServiceable && (
-                    <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={20}/></button>
+                    <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 z-10"><X size={20}/></button>
                 )}
-                <div className="text-center mb-6">
-                    <div className="bg-leaf-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-leaf-600">
-                        <MapPin size={32} />
+                
+                <div className="text-center mb-8 relative z-10">
+                    <div className="bg-gradient-to-br from-leaf-500 to-leaf-600 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white shadow-lg shadow-leaf-200 rotate-3">
+                        <Leaf size={40} fill="currentColor" />
                     </div>
-                    <h3 className="text-xl font-bold text-gray-900">Check Delivery</h3>
-                    <p className="text-gray-500 text-sm mt-1">Enter your pincode to check product availability in your area.</p>
+                    <h3 className="text-2xl font-extrabold text-gray-900 tracking-tight">Welcome to FreshLeaf</h3>
+                    <p className="text-gray-500 text-sm mt-2 font-medium">Set up your experience to get started.</p>
                 </div>
-                <form onSubmit={handlePincodeSubmit}>
-                    <input 
-                        type="text" 
-                        maxLength={6}
-                        placeholder="Ex: 700001"
-                        value={pincodeInput}
-                        onChange={(e) => setPincodeInput(e.target.value.replace(/[^0-9]/g, ''))}
-                        className="w-full text-center text-lg font-bold tracking-widest border border-gray-200 bg-gray-50 rounded-xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-leaf-500 mb-4"
-                    />
-                    {pincodeError && <p className="text-red-500 text-xs text-center mb-4 font-bold">{pincodeError}</p>}
+
+                {/* Permission Buttons */}
+                <div className="grid grid-cols-2 gap-3 mb-6 relative z-10">
+                    <button 
+                        onClick={requestLocationPermission}
+                        className={`flex flex-col items-center justify-center p-4 rounded-2xl border transition-all duration-300 ${locPermission === 'granted' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white border-gray-100 hover:border-leaf-300 hover:shadow-md'}`}
+                    >
+                        {locPermission === 'granted' ? <MapPin size={24} className="mb-2"/> : <Navigation size={24} className="mb-2 text-blue-500"/>}
+                        <span className="text-xs font-bold">{locPermission === 'granted' ? 'Locating...' : 'Allow Location'}</span>
+                    </button>
+                    <button 
+                        onClick={requestMicPermission}
+                        className={`flex flex-col items-center justify-center p-4 rounded-2xl border transition-all duration-300 ${micPermission === 'granted' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white border-gray-100 hover:border-leaf-300 hover:shadow-md'}`}
+                    >
+                        <Mic size={24} className={`mb-2 ${micPermission === 'granted' ? '' : 'text-red-500'}`}/>
+                        <span className="text-xs font-bold">{micPermission === 'granted' ? 'Voice Active' : 'Allow Voice'}</span>
+                    </button>
+                </div>
+
+                <div className="relative mb-6">
+                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200"></div></div>
+                    <div className="relative flex justify-center text-xs uppercase font-bold text-gray-400 bg-transparent"><span className="bg-white/50 px-2 backdrop-blur-sm">Or Enter Manually</span></div>
+                </div>
+
+                <form onSubmit={handlePincodeSubmit} className="relative z-10">
+                    <div className="relative mb-4">
+                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                        <input 
+                            type="text" 
+                            maxLength={6}
+                            placeholder="Enter Pincode (7433XX)"
+                            value={pincodeInput}
+                            onChange={(e) => setPincodeInput(e.target.value.replace(/[^0-9]/g, ''))}
+                            className="w-full text-center text-lg font-bold tracking-widest border border-gray-200 bg-white/80 rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-leaf-500 focus:bg-white transition shadow-sm placeholder:text-sm placeholder:font-normal placeholder:tracking-normal"
+                        />
+                    </div>
+                    {pincodeError && <div className="text-red-500 text-xs text-center mb-4 font-bold bg-red-50 py-2 rounded-lg">{pincodeError}</div>}
                     <button 
                         type="submit" 
                         disabled={pincodeLoading || pincodeInput.length !== 6}
-                        className="w-full bg-leaf-600 hover:bg-leaf-700 text-white font-bold py-3 rounded-xl transition shadow-lg shadow-leaf-200 disabled:opacity-50 flex items-center justify-center gap-2"
+                        className="w-full bg-gray-900 hover:bg-leaf-600 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-gray-200 hover:shadow-leaf-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                        {pincodeLoading ? 'Checking...' : 'Verify Pincode'}
+                        {pincodeLoading ? 'Verifying...' : 'Check Availability'} <ArrowRight size={18} />
                     </button>
                 </form>
             </div>
