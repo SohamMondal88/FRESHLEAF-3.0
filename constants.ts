@@ -301,6 +301,7 @@ export const MOCK_ORDERS: Order[] = [
     id: 'FL-2023-8991',
     userId: 'mock-user-1',
     date: 'Oct 15, 2023',
+    createdAt: 1697356800000,
     total: 350,
     status: 'Delivered',
     items: [
@@ -308,12 +309,14 @@ export const MOCK_ORDERS: Order[] = [
       { ...PRODUCTS[2], quantity: 5, selectedUnit: '1kg' }  
     ],
     paymentMethod: 'Cash on Delivery',
-    address: '123 Main St, Metro City, 110001'
+    address: '123 Main St, Metro City, 110001',
+    courier: 'FreshLeaf Courier'
   },
   {
     id: 'FL-2023-9021',
     userId: 'mock-user-1',
     date: 'Oct 20, 2023',
+    createdAt: 1697788800000,
     total: 1020,
     status: 'Out for Delivery',
     trackingId: 'TRK-9021-LIVE',
@@ -322,6 +325,7 @@ export const MOCK_ORDERS: Order[] = [
       { ...PRODUCTS[22], quantity: 1, selectedUnit: '1kg' } 
     ],
     paymentMethod: 'Online Payment',
-    address: '123 Main St, Metro City, 110001'
+    address: '123 Main St, Metro City, 110001',
+    courier: 'FreshLeaf Courier'
   }
 ];

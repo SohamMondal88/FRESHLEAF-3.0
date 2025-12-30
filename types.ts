@@ -64,17 +64,27 @@ export interface User {
   walletBalance: number; // Credit points
 }
 
+export interface DeliveryAgent {
+  name: string;
+  phone: string;
+  vehicleNumber: string;
+  avatar: string;
+  rating: number;
+}
+
 export interface Order {
   id: string;
   userId: string;
   date: string;
+  createdAt: number; // Timestamp for cancellation logic
   total: number;
   status: 'Processing' | 'Packed' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
   items: CartItem[];
   trackingId?: string;
   paymentMethod: string;
   address: string;
-  courier?: string; // e.g., 'Bombax'
+  courier: string; 
+  agent?: DeliveryAgent; // Assigned friend
   customerName?: string;
   customerPhone?: string;
 }
