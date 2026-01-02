@@ -1,15 +1,17 @@
 
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Star, Heart, Eye, Minus, Plus, Zap, ChevronLeft, ChevronRight, Zap as BuyIcon } from 'lucide-react';
+import { ShoppingCart, Star, Heart, Eye, Minus, Plus, Zap, ChevronLeft, ChevronRight, Zap as BuyIcon, Sprout, ShoppingBag } from 'lucide-react';
 import { Product } from '../../types';
 import { useCart } from '../../services/CartContext';
 import { useImage } from '../../services/ImageContext';
 import { QuickViewModal } from './QuickViewModal';
+import { FARMERS } from '../../constants';
 
 interface Props {
   product: Product;
   highlightTerm?: string;
+  onWishlistClick?: (product: Product) => void;
 }
 
 const getUnitOptions = (baseUnit: string) => {
@@ -31,7 +33,7 @@ const getUnitOptions = (baseUnit: string) => {
   return [{ label: `1 ${baseUnit}`, multiplier: 1 }];
 };
 
-export const ProductCard: React.FC<Props> = ({ product, highlightTerm }) => {
+export const ProductCard: React.FC<Props> = ({ product, highlightTerm, onWishlistClick }) => {
   const { addToCart, addToWishlist, isInWishlist, removeFromWishlist } = useCart();
   const { getProductImage } = useImage();
   const navigate = useNavigate();
@@ -50,11 +52,25 @@ export const ProductCard: React.FC<Props> = ({ product, highlightTerm }) => {
   const oldDisplayPrice = product.oldPrice ? Math.ceil(product.oldPrice * currentMultiplier) : null;
 
   const displayImage = getProductImage(product.id, product.gallery[currentImageIndex] || product.image);
+  
+  const farmer = FARMERS.find(f => f.id === product.sellerId);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault(); e.stopPropagation();
     addToCart({ ...product, image: getProductImage(product.id, product.image) }, qty, unitLabel, displayPrice);
     setQty(1);
+  };
+
+  const handleQuickAdd = (e: React.MouseEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    // Default to 1 unit of standard size
+    const defaultOpt = unitOptions[defaultUnitIndex];
+    addToCart(
+        { ...product, image: getProductImage(product.id, product.image) }, 
+        1, 
+        defaultOpt.label, 
+        Math.ceil(product.price * defaultOpt.multiplier)
+    );
   };
 
   const handleBuyNow = (e: React.MouseEvent) => {
@@ -65,7 +81,16 @@ export const ProductCard: React.FC<Props> = ({ product, highlightTerm }) => {
 
   const toggleWishlist = (e: React.MouseEvent) => {
     e.preventDefault(); e.stopPropagation();
-    isInWishlist(product.id) ? removeFromWishlist(product.id) : addToWishlist(product);
+    if (onWishlistClick) {
+        onWishlistClick(product);
+    } else {
+        isInWishlist(product.id) ? removeFromWishlist(product.id) : addToWishlist(product);
+    }
+  };
+
+  const handleQuickView = (e: React.MouseEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    setShowQuickView(true);
   };
 
   const renderHighlightedText = (text: string, highlight?: string) => {
@@ -100,21 +125,49 @@ export const ProductCard: React.FC<Props> = ({ product, highlightTerm }) => {
             {product.isOrganic && <span className="bg-leaf-600 text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-sm">Organic</span>}
           </div>
 
-          <button onClick={toggleWishlist} className={`absolute top-3 right-3 p-2 rounded-full shadow-lg transition-all duration-300 z-20 ${isInWishlist(product.id) ? 'bg-red-50 text-red-500 scale-110' : 'bg-white text-gray-400 hover:text-red-500'} ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
-            <Heart size={18} fill={isInWishlist(product.id) ? "currentColor" : "none"} />
-          </button>
+          {/* Action Buttons (Wishlist, Quick View, Quick Add) */}
+          <div className={`absolute top-3 right-3 flex flex-col gap-2 z-20 transition-all duration-300 ${isHovered ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0 lg:translate-x-4'}`}>
+            <button 
+                onClick={toggleWishlist} 
+                className={`p-2.5 rounded-full shadow-md transition-all duration-300 ${isInWishlist(product.id) ? 'bg-red-50 text-red-500 scale-110' : 'bg-white text-gray-400 hover:text-red-500 hover:scale-110'}`}
+                title="Add to Wishlist"
+            >
+                <Heart size={18} fill={isInWishlist(product.id) ? "currentColor" : "none"} />
+            </button>
+            <button 
+                onClick={handleQuickView}
+                className="p-2.5 rounded-full shadow-md bg-white text-gray-400 hover:text-leaf-600 hover:scale-110 transition-all duration-300"
+                title="Quick View"
+            >
+                <Eye size={18} />
+            </button>
+            <button 
+                onClick={handleQuickAdd}
+                className="p-2.5 rounded-full shadow-md bg-leaf-600 text-white hover:bg-leaf-700 hover:scale-110 transition-all duration-300"
+                title="Quick Add 1 Unit"
+            >
+                <ShoppingBag size={18} />
+            </button>
+          </div>
         </div>
         
         <div className="p-5 flex-grow flex flex-col">
-          <Link to={`/product/${product.id}`} className="block mb-3">
-            <h3 className="font-bold text-gray-900 text-lg leading-snug line-clamp-1">{renderHighlightedText(product.name.en, highlightTerm)}</h3>
-            {/* Multilingual names as requested */}
+          <Link to={`/product/${product.id}`} className="block mb-2">
+            <h3 className="font-bold text-gray-900 text-lg leading-snug line-clamp-1 group-hover:text-leaf-700 transition-colors">{renderHighlightedText(product.name.en, highlightTerm)}</h3>
             <div className="flex gap-2 items-center mt-1">
                <span className="text-xs font-bold text-leaf-700 bg-leaf-50 px-2 py-0.5 rounded font-hindi border border-leaf-100">{product.name.bn}</span>
                <span className="text-xs font-medium text-gray-400">|</span>
                <span className="text-xs text-gray-500 font-hindi">{product.name.hi}</span>
             </div>
           </Link>
+
+          {/* Farmer Link */}
+          {farmer && (
+             <Link to={`/farmer/${farmer.id}`} className="flex items-center gap-1.5 mb-3 group/farmer">
+                <Sprout size={12} className="text-leaf-500"/>
+                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide group-hover/farmer:text-leaf-600 transition-colors">Sold by {farmer.name.split(' ')[0]}</span>
+             </Link>
+          )}
           
           <div className="mb-4">
             <div className="relative bg-gray-100/80 rounded-lg p-0.5 flex items-center shadow-inner">
@@ -134,9 +187,9 @@ export const ProductCard: React.FC<Props> = ({ product, highlightTerm }) => {
                  {oldDisplayPrice && <span className="text-xs text-gray-400 line-through">₹{oldDisplayPrice}</span>}
               </div>
               <div className="flex items-center bg-gray-50 border border-gray-100 rounded-lg p-0.5">
-                  <button onClick={(e) => { e.preventDefault(); setQty(Math.max(1, qty - 1)); }} className="w-7 h-7 flex items-center justify-center bg-white rounded-md text-gray-600 shadow-sm transition-all" disabled={qty <= 1}><Minus size={14} /></button>
-                  <span className="w-8 text-center text-xs font-bold text-gray-900">{qty}</span>
-                  <button onClick={(e) => { e.preventDefault(); setQty(qty + 1); }} className="w-7 h-7 flex items-center justify-center bg-white rounded-md text-gray-600 shadow-sm transition-all"><Plus size={14} /></button>
+                  <button onClick={(e) => { e.preventDefault(); setQty(Math.max(1, qty - 1)); }} className="w-8 h-8 flex items-center justify-center bg-white rounded-md text-gray-600 shadow-sm transition-all hover:bg-gray-100 active:scale-95" disabled={qty <= 1}><Minus size={14} /></button>
+                  <span className="w-8 text-center text-sm font-bold text-gray-900">{qty}</span>
+                  <button onClick={(e) => { e.preventDefault(); setQty(qty + 1); }} className="w-8 h-8 flex items-center justify-center bg-white rounded-md text-gray-600 shadow-sm transition-all hover:bg-gray-100 active:scale-95"><Plus size={14} /></button>
               </div>
             </div>
 

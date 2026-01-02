@@ -29,6 +29,7 @@ import { NotFound } from './pages/NotFound';
 import { SellerLanding } from './pages/SellerLanding';
 import { SellerAuth } from './pages/SellerAuth';
 import { SellerDashboard } from './pages/SellerDashboard';
+import { FarmerProfile } from './pages/FarmerProfile';
 
 const App: React.FC = () => {
   return (
@@ -68,6 +69,7 @@ const App: React.FC = () => {
                         <Route path="shipping-policy" element={<ShippingPolicy />} />
                         <Route path="cancellation-policy" element={<CancellationPolicy />} />
                         <Route path="disclaimer" element={<Disclaimer />} />
+                        <Route path="farmer/:id" element={<FarmerProfile />} />
                         <Route path="*" element={<NotFound />} />
                       </Route>
                       <Route path="/dashboard" element={<Dashboard />} />

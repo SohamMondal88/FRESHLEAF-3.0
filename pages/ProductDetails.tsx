@@ -1,10 +1,11 @@
 
 import React, { useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Star, Truck, Shield, Minus, Plus, MapPin, CheckCircle, ArrowLeft, Info, Heart } from 'lucide-react';
+import { Star, Truck, Shield, Minus, Plus, MapPin, CheckCircle, ArrowLeft, Info, Heart, XCircle } from 'lucide-react';
 import { useProduct } from '../services/ProductContext';
 import { useCart } from '../services/CartContext';
 import { useImage } from '../services/ImageContext';
+import { usePincode } from '../services/PincodeContext';
 import { ProductCard } from '../components/ui/ProductCard';
 
 export const ProductDetails: React.FC = () => {
@@ -13,9 +14,13 @@ export const ProductDetails: React.FC = () => {
   const product = products.find(p => p.id === id);
   const { addToCart, addToWishlist, isInWishlist, removeFromWishlist } = useCart();
   const { getProductImage } = useImage();
+  const { pincode, isServiceable, setPincode } = usePincode();
+  
   const [qty, setQty] = useState(1);
   const [activeTab, setActiveTab] = useState<'description' | 'nutrition' | 'reviews'>('description');
-  
+  const [checkPincodeInput, setCheckPincodeInput] = useState(pincode || '');
+  const [pincodeStatus, setPincodeStatus] = useState<'idle' | 'checking' | 'serviceable' | 'unserviceable'>(pincode ? (isServiceable ? 'serviceable' : 'unserviceable') : 'idle');
+
   // Determine initial main image (custom image takes precedence)
   const defaultImage = product?.gallery[0] || product?.image || '';
   const customImage = product ? getProductImage(product.id, defaultImage) : '';
@@ -39,6 +44,15 @@ export const ProductDetails: React.FC = () => {
     } else {
       addToWishlist(product);
     }
+  };
+
+  const handleCheckPincode = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if(checkPincodeInput.length !== 6) return;
+      
+      setPincodeStatus('checking');
+      const success = await setPincode(checkPincodeInput);
+      setPincodeStatus(success ? 'serviceable' : 'unserviceable');
   };
 
   // Mock Nutrition Data Generator
@@ -152,6 +166,28 @@ export const ProductDetails: React.FC = () => {
               <p className="text-gray-600 leading-relaxed mb-8 text-lg">
                 {product.description} Sourced directly from verified organic farms. Handpicked for quality and freshness.
               </p>
+
+              {/* Delivery Checker */}
+              <div className="mb-8 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                  <p className="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-1"><MapPin size={12}/> Check Delivery</p>
+                  <form onSubmit={handleCheckPincode} className="flex gap-2">
+                      <input 
+                        type="text" 
+                        placeholder="Enter Pincode" 
+                        maxLength={6}
+                        value={checkPincodeInput}
+                        onChange={(e) => setCheckPincodeInput(e.target.value.replace(/\D/g, ''))}
+                        className="flex-grow bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm font-bold focus:outline-none focus:border-leaf-500"
+                      />
+                      <button type="submit" className="text-leaf-600 font-bold text-sm px-3 hover:bg-leaf-50 rounded-lg transition">Check</button>
+                  </form>
+                  {pincodeStatus === 'serviceable' && (
+                      <p className="text-xs font-bold text-green-600 mt-2 flex items-center gap-1"><CheckCircle size={12}/> Delivery available to {pincode}</p>
+                  )}
+                  {pincodeStatus === 'unserviceable' && (
+                      <p className="text-xs font-bold text-red-500 mt-2 flex items-center gap-1"><XCircle size={12}/> Not serviceable currently</p>
+                  )}
+              </div>
 
               {/* Actions */}
               <div className="mt-auto">

@@ -64,6 +64,19 @@ export interface User {
   walletBalance: number; // Credit points
 }
 
+export interface Farmer {
+  id: string;
+  name: string;
+  farmName: string;
+  location: string;
+  description: string;
+  avatar: string;
+  coverImage: string;
+  certifications: string[];
+  joinedDate: string;
+  rating: number;
+}
+
 export interface DeliveryAgent {
   name: string;
   phone: string;

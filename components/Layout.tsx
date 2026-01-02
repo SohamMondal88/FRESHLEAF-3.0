@@ -5,7 +5,8 @@ import {
   ShoppingCart, Menu, X, User, Search, Leaf, Phone, MapPin, 
   Facebook, Twitter, Instagram, Linkedin, Youtube, LogOut, Crown, ChevronRight, 
   Mail, ShoppingBag, Mic, Sprout, ArrowRight, Heart, 
-  Package, LogIn, UserPlus, LayoutDashboard, Navigation, Lock
+  Package, LogIn, UserPlus, LayoutDashboard, Navigation, Lock, Camera, ChefHat,
+  Home, BookOpen, HelpCircle
 } from 'lucide-react';
 import { useCart } from '../services/CartContext';
 import { useAuth } from '../services/AuthContext';
@@ -13,6 +14,7 @@ import { useProduct } from '../services/ProductContext';
 import { usePincode } from '../services/PincodeContext';
 import { ChatBot } from './ChatBot';
 import { BackToTop } from './BackToTop';
+import { SmartChef } from './features/SmartChef';
 import { Product } from '../types';
 
 export const Layout: React.FC = () => {
@@ -25,6 +27,9 @@ export const Layout: React.FC = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  
+  // Smart Chef State
+  const [showChef, setShowChef] = useState(false);
 
   // Contexts
   const { cartItems, wishlist } = useCart();
@@ -171,11 +176,11 @@ export const Layout: React.FC = () => {
   };
 
   const navLinks = [
-    { name: 'Home', path: '/home' },
-    { name: 'Shop', path: '/shop' },
-    { name: 'About', path: '/about' },
-    { name: 'Blog', path: '/blog' },
-    { name: 'Contact', path: '/contact' },
+    { name: 'Home', path: '/home', icon: Home },
+    { name: 'Shop', path: '/shop', icon: ShoppingBag },
+    { name: 'About', path: '/about', icon: Leaf },
+    { name: 'Blog', path: '/blog', icon: BookOpen },
+    { name: 'Contact', path: '/contact', icon: Phone },
   ];
 
   return (
@@ -330,16 +335,26 @@ export const Layout: React.FC = () => {
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onFocus={() => { if (searchTerm.length > 1) setShowSuggestions(true); }}
                   placeholder={isListening ? "Listening..." : "Search products..."} 
-                  className={`w-full pl-10 pr-10 py-2.5 bg-gray-100/80 border-transparent border-2 rounded-full focus:bg-white focus:border-leaf-500/30 focus:ring-4 focus:ring-leaf-500/10 transition-all outline-none text-sm placeholder-gray-400 ${isListening ? 'ring-4 ring-red-100 border-red-200 bg-white placeholder-red-400' : ''}`}
+                  className={`w-full pl-10 pr-16 py-2.5 bg-gray-100/80 border-transparent border-2 rounded-full focus:bg-white focus:border-leaf-500/30 focus:ring-4 focus:ring-leaf-500/10 transition-all outline-none text-sm placeholder-gray-400 ${isListening ? 'ring-4 ring-red-100 border-red-200 bg-white placeholder-red-400' : ''}`}
                 />
                 <Search size={18} className={`absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors ${isListening ? 'text-red-500' : 'text-gray-400 group-focus-within:text-leaf-600'}`} />
-                <button 
-                  type="button" 
-                  onClick={startVoiceSearch}
-                  className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-all duration-300 ${isListening ? 'bg-red-500 text-white animate-pulse scale-110' : 'text-gray-400 hover:text-leaf-600 hover:bg-gray-200'}`}
-                >
-                  <Mic size={16} />
-                </button>
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                    <button 
+                      type="button" 
+                      onClick={startVoiceSearch}
+                      className={`p-1.5 rounded-full transition-all duration-300 ${isListening ? 'bg-red-500 text-white animate-pulse' : 'text-gray-400 hover:text-leaf-600 hover:bg-gray-200'}`}
+                    >
+                      <Mic size={14} />
+                    </button>
+                    {/* Visual Search Trigger */}
+                    <button 
+                      type="button"
+                      onClick={() => alert("Snap & Find feature uses camera to identify veggies. (Demo Mode)")} 
+                      className="p-1.5 rounded-full text-gray-400 hover:text-leaf-600 hover:bg-gray-200 transition-all"
+                    >
+                      <Camera size={14} />
+                    </button>
+                </div>
               </form>
               
               {showSuggestions && (
@@ -372,6 +387,16 @@ export const Layout: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-3 sm:gap-4">
+              
+              {/* Smart Chef Button */}
+              <button 
+                onClick={() => setShowChef(true)}
+                className="hidden md:flex p-2.5 rounded-full bg-orange-100/80 text-orange-600 hover:bg-orange-200 transition-all group"
+                title="AI Smart Chef"
+              >
+                <ChefHat size={22} className="group-hover:rotate-12 transition-transform" />
+              </button>
+
               <div className="hidden md:block">
                  {user ? (
                   <Link to={user.role === 'seller' ? '/seller/dashboard' : '/account'} className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border border-gray-100 hover:border-leaf-200 hover:bg-leaf-50/50 transition-all group">
@@ -387,7 +412,7 @@ export const Layout: React.FC = () => {
                 )}
               </div>
 
-              <Link to="/wishlist" className="relative group p-2.5 rounded-full bg-gray-100/80 text-gray-700 hover:bg-red-50 hover:text-red-500 transition-all">
+              <Link to="/wishlist" className="relative group p-2.5 rounded-full bg-gray-100/80 text-gray-700 hover:bg-red-50 hover:text-red-500 transition-all hidden sm:block">
                 <Heart size={22} className="group-hover:scale-110 transition-transform"/>
                 {wishlist.length > 0 && (
                   <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
@@ -405,8 +430,16 @@ export const Layout: React.FC = () => {
                 )}
               </Link>
 
-              <button className="lg:hidden p-2 text-gray-700 hover:bg-gray-100 rounded-full transition-colors" onClick={() => setIsMenuOpen(true)}>
-                <Menu size={24} />
+              {/* Enhanced Hamburger Trigger */}
+              <button 
+                className="lg:hidden p-2.5 text-gray-800 hover:bg-gray-100 rounded-full transition-all active:scale-95 group relative" 
+                onClick={() => setIsMenuOpen(true)}
+              >
+                <div className="space-y-1.5 w-5">
+                    <div className="h-0.5 bg-current w-full rounded-full transition-all group-hover:w-3/4 group-hover:ml-auto"></div>
+                    <div className="h-0.5 bg-current w-full rounded-full"></div>
+                    <div className="h-0.5 bg-current w-3/4 rounded-full transition-all group-hover:w-full"></div>
+                </div>
               </button>
             </div>
           </div>
@@ -414,49 +447,54 @@ export const Layout: React.FC = () => {
       </nav>
 
       {/* Modern Menu Drawer */}
-      <div className={`fixed inset-0 z-50 lg:hidden transition-all duration-500 ${isMenuOpen ? 'visible' : 'invisible'}`}>
+      <div className={`fixed inset-0 z-[60] lg:hidden transition-all duration-500 ${isMenuOpen ? 'visible' : 'invisible'}`}>
+        {/* Backdrop */}
         <div 
-          className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-500 ${isMenuOpen ? 'opacity-100' : 'opacity-0'}`} 
+          className={`absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity duration-500 ${isMenuOpen ? 'opacity-100' : 'opacity-0'}`} 
           onClick={() => setIsMenuOpen(false)}
         />
         
-        <div className={`absolute top-0 right-0 h-full w-[85%] max-w-sm bg-white shadow-2xl transition-transform duration-500 ease-out transform ${isMenuOpen ? 'translate-x-0' : 'translate-x-full'} flex flex-col`}>
+        {/* Modern Glassmorphic Drawer */}
+        <div className={`absolute top-0 right-0 h-full w-[85%] max-w-sm bg-white/95 backdrop-blur-3xl shadow-2xl transition-transform duration-500 cubic-bezier(0.22, 1, 0.36, 1) transform ${isMenuOpen ? 'translate-x-0' : 'translate-x-full'} flex flex-col rounded-l-[3rem] overflow-hidden border-l border-white/50`}>
           
           {/* Header / User Profile */}
-          <div className="bg-gradient-to-br from-leaf-800 to-leaf-600 p-6 text-white shrink-0 relative overflow-hidden">
-              <div className="absolute top-[-20%] right-[-10%] w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
-              <div className="absolute bottom-[-10%] left-[-10%] w-24 h-24 bg-yellow-400/20 rounded-full blur-xl"></div>
+          <div className="bg-gradient-to-br from-leaf-800 via-leaf-700 to-leaf-600 p-8 text-white shrink-0 relative overflow-hidden">
+              <div className="absolute top-[-20%] right-[-10%] w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
+              <div className="absolute bottom-[-10%] left-[-10%] w-32 h-32 bg-yellow-400/20 rounded-full blur-2xl"></div>
 
               <div className="relative z-10">
-                  <div className="flex justify-between items-start mb-6">
-                      <div className="bg-white/20 p-2 rounded-xl backdrop-blur-sm border border-white/20">
-                          <Leaf size={24} className="text-white" />
+                  <div className="flex justify-between items-start mb-8">
+                      <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md border border-white/20 shadow-lg">
+                          <Leaf size={26} className="text-white" />
                       </div>
-                      <button onClick={() => setIsMenuOpen(false)} className="bg-white/10 p-2 rounded-full hover:bg-white/20 transition">
+                      <button onClick={() => setIsMenuOpen(false)} className="bg-white/10 p-2.5 rounded-full hover:bg-white/20 transition hover:rotate-90 duration-300">
                           <X size={20} />
                       </button>
                   </div>
 
                   {user ? (
-                      <div className="flex items-center gap-4" onClick={() => { navigate('/account'); setIsMenuOpen(false); }}>
-                          <img src={user.avatar} alt={user.name} className="w-14 h-14 rounded-full border-2 border-white/50 object-cover bg-white" />
+                      <div className="flex items-center gap-4 group cursor-pointer" onClick={() => { navigate('/account'); setIsMenuOpen(false); }}>
+                          <div className="relative">
+                             <img src={user.avatar} alt={user.name} className="w-16 h-16 rounded-full border-4 border-white/20 object-cover bg-white shadow-xl" />
+                             <div className="absolute bottom-0 right-0 bg-green-400 w-4 h-4 rounded-full border-2 border-leaf-700"></div>
+                          </div>
                           <div>
-                              <h3 className="font-bold text-lg leading-tight">{user.name}</h3>
-                              <p className="text-leaf-100 text-xs">{user.email}</p>
-                              <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                              <h3 className="font-bold text-xl leading-tight group-hover:text-yellow-200 transition-colors">{user.name}</h3>
+                              <p className="text-leaf-100 text-xs font-medium tracking-wide mb-1">{user.email}</p>
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-black/20 px-3 py-1 rounded-full uppercase tracking-wider backdrop-blur-sm border border-white/10">
                                   View Profile <ChevronRight size={10} />
                               </span>
                           </div>
                       </div>
                   ) : (
-                      <div>
-                          <h3 className="text-2xl font-bold mb-1">Welcome!</h3>
-                          <p className="text-leaf-100 text-sm mb-4">Login to access your orders & offers.</p>
+                      <div className="animate-in fade-in slide-in-from-bottom-2">
+                          <h3 className="text-3xl font-extrabold mb-1 tracking-tight">Hello! 👋</h3>
+                          <p className="text-leaf-100 text-sm mb-6 font-medium">Join us for exclusive organic deals.</p>
                           <div className="flex gap-3">
-                              <Link to="/login" onClick={() => setIsMenuOpen(false)} className="flex-1 bg-white text-leaf-800 py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg hover:bg-gray-50 transition">
+                              <Link to="/login" onClick={() => setIsMenuOpen(false)} className="flex-1 bg-white text-leaf-900 py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:scale-105 transition-all">
                                   <LogIn size={16} /> Login
                               </Link>
-                              <Link to="/signup" onClick={() => setIsMenuOpen(false)} className="flex-1 bg-leaf-900/30 border border-white/30 text-white py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-leaf-900/50 transition">
+                              <Link to="/signup" onClick={() => setIsMenuOpen(false)} className="flex-1 bg-leaf-900/40 border border-white/40 text-white py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-leaf-900/60 transition-all backdrop-blur-md">
                                   <UserPlus size={16} /> Sign Up
                               </Link>
                           </div>
@@ -466,102 +504,97 @@ export const Layout: React.FC = () => {
           </div>
 
           {/* Scrollable Content */}
-          <div className="flex-grow overflow-y-auto p-4 space-y-6">
+          <div className="flex-grow overflow-y-auto p-6 space-y-8 bg-gradient-to-b from-white to-gray-50/50">
 
-              {/* Quick Links Grid */}
-              <div className="grid grid-cols-2 gap-3">
-                  <Link to="/orders" onClick={() => setIsMenuOpen(false)} className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex flex-col items-center justify-center gap-2 hover:bg-leaf-50 hover:border-leaf-200 transition group shadow-sm">
-                      <Package size={24} className="text-leaf-600 group-hover:scale-110 transition-transform" />
-                      <span className="text-xs font-bold text-gray-700">My Orders</span>
+              {/* Quick Actions */}
+              <div className="grid grid-cols-2 gap-4">
+                  <button onClick={() => { setShowChef(true); setIsMenuOpen(false); }} className="bg-orange-50 p-5 rounded-3xl border border-orange-100 flex flex-col items-center justify-center gap-3 hover:bg-orange-100 transition group shadow-sm active:scale-95 duration-200">
+                      <div className="bg-white p-3 rounded-full shadow-sm text-orange-500 group-hover:scale-110 transition-transform"><ChefHat size={22} /></div>
+                      <span className="text-xs font-bold text-gray-800">Smart Chef</span>
+                  </button>
+                  <Link to="/orders" onClick={() => setIsMenuOpen(false)} className="bg-blue-50 p-5 rounded-3xl border border-blue-100 flex flex-col items-center justify-center gap-3 hover:bg-blue-100 transition group shadow-sm active:scale-95 duration-200">
+                      <div className="bg-white p-3 rounded-full shadow-sm text-blue-500 group-hover:scale-110 transition-transform"><Package size={22} /></div>
+                      <span className="text-xs font-bold text-gray-800">My Orders</span>
                   </Link>
-                  <Link to="/wishlist" onClick={() => setIsMenuOpen(false)} className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex flex-col items-center justify-center gap-2 hover:bg-red-50 hover:border-red-200 transition group shadow-sm">
-                      <Heart size={24} className="text-red-500 group-hover:scale-110 transition-transform" />
-                      <span className="text-xs font-bold text-gray-700">Wishlist</span>
-                  </Link>
-                  <Link to="/cart" onClick={() => setIsMenuOpen(false)} className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex flex-col items-center justify-center gap-2 hover:bg-blue-50 hover:border-blue-200 transition group shadow-sm">
-                      <div className="relative">
-                          <ShoppingBag size={24} className="text-blue-600 group-hover:scale-110 transition-transform" />
-                          {totalItems > 0 && <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />}
-                      </div>
-                      <span className="text-xs font-bold text-gray-700">Cart ({totalItems})</span>
-                  </Link>
-                  <Link to="/shop" onClick={() => setIsMenuOpen(false)} className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex flex-col items-center justify-center gap-2 hover:bg-orange-50 hover:border-orange-200 transition group shadow-sm">
-                      <LayoutDashboard size={24} className="text-orange-500 group-hover:scale-110 transition-transform" />
-                      <span className="text-xs font-bold text-gray-700">Explore</span>
-                  </Link>
+              </div>
+
+              {/* Navigation */}
+              <div>
+                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 ml-2">Browse</h4>
+                  <div className="space-y-2">
+                      {navLinks.map((link, i) => (
+                          <Link
+                              key={link.path}
+                              to={link.path}
+                              onClick={() => setIsMenuOpen(false)}
+                              className={`flex items-center gap-4 p-4 rounded-2xl transition-all duration-200 group ${
+                                location.pathname === link.path 
+                                  ? 'bg-leaf-50 text-leaf-700 shadow-sm border border-leaf-100' 
+                                  : 'hover:bg-white hover:shadow-md hover:scale-[1.02] text-gray-600'
+                              } animate-in slide-in-from-right-4 fade-in fill-mode-backwards`}
+                              style={{ animationDelay: `${i * 50}ms` }}
+                          >
+                              <div className={`p-2 rounded-xl transition-colors ${location.pathname === link.path ? 'bg-white text-leaf-600' : 'bg-gray-100 text-gray-500 group-hover:bg-leaf-50 group-hover:text-leaf-600'}`}>
+                                <link.icon size={20} />
+                              </div>
+                              <span className="font-bold text-base">{link.name}</span>
+                              <ChevronRight size={16} className={`ml-auto text-gray-300 transition-transform ${location.pathname === link.path ? 'text-leaf-400' : 'group-hover:text-leaf-400 group-hover:translate-x-1'}`} />
+                          </Link>
+                      ))}
+                  </div>
               </div>
 
               {/* Categories */}
               <div>
-                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 ml-2">Shop By Category</h4>
-                  <div className="space-y-1">
+                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 ml-2">Categories</h4>
+                  <div className="grid grid-cols-2 gap-3">
                       {[
-                          { name: 'Fresh Fruits', icon: '🍎', path: '/shop?category=Fruit' },
-                          { name: 'Daily Vegetables', icon: '🥦', path: '/shop?category=Veg' },
-                          { name: 'Leafy Greens', icon: '🥬', path: '/shop?category=Leafy' },
-                          { name: 'Exotic & Imported', icon: '🥑', path: '/shop?category=Exotic' },
+                          { name: 'Fruits', icon: '🍎', path: '/shop?category=Fruit', color: 'bg-red-50 hover:bg-red-100' },
+                          { name: 'Veggies', icon: '🥦', path: '/shop?category=Veg', color: 'bg-green-50 hover:bg-green-100' },
+                          { name: 'Greens', icon: '🥬', path: '/shop?category=Leafy', color: 'bg-emerald-50 hover:bg-emerald-100' },
+                          { name: 'Exotic', icon: '🥑', path: '/shop?category=Exotic', color: 'bg-purple-50 hover:bg-purple-100' },
                       ].map((cat, i) => (
                           <Link
                               key={i}
                               to={cat.path}
                               onClick={() => setIsMenuOpen(false)}
-                              className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition active:scale-95 group"
+                              className={`${cat.color} p-3 rounded-2xl flex items-center gap-3 transition-transform active:scale-95 animate-in slide-in-from-bottom-2`}
+                              style={{ animationDelay: `${200 + (i * 50)}ms` }}
                           >
-                              <span className="text-xl bg-gray-100 w-10 h-10 flex items-center justify-center rounded-lg group-hover:bg-white group-hover:shadow-sm transition">{cat.icon}</span>
-                              <span className="font-bold text-gray-700 text-sm flex-grow">{cat.name}</span>
-                              <ChevronRight size={16} className="text-gray-400 group-hover:translate-x-1 transition-transform" />
+                              <span className="text-xl">{cat.icon}</span>
+                              <span className="font-bold text-xs text-gray-800">{cat.name}</span>
                           </Link>
                       ))}
-                  </div>
-              </div>
-
-              {/* Main Nav Links */}
-              <div>
-                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 ml-2">Menu</h4>
-                  <div className="space-y-1">
-                      {navLinks.map((link) => (
-                          <Link
-                              key={link.path}
-                              to={link.path}
-                              onClick={() => setIsMenuOpen(false)}
-                              className={`flex items-center gap-3 p-3 rounded-xl transition font-medium ${location.pathname === link.path ? 'bg-leaf-50 text-leaf-700 font-bold' : 'text-gray-600 hover:bg-gray-50'}`}
-                          >
-                              <span className="text-sm">{link.name}</span>
-                          </Link>
-                      ))}
-                      <Link to="/contact" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 p-3 rounded-xl text-gray-600 hover:bg-gray-50 transition font-medium">
-                          <span className="text-sm">Help Center</span>
-                      </Link>
                   </div>
               </div>
 
               {/* Seller CTA */}
-              <Link to="/seller" onClick={() => setIsMenuOpen(false)} className="block bg-gradient-to-r from-yellow-400 to-orange-400 p-4 rounded-2xl text-white shadow-lg relative overflow-hidden group hover:shadow-xl transition-all">
-                  <div className="relative z-10 flex items-center justify-between">
+              <Link to="/seller" onClick={() => setIsMenuOpen(false)} className="block relative overflow-hidden rounded-3xl group shadow-lg">
+                  <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 to-orange-500 transition-transform duration-500 group-hover:scale-110"></div>
+                  <div className="relative z-10 p-5 flex items-center justify-between text-white">
                       <div>
-                          <h4 className="font-bold text-lg mb-1">Become a Seller</h4>
-                          <p className="text-xs text-white/90">Sell produce directly to customers</p>
+                          <h4 className="font-bold text-lg leading-none mb-1">Sell on FreshLeaf</h4>
+                          <p className="text-[10px] opacity-90 font-medium uppercase tracking-wide">Join 15k+ Farmers</p>
                       </div>
-                      <div className="bg-white/20 p-2 rounded-full"><Sprout size={20} /></div>
+                      <div className="bg-white/20 p-2.5 rounded-full backdrop-blur-sm group-hover:rotate-12 transition-transform"><Sprout size={20} /></div>
                   </div>
-                  <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
               </Link>
 
           </div>
 
           {/* Footer */}
-          <div className="p-4 border-t border-gray-100 bg-gray-50">
-              <div className="flex justify-center gap-6 mb-4">
-                  <a href="#" className="text-gray-400 hover:text-blue-600 transition p-2 hover:bg-blue-50 rounded-full"><Facebook size={20} /></a>
-                  <a href="#" className="text-gray-400 hover:text-blue-400 transition p-2 hover:bg-blue-50 rounded-full"><Twitter size={20} /></a>
-                  <a href="#" className="text-gray-400 hover:text-pink-600 transition p-2 hover:bg-pink-50 rounded-full"><Instagram size={20} /></a>
-              </div>
+          <div className="p-6 bg-gray-50 border-t border-gray-100 shrink-0">
               {user && (
-                  <button onClick={() => { logout(); setIsMenuOpen(false); }} className="w-full flex items-center justify-center gap-2 text-red-500 font-bold text-sm py-2.5 rounded-xl hover:bg-red-50 transition border border-transparent hover:border-red-100">
-                      <LogOut size={16} /> Sign Out
+                  <button onClick={() => { logout(); setIsMenuOpen(false); }} className="w-full flex items-center justify-center gap-2 text-red-500 font-bold text-sm py-3.5 rounded-2xl hover:bg-red-50 transition border border-transparent hover:border-red-100 mb-4">
+                      <LogOut size={18} /> Sign Out
                   </button>
               )}
-              <p className="text-center text-[10px] text-gray-400 mt-3 font-medium">v2.4.0 • © 2024 FreshLeaf Technologies</p>
+              <div className="flex justify-center gap-6">
+                  <a href="#" className="text-gray-400 hover:text-blue-600 transition p-2 hover:bg-white rounded-full"><Facebook size={20} /></a>
+                  <a href="#" className="text-gray-400 hover:text-blue-400 transition p-2 hover:bg-white rounded-full"><Twitter size={20} /></a>
+                  <a href="#" className="text-gray-400 hover:text-pink-600 transition p-2 hover:bg-white rounded-full"><Instagram size={20} /></a>
+              </div>
+              <p className="text-center text-[10px] text-gray-400 mt-4 font-bold tracking-wide">v2.5 • FreshLeaf Technologies</p>
           </div>
         </div>
       </div>
@@ -572,6 +605,7 @@ export const Layout: React.FC = () => {
 
       <ChatBot />
       <BackToTop />
+      <SmartChef isOpen={showChef} onClose={() => setShowChef(false)} />
       
       {/* Enhanced Responsive Footer */}
       <footer className="bg-gray-900 text-white pt-16 pb-8 border-t border-gray-800 font-sans mt-20 relative overflow-hidden">

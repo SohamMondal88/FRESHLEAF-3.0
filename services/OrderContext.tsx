@@ -48,7 +48,7 @@ const MY_AGENTS: DeliveryAgent[] = [
 ];
 
 export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user, updateWallet } = useAuth();
   const { addToast } = useToast();
   const [orders, setOrders] = useState<Order[]>([]);
 
@@ -195,7 +195,15 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
 
     updateOrderStatus(orderId, 'Cancelled');
-    addToast("Order cancelled successfully. Refund initiated.", "success");
+    
+    // Refund logic: Credit wallet if paid online/wallet
+    if (order.paymentMethod !== 'Cash on Delivery') {
+        updateWallet(order.total);
+        addToast(`Order Cancelled. ₹${order.total} refunded to wallet.`, "success");
+    } else {
+        addToast("Order Cancelled.", "success");
+    }
+    
     return true;
   };
 

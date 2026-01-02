@@ -5,7 +5,8 @@ import {
   Search, X, Filter, ArrowUpDown, Star, Leaf, 
   MapPin, Zap, ChevronDown, RefreshCw, Grid, 
   BookOpen, ShoppingCart, Check, ChevronRight, ChevronLeft,
-  Sun, Snowflake, Coffee, ShoppingBag, Flame, ArrowRight
+  Sun, Snowflake, Coffee, ShoppingBag, Flame, ArrowRight,
+  CloudRain
 } from 'lucide-react';
 import { useProduct } from '../services/ProductContext';
 import { useCart } from '../services/CartContext';
@@ -167,6 +168,7 @@ export const Shop: React.FC = () => {
   });
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   
   // Device Check - Treat Tablets (>=768px) as "Grid View" devices
   const [isLargeScreen, setIsLargeScreen] = useState(window.innerWidth >= 768);
@@ -193,6 +195,39 @@ export const Shop: React.FC = () => {
     benefits: ['Rich in Fiber', 'Vitamin Boost', 'Antioxidant'].slice(0, 2),
     calories: Math.floor(Math.random() * 80 + 20)
   });
+
+  // --- SEASONAL LOGIC ---
+  const seasonalBestSellers = useMemo(() => {
+    const month = new Date().getMonth(); // 0-11
+    let keywords: string[] = [];
+    let seasonName = "";
+    let seasonIcon = Sun;
+    let seasonColor = "text-orange-500";
+
+    // Simple seasonality mapping
+    if (month >= 2 && month <= 5) { // Mar - Jun (Summer)
+        keywords = ['Mango', 'Melon', 'Cucumber', 'Lychee', 'Watermelon'];
+        seasonName = "Summer Specials";
+        seasonIcon = Sun;
+        seasonColor = "text-yellow-500";
+    } else if (month >= 6 && month <= 9) { // Jul - Oct (Monsoon)
+        keywords = ['Corn', 'Gourd', 'Pumpkin', 'Guava', 'Jamun'];
+        seasonName = "Monsoon Harvest";
+        seasonIcon = CloudRain;
+        seasonColor = "text-blue-500";
+    } else { // Nov - Feb (Winter)
+        keywords = ['Carrot', 'Peas', 'Orange', 'Spinach', 'Mustard', 'Radish', 'Strawberry', 'Berry'];
+        seasonName = "Winter Wonders";
+        seasonIcon = Snowflake;
+        seasonColor = "text-blue-400";
+    }
+
+    const seasonal = products.filter(p => 
+        keywords.some(k => p.name.en.includes(k) || p.category.includes(k)) && p.rating >= 4.0
+    ).sort((a,b) => b.rating - a.rating).slice(0, 4);
+
+    return { products: seasonal, name: seasonName, icon: seasonIcon, color: seasonColor };
+  }, [products]);
 
   // --- DERIVED DATA ---
   const categories = useMemo(() => {
@@ -247,6 +282,16 @@ export const Shop: React.FC = () => {
       }
     });
   }, [products, query, selectedCategory, priceRange, filters, sortOption]);
+
+  // Suggestions logic
+  const suggestions = useMemo(() => {
+      if (!query || query.length < 2) return [];
+      const lowerQ = query.toLowerCase();
+      return products.filter(p => 
+          p.name.en.toLowerCase().includes(lowerQ) || 
+          p.category.toLowerCase().includes(lowerQ)
+      ).slice(0, 5);
+  }, [query, products]);
 
   // --- CURATED COLLECTIONS (Daily Rotate) ---
   const curatedCollections = useMemo(() => {
@@ -373,18 +418,55 @@ export const Shop: React.FC = () => {
           <div className="space-y-2 pb-20">
              
              {/* Search Bar */}
-             <div className="px-4 mb-6">
+             <div className="px-4 mb-6 relative z-20">
                <div className="relative">
                  <input 
                    type="text" 
                    value={query}
-                   onChange={(e) => { setSearchParams({ ...Object.fromEntries(searchParams), q: e.target.value }); }}
+                   onChange={(e) => { 
+                       setSearchParams({ ...Object.fromEntries(searchParams), q: e.target.value });
+                       setShowSuggestions(true);
+                   }}
+                   onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                    placeholder="Search items..." 
                    className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-leaf-500 shadow-sm"
                  />
                  <Search className="absolute left-3 top-3 text-gray-400" size={18}/>
+                 
+                 {/* Suggestions Dropdown */}
+                 {showSuggestions && suggestions.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 bg-white rounded-xl shadow-xl mt-2 border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-1">
+                        {suggestions.map(s => (
+                            <button 
+                                key={s.id} 
+                                className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 border-b border-gray-50 last:border-0"
+                                onClick={() => {
+                                    setSearchParams({ q: s.name.en });
+                                    setShowSuggestions(false);
+                                }}
+                            >
+                                <img src={s.image} alt="" className="w-8 h-8 rounded object-cover" />
+                                <div>
+                                    <p className="text-sm font-bold text-gray-900">{s.name.en}</p>
+                                    <p className="text-xs text-gray-500">{s.category}</p>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                 )}
                </div>
              </div>
+
+             {/* Seasonal Best Sellers (Mobile) */}
+             {seasonalBestSellers.products.length > 0 && (
+                <Mobile3DCarousel 
+                    title={seasonalBestSellers.name} 
+                    subtitle="In Season Now • Top Rated" 
+                    products={seasonalBestSellers.products} 
+                    onSeeAll={() => handleCategoryChange('All')} 
+                    bgColor="bg-gradient-to-r from-yellow-50 to-orange-50"
+                />
+             )}
 
              {/* 1. Fruits */}
              <Mobile3DCarousel 
@@ -394,7 +476,7 @@ export const Shop: React.FC = () => {
                 onSeeAll={() => handleCategoryChange('Fruits')} 
              />
 
-             {/* 2. Vegetables */}
+             {/* ... other carousels ... */}
              <Mobile3DCarousel 
                 title="Daily Farm Veggies" 
                 subtitle="Harvested at dawn" 
@@ -402,7 +484,6 @@ export const Shop: React.FC = () => {
                 onSeeAll={() => handleCategoryChange('Vegetables')} 
              />
 
-             {/* 3. Leafy */}
              <Mobile3DCarousel 
                 title="Leafy Greens" 
                 subtitle="Iron-packed foliage" 
@@ -411,7 +492,6 @@ export const Shop: React.FC = () => {
                 bgColor="bg-green-50/50"
              />
 
-             {/* 4. Exotic */}
              <Mobile3DCarousel 
                 title="Exotic & Imported" 
                 subtitle="Rare finds globally" 
@@ -419,7 +499,6 @@ export const Shop: React.FC = () => {
                 onSeeAll={() => handleCategoryChange('Exotic')} 
              />
 
-             {/* 5. Deals */}
              <Mobile3DCarousel 
                 title="⚡ Deals of the Day" 
                 subtitle="Limited time offers" 
@@ -428,46 +507,11 @@ export const Shop: React.FC = () => {
                 bgColor="bg-orange-50/50"
              />
 
-             {/* 6. Budget Picks */}
              <Mobile3DCarousel 
                 title="🔥 Budget Picks" 
                 subtitle="Profitable choices under ₹60" 
                 products={curatedCollections.budget} 
                 onSeeAll={() => setPriceRange(60)} 
-             />
-
-             {/* 7. Breakfast */}
-             <Mobile3DCarousel 
-                title="☕ Breakfast Club" 
-                subtitle="Start your day right" 
-                products={curatedCollections.breakfast} 
-                onSeeAll={() => handleCategoryChange('Fruits')} 
-             />
-
-             {/* 8. Summer */}
-             <Mobile3DCarousel 
-                title="☀️ Summer Coolers" 
-                subtitle="Hydrating seasonal picks" 
-                products={curatedCollections.summer} 
-                onSeeAll={() => handleCategoryChange('Fruits')} 
-                bgColor="bg-yellow-50/50"
-             />
-
-             {/* 9. Winter */}
-             <Mobile3DCarousel 
-                title="❄️ Winter Warmers" 
-                subtitle="Root veggies & greens" 
-                products={curatedCollections.winter} 
-                onSeeAll={() => handleCategoryChange('Vegetables')} 
-                bgColor="bg-blue-50/50"
-             />
-
-             {/* 10. Everyday */}
-             <Mobile3DCarousel 
-                title="🏠 Everyday Essentials" 
-                subtitle="Staples for every kitchen" 
-                products={curatedCollections.everyday} 
-                onSeeAll={() => handleCategoryChange('Vegetables')} 
              />
 
           </div>
@@ -476,17 +520,42 @@ export const Shop: React.FC = () => {
           <div className="flex flex-col lg:flex-row gap-10 animate-in fade-in slide-in-from-bottom-4 px-4 md:px-0">
             
             {/* SIDEBAR FILTER (Hidden on Mobile, Visible on Laptop/Desktop) */}
-            {/* For Tablets, we will use the Mobile Filter Drawer to save space, or you can use lg:block */}
-            <aside className="hidden lg:block w-72 flex-shrink-0 space-y-8 sticky top-32 h-fit">
+            <aside className="hidden lg:block w-72 flex-shrink-0 space-y-8 sticky top-32 h-fit z-20">
               <div className="relative">
                  <Search className="absolute left-4 top-3.5 text-gray-400" size={18}/>
                  <input 
                    type="text" 
                    value={query}
-                   onChange={(e) => { setSearchParams({ ...Object.fromEntries(searchParams), q: e.target.value }); }}
+                   onChange={(e) => { 
+                       setSearchParams({ ...Object.fromEntries(searchParams), q: e.target.value });
+                       setShowSuggestions(true);
+                   }}
+                   onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                    placeholder="Search catalogue..." 
                    className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-leaf-500 focus:ring-4 focus:ring-leaf-500/10 transition shadow-sm"
                  />
+                 
+                 {/* Desktop Suggestions */}
+                 {showSuggestions && suggestions.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 bg-white rounded-xl shadow-xl mt-2 border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-1 z-30">
+                        {suggestions.map(s => (
+                            <button 
+                                key={s.id} 
+                                className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 border-b border-gray-50 last:border-0"
+                                onClick={() => {
+                                    setSearchParams({ q: s.name.en });
+                                    setShowSuggestions(false);
+                                }}
+                            >
+                                <img src={s.image} alt="" className="w-8 h-8 rounded object-cover bg-gray-100" />
+                                <div>
+                                    <p className="text-sm font-bold text-gray-900">{s.name.en}</p>
+                                    <p className="text-[10px] text-gray-500">{s.category}</p>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                 )}
               </div>
 
               {/* View Mode Toggle */}
@@ -560,6 +629,29 @@ export const Shop: React.FC = () => {
             {/* MAIN GRID CONTENT */}
             <main className="flex-1">
                
+               {/* Seasonal Banner (Desktop) */}
+               {isDefaultView && seasonalBestSellers.products.length > 0 && (
+                   <div className="mb-8 bg-white rounded-3xl p-6 shadow-sm border border-gray-100 relative overflow-hidden">
+                       <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-100/50 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+                       
+                       <div className="flex items-center gap-3 mb-6 relative z-10">
+                           <div className="bg-yellow-100 p-2 rounded-xl text-yellow-700"><seasonalBestSellers.icon size={24}/></div>
+                           <div>
+                               <h2 className={`text-xl font-extrabold text-gray-900 ${seasonalBestSellers.color}`}>{seasonalBestSellers.name}</h2>
+                               <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Handpicked for this month</p>
+                           </div>
+                       </div>
+
+                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 relative z-10">
+                           {seasonalBestSellers.products.map(p => (
+                               <div key={p.id} className="scale-90 origin-top-left">
+                                   <ProductCard product={p} />
+                               </div>
+                           ))}
+                       </div>
+                   </div>
+               )}
+
                {/* Header Bar */}
                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
                   <div className="flex items-center gap-2 text-sm text-gray-500">

@@ -10,6 +10,8 @@ export const Cart: React.FC = () => {
   const { getProductImage } = useImage();
   const navigate = useNavigate();
   const [confirmRemove, setConfirmRemove] = useState<{id: string, unit: string, name: string} | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const MIN_ORDER_VALUE = 100;
   const FREE_DELIVERY_THRESHOLD = 200;
@@ -23,20 +25,33 @@ export const Cart: React.FC = () => {
 
   const confirmRemoval = () => {
     if (confirmRemove) {
-      removeFromCart(confirmRemove.id, confirmRemove.unit);
-      setConfirmRemove(null);
+      // Trigger exit animation
+      setRemovingId(`${confirmRemove.id}-${confirmRemove.unit}`);
+      
+      // Wait for animation to finish before actual removal
+      setTimeout(() => {
+        removeFromCart(confirmRemove.id, confirmRemove.unit);
+        setConfirmRemove(null);
+        setRemovingId(null);
+      }, 400); // Duration matches CSS transition
     }
+  };
+
+  const handleUpdateQuantity = (id: string, unit: string, newQty: number) => {
+      setUpdatingId(`${id}-${unit}`);
+      updateQuantity(id, unit, newQty);
+      setTimeout(() => setUpdatingId(null), 300);
   };
 
   if (cartItems.length === 0) {
     return (
       <div className="min-h-[70vh] flex flex-col items-center justify-center p-4 bg-gray-50">
-        <div className="bg-white p-8 rounded-full shadow-lg mb-6 animate-in zoom-in duration-300">
+        <div className="bg-white p-8 rounded-full shadow-lg mb-6 animate-in zoom-in duration-500 hover:scale-110 transition-transform">
           <ShoppingBag size={64} className="text-leaf-300" />
         </div>
-        <h2 className="text-3xl font-bold text-gray-900 mb-3">Your cart is empty</h2>
-        <p className="text-gray-500 mb-8 text-lg">Fresh vegetables are waiting for you!</p>
-        <Link to="/shop" className="bg-leaf-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-leaf-700 transition shadow-lg shadow-leaf-200">
+        <h2 className="text-3xl font-bold text-gray-900 mb-3 animate-in slide-in-from-bottom-2">Your cart is empty</h2>
+        <p className="text-gray-500 mb-8 text-lg animate-in slide-in-from-bottom-4">Fresh vegetables are waiting for you!</p>
+        <Link to="/shop" className="bg-leaf-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-leaf-700 transition shadow-lg shadow-leaf-200 hover:-translate-y-1 animate-in slide-in-from-bottom-6">
           Start Shopping
         </Link>
       </div>
@@ -57,7 +72,7 @@ export const Cart: React.FC = () => {
               <X size={20} />
             </button>
             <div className="flex justify-center mb-4">
-               <div className="bg-red-50 p-4 rounded-full">
+               <div className="bg-red-50 p-4 rounded-full animate-bounce">
                  <AlertTriangle size={32} className="text-red-500" />
                </div>
             </div>
@@ -86,7 +101,7 @@ export const Cart: React.FC = () => {
       <div className="container mx-auto px-4 max-w-6xl">
         <div className="flex items-center gap-4 mb-8">
            <h1 className="text-3xl font-bold text-gray-900">Shopping Cart</h1>
-           <span className="bg-leaf-100 text-leaf-700 font-bold px-3 py-1 rounded-full text-sm">{cartItems.length} items</span>
+           <span className="bg-leaf-100 text-leaf-700 font-bold px-3 py-1 rounded-full text-sm animate-pulse">{cartItems.length} items</span>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8">
@@ -101,71 +116,79 @@ export const Cart: React.FC = () => {
               </div>
 
               <div className="divide-y divide-gray-100">
-                {cartItems.map((item) => (
-                  <div key={`${item.id}-${item.selectedUnit}`} className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6 p-4 md:p-6 items-center hover:bg-gray-50/50 transition">
-                    
-                    {/* Mobile: Product Info & Image */}
-                    <div className="col-span-1 md:col-span-6 flex items-start md:items-center gap-4">
-                      <div className="w-16 h-16 md:w-20 md:h-20 rounded-xl bg-gray-100 p-1 flex-shrink-0 border border-gray-100">
-                         <img src={getProductImage(item.id, item.image)} alt={item.name.en} className="w-full h-full object-cover rounded-lg mix-blend-multiply" />
-                      </div>
-                      <div className="flex-grow">
-                        <h3 className="font-bold text-gray-900 text-base md:text-lg">{item.name.en}</h3>
-                        <p className="text-sm text-gray-500 mb-1 font-hindi">{item.name.hi}</p>
-                        <span className="inline-block bg-white border border-gray-200 text-gray-600 text-[10px] md:text-xs font-bold px-2 py-0.5 rounded">
-                          {item.selectedUnit}
-                        </span>
-                        {/* Mobile Price display inline */}
-                        <div className="md:hidden mt-2 font-bold text-leaf-700">
-                            {formatPrice(item.price)} <span className="text-xs text-gray-400 font-normal">/ unit</span>
+                {cartItems.map((item) => {
+                  const uniqueId = `${item.id}-${item.selectedUnit}`;
+                  const isRemoving = removingId === uniqueId;
+                  const isUpdating = updatingId === uniqueId;
+
+                  return (
+                    <div 
+                        key={uniqueId} 
+                        className={`grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6 p-4 md:p-6 items-center hover:bg-gray-50/50 transition-all duration-300 transform ${isRemoving ? 'translate-x-full opacity-0 h-0 p-0 overflow-hidden' : 'translate-x-0 opacity-100'}`}
+                    >
+                        {/* Mobile: Product Info & Image */}
+                        <div className="col-span-1 md:col-span-6 flex items-start md:items-center gap-4">
+                        <div className="w-16 h-16 md:w-20 md:h-20 rounded-xl bg-gray-100 p-1 flex-shrink-0 border border-gray-100">
+                            <img src={getProductImage(item.id, item.image)} alt={item.name.en} className="w-full h-full object-cover rounded-lg mix-blend-multiply" />
                         </div>
-                      </div>
-                      {/* Mobile Remove Button (Top Right) */}
-                      <button 
-                            onClick={() => initiateRemove(item.id, item.selectedUnit, item.name.en)} 
-                            className="md:hidden text-gray-400 hover:text-red-500 p-2 rounded-full transition"
-                            title="Remove Item"
-                         >
-                            <Trash2 size={18} />
-                      </button>
-                    </div>
-                    
-                    {/* Desktop Price */}
-                    <div className="hidden md:block col-span-1 md:col-span-2 text-gray-700 font-medium text-center">
-                      {formatPrice(item.price)}
-                    </div>
+                        <div className="flex-grow">
+                            <h3 className="font-bold text-gray-900 text-base md:text-lg">{item.name.en}</h3>
+                            <p className="text-sm text-gray-500 mb-1 font-hindi">{item.name.hi}</p>
+                            <span className="inline-block bg-white border border-gray-200 text-gray-600 text-[10px] md:text-xs font-bold px-2 py-0.5 rounded">
+                            {item.selectedUnit}
+                            </span>
+                            {/* Mobile Price display inline */}
+                            <div className="md:hidden mt-2 font-bold text-leaf-700">
+                                {formatPrice(item.price)} <span className="text-xs text-gray-400 font-normal">/ unit</span>
+                            </div>
+                        </div>
+                        {/* Mobile Remove Button (Top Right) */}
+                        <button 
+                                onClick={() => initiateRemove(item.id, item.selectedUnit, item.name.en)} 
+                                className="md:hidden text-gray-400 hover:text-red-500 p-2 rounded-full transition active:scale-90"
+                                title="Remove Item"
+                            >
+                                <Trash2 size={18} />
+                        </button>
+                        </div>
+                        
+                        {/* Desktop Price */}
+                        <div className="hidden md:block col-span-1 md:col-span-2 text-gray-700 font-medium text-center">
+                        {formatPrice(item.price)}
+                        </div>
 
-                    {/* Quantity Controls (Responsive) */}
-                    <div className="col-span-1 md:col-span-2 flex justify-between md:justify-center items-center mt-2 md:mt-0">
-                      <span className="md:hidden text-sm font-bold text-gray-500 uppercase">Quantity:</span>
-                      <div className="flex items-center border border-gray-200 rounded-lg bg-white shadow-sm">
-                        <button onClick={() => updateQuantity(item.id, item.selectedUnit, item.quantity - 1)} className="p-2 hover:bg-gray-100 text-gray-600 rounded-l-lg"><Minus size={14} /></button>
-                        <span className="px-3 text-sm font-bold text-gray-800 w-8 text-center">{item.quantity}</span>
-                        <button onClick={() => updateQuantity(item.id, item.selectedUnit, item.quantity + 1)} className="p-2 hover:bg-gray-100 text-gray-600 rounded-r-lg"><Plus size={14} /></button>
-                      </div>
-                    </div>
+                        {/* Quantity Controls (Responsive) */}
+                        <div className="col-span-1 md:col-span-2 flex justify-between md:justify-center items-center mt-2 md:mt-0">
+                        <span className="md:hidden text-sm font-bold text-gray-500 uppercase">Quantity:</span>
+                        <div className={`flex items-center border border-gray-200 rounded-lg bg-white shadow-sm transition-transform ${isUpdating ? 'scale-105 border-leaf-400' : ''}`}>
+                            <button onClick={() => handleUpdateQuantity(item.id, item.selectedUnit, item.quantity - 1)} className="p-2 hover:bg-gray-100 text-gray-600 rounded-l-lg active:bg-gray-200 transition-colors"><Minus size={14} /></button>
+                            <span className="px-3 text-sm font-bold text-gray-800 w-8 text-center tabular-nums">{item.quantity}</span>
+                            <button onClick={() => handleUpdateQuantity(item.id, item.selectedUnit, item.quantity + 1)} className="p-2 hover:bg-gray-100 text-gray-600 rounded-r-lg active:bg-gray-200 transition-colors"><Plus size={14} /></button>
+                        </div>
+                        </div>
 
-                    {/* Total Price */}
-                    <div className="col-span-1 md:col-span-2 flex justify-between md:block text-right mt-2 md:mt-0 pt-2 md:pt-0 border-t md:border-t-0 border-gray-50">
-                       <span className="md:hidden font-bold text-gray-500">Subtotal:</span>
-                       <div className="flex items-center justify-end gap-4">
-                         <span className="font-bold text-gray-900 text-lg">{formatPrice(item.price * item.quantity)}</span>
-                         {/* Desktop Remove Button */}
-                         <button 
-                            onClick={() => initiateRemove(item.id, item.selectedUnit, item.name.en)} 
-                            className="hidden md:block text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-full transition"
-                            title="Remove Item"
-                         >
-                            <Trash2 size={18} />
-                         </button>
-                       </div>
+                        {/* Total Price */}
+                        <div className="col-span-1 md:col-span-2 flex justify-between md:block text-right mt-2 md:mt-0 pt-2 md:pt-0 border-t md:border-t-0 border-gray-50">
+                        <span className="md:hidden font-bold text-gray-500">Subtotal:</span>
+                        <div className="flex items-center justify-end gap-4">
+                            <span className="font-bold text-gray-900 text-lg">{formatPrice(item.price * item.quantity)}</span>
+                            {/* Desktop Remove Button */}
+                            <button 
+                                onClick={() => initiateRemove(item.id, item.selectedUnit, item.name.en)} 
+                                className="hidden md:block text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-full transition active:scale-90"
+                                title="Remove Item"
+                            >
+                                <Trash2 size={18} />
+                            </button>
+                        </div>
+                        </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
-            <Link to="/shop" className="inline-flex items-center gap-2 mt-6 text-gray-500 font-bold hover:text-leaf-600 transition">
-              <ArrowLeft size={18} /> Continue Shopping
+            <Link to="/shop" className="inline-flex items-center gap-2 mt-6 text-gray-500 font-bold hover:text-leaf-600 transition group">
+              <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" /> Continue Shopping
             </Link>
           </div>
 
@@ -176,13 +199,13 @@ export const Cart: React.FC = () => {
               
               {/* Progress for Free Delivery */}
               {cartTotal < FREE_DELIVERY_THRESHOLD && (
-                <div className="mb-6 bg-blue-50 p-4 rounded-xl border border-blue-100">
+                <div className="mb-6 bg-blue-50 p-4 rounded-xl border border-blue-100 animate-in fade-in">
                    <p className="text-sm text-blue-700 font-medium mb-2">
                      Add <b>{formatPrice(FREE_DELIVERY_THRESHOLD - cartTotal)}</b> more for Free Delivery
                    </p>
-                   <div className="w-full bg-blue-200 rounded-full h-1.5">
+                   <div className="w-full bg-blue-200 rounded-full h-1.5 overflow-hidden">
                      <div 
-                        className="bg-blue-600 h-1.5 rounded-full transition-all duration-500" 
+                        className="bg-blue-600 h-1.5 rounded-full transition-all duration-700 ease-out" 
                         style={{ width: `${(cartTotal / FREE_DELIVERY_THRESHOLD) * 100}%` }}
                      ></div>
                    </div>
@@ -191,7 +214,7 @@ export const Cart: React.FC = () => {
 
               {/* Progress for Minimum Order */}
               {cartTotal < MIN_ORDER_VALUE && (
-                <div className="mb-6 bg-red-50 p-4 rounded-xl border border-red-100 flex gap-3 items-start">
+                <div className="mb-6 bg-red-50 p-4 rounded-xl border border-red-100 flex gap-3 items-start animate-in shake">
                    <AlertTriangle className="text-red-500 shrink-0" size={20} />
                    <p className="text-sm text-red-700 font-medium">
                      Minimum order value is <b>{formatPrice(MIN_ORDER_VALUE)}</b>. Please add more items.
@@ -225,7 +248,7 @@ export const Cart: React.FC = () => {
               <button 
                 onClick={() => navigate('/checkout')}
                 disabled={cartTotal < MIN_ORDER_VALUE}
-                className="w-full bg-leaf-600 hover:bg-leaf-700 text-white py-4 rounded-xl font-bold transition shadow-lg shadow-leaf-200 mb-4 text-lg disabled:bg-gray-300 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center gap-2"
+                className="w-full bg-leaf-600 hover:bg-leaf-700 text-white py-4 rounded-xl font-bold transition-all shadow-lg shadow-leaf-200 mb-4 text-lg disabled:bg-gray-300 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center gap-2 hover:-translate-y-1 active:translate-y-0"
               >
                 {cartTotal < MIN_ORDER_VALUE ? <><Lock size={18}/> Order Min {formatPrice(MIN_ORDER_VALUE)}</> : 'Proceed to Checkout'}
               </button>

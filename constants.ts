@@ -1,5 +1,44 @@
 
-import { Product, BlogPost, Testimonial, Order } from './types';
+import { Product, BlogPost, Testimonial, Order, Farmer } from './types';
+
+export const FARMERS: Farmer[] = [
+  {
+    id: 'farmer-1',
+    name: 'Rajesh Kumar',
+    farmName: 'Green Valley Organics',
+    location: 'Nashik, Maharashtra',
+    description: 'Specializing in chemical-free onions and root vegetables for over 15 years. We use traditional composting methods.',
+    avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
+    coverImage: 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=1200&q=80',
+    certifications: ['NPOP Certified', 'Jaivik Bharat'],
+    joinedDate: '2021',
+    rating: 4.8
+  },
+  {
+    id: 'farmer-2',
+    name: 'Sunita Devi',
+    farmName: 'Himalayan Fresh',
+    location: 'Shimla, Himachal Pradesh',
+    description: 'Bringing you the crunchiest apples and stone fruits straight from the cool altitudes of Shimla.',
+    avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
+    coverImage: 'https://images.unsplash.com/photo-1621236378699-8597faf6a176?auto=format&fit=crop&w=1200&q=80',
+    certifications: ['Organic India', 'GAP Certified'],
+    joinedDate: '2022',
+    rating: 4.9
+  },
+  {
+    id: 'farmer-3',
+    name: 'Amitabh Ghosh',
+    farmName: 'Bengal Greens',
+    location: 'Nadia, West Bengal',
+    description: 'Expert in leafy greens and gourds. We harvest twice a day to ensure maximum freshness for Kolkata markets.',
+    avatar: 'https://randomuser.me/api/portraits/men/64.jpg',
+    coverImage: 'https://images.unsplash.com/photo-1592419044706-39796d40f98c?auto=format&fit=crop&w=1200&q=80',
+    certifications: ['Local Sustainable'],
+    joinedDate: '2020',
+    rating: 4.7
+  }
+];
 
 // Helper to create products with 1 image
 const createProduct = (
@@ -16,6 +55,9 @@ const createProduct = (
 ): Product => {
   // Only use the main image, no extra variations
   const gallery = [imgMain];
+  
+  // Randomly assign a farmer
+  const randomFarmerId = FARMERS[Math.floor(Math.random() * FARMERS.length)].id;
 
   return {
     id,
@@ -30,6 +72,7 @@ const createProduct = (
     rating: 4.5 + (Math.random() * 0.5),
     reviews: Math.floor(Math.random() * 500) + 50,
     baseUnit,
+    sellerId: randomFarmerId,
     ...flags
   };
 };
@@ -198,6 +241,7 @@ createProduct('f-26', 'Watermelon', 'तरबूज', 'তরমুজ', 'Melon
 ];
 
 export const BLOG_POSTS: BlogPost[] = [
+  // ... existing blog posts ...
   {
     id: '1',
     title: 'Benefits of Organic Farming in India',
@@ -273,6 +317,7 @@ export const BLOG_POSTS: BlogPost[] = [
 ];
 
 export const TESTIMONIALS: Testimonial[] = [
+  // ... existing testimonials ...
   {
     id: '1',
     name: 'Aditi Roy',
@@ -297,6 +342,7 @@ export const TESTIMONIALS: Testimonial[] = [
 ];
 
 export const MOCK_ORDERS: Order[] = [
+  // ... existing orders ...
   {
     id: 'FL-2023-8991',
     userId: 'mock-user-1',
