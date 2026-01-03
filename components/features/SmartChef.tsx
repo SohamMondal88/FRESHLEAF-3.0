@@ -48,9 +48,9 @@ export const SmartChef: React.FC<SmartChefProps> = ({ isOpen, onClose }) => {
         prompt = `Suggest a healthy recipe based on this request: "${customInput}". Prioritize fresh vegetables and fruits. Format nicely with Markdown.`;
       }
 
-      // Updated to use ai.models.generateContent properly
+      // Use gemini-2.5-flash for faster response
       const result = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-2.5-flash",
         contents: prompt
       });
       setRecipe(result.text || null);

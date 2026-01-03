@@ -27,7 +27,6 @@ interface CartContextType {
   bill: BillDetails;
   setTip: (amount: number) => void;
   tip: number;
-  // Wishlist props (Keeping local for now as per previous logic, could be moved to DB)
   wishlist: Product[];
   addToWishlist: (product: Product) => void;
   removeFromWishlist: (productId: string) => void;
@@ -129,16 +128,18 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, [cartItems, tip]);
 
-  // Wishlist Logic
+  // Wishlist Logic (Local Only for now as requested by user to focus on Order/Auth/Products in FireStore)
   const addToWishlist = (product: Product) => {
     setWishlist(prev => {
       if (prev.some(p => p.id === product.id)) return prev;
       return [...prev, product];
     });
+    addToast("Added to wishlist", "success");
   };
 
   const removeFromWishlist = (productId: string) => {
     setWishlist(prev => prev.filter(p => p.id !== productId));
+    addToast("Removed from wishlist", "info");
   };
 
   const isInWishlist = (productId: string) => wishlist.some(p => p.id === productId);
@@ -159,3 +160,4 @@ export const useCart = () => {
   if (!context) throw new Error('useCart must be used within a CartProvider');
   return context;
 };
+    

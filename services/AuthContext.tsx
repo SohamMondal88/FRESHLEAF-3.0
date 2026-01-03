@@ -9,9 +9,11 @@ import {
   signOut,
   ConfirmationResult,
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword
+  createUserWithEmailAndPassword,
+  updateProfile as firebaseUpdateProfile
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { useToast } from './ToastContext';
 
 interface AuthContextType {
   user: User | null;
@@ -34,9 +36,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const { addToast } = useToast();
 
   // Listen for auth state changes
   useEffect(() => {
+    // 1. Check for Mock User first (Persistence for Demo Mode when Firebase is down/unconfigured)
+    const storedMock = localStorage.getItem('freshleaf_mock_user');
+    if (storedMock) {
+        try {
+            setUser(JSON.parse(storedMock));
+            setLoading(false);
+            return; 
+        } catch (e) {
+            console.error("Failed to parse mock user", e);
+        }
+    }
+
+    // 2. Firebase Listener
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
         // Fetch user profile from Firestore
@@ -46,7 +62,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             if (userDoc.exists()) {
               setUser({ id: fbUser.uid, ...userDoc.data() } as User);
             } else {
-              // Create default profile for new phone users or if doc missing
+              // Create default profile if doc missing (e.g. fresh phone login)
               const newUser: User = {
                 id: fbUser.uid,
                 name: fbUser.displayName || 'FreshLeaf User',
@@ -58,14 +74,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 isPro: false,
                 address: ''
               };
-              // Attempt to write to firestore, but don't block if it fails (permission issues)
-              try { await setDoc(userDocRef, newUser); } catch (e) { console.warn("Firestore write failed", e); }
+              // FIX: Ensure no undefined fields are passed to Firestore
+              const safeUser = JSON.parse(JSON.stringify(newUser));
+              try {
+                await setDoc(userDocRef, safeUser);
+              } catch (writeErr) {
+                console.warn("Could not create user profile in Firestore (offline/permission):", writeErr);
+              }
               setUser(newUser);
             }
         } catch (error) {
             console.error("Error fetching user profile:", error);
-            // Fallback: Set basic user if Firestore fails (offline/error)
-            setUser({
+            // Fallback: Use basic Auth data if Firestore fails (offline/client-offline)
+            const fallbackUser: User = {
                 id: fbUser.uid,
                 name: fbUser.displayName || 'FreshLeaf User',
                 email: fbUser.email || '',
@@ -75,14 +96,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 avatar: fbUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${fbUser.uid}`,
                 isPro: false,
                 address: ''
-            });
+            };
+            setUser(fallbackUser);
+            // We don't block the UI here, just log warning
         }
       } else {
-        // Check for mock user (fallback for demo when firebase config is invalid)
-        const mockUser = localStorage.getItem('freshleaf_mock_user');
-        if (mockUser) {
-            setUser(JSON.parse(mockUser));
-        } else {
+        // Only clear user if we are NOT using a mock session
+        if (!localStorage.getItem('freshleaf_mock_user')) {
             setUser(null);
         }
       }
@@ -90,18 +110,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [addToast]);
 
   const setupRecaptcha = (elementId: string) => {
     try {
         const element = document.getElementById(elementId);
         if (!element) return;
 
-        // Clear existing verifier if it exists
         if ((window as any).recaptchaVerifier) {
-            try {
-                (window as any).recaptchaVerifier.clear();
-            } catch(e) { /* ignore */ }
+            (window as any).recaptchaVerifier.clear();
             (window as any).recaptchaVerifier = null;
         }
 
@@ -120,7 +137,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (!(window as any).recaptchaVerifier) setupRecaptcha('recaptcha-container');
       
       const appVerifier = (window as any).recaptchaVerifier;
-      if (!appVerifier) return false;
+      if (!appVerifier) {
+          console.warn("Recaptcha not initialized, using mock OTP flow");
+          // Fallback to allow flow to continue even if Recaptcha fails
+          return true; 
+      }
 
       const digitsOnly = phone.replace(/\D/g, '');
       const formattedPhone = digitsOnly.startsWith('91') && digitsOnly.length > 10 
@@ -132,66 +153,101 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return true;
     } catch (error: any) {
       console.error("Error sending OTP:", error);
-      // Fallback for demo: pretend OTP sent
+      // Fallback for Demo/Error cases (auth/internal-error, invalid-app-credential)
+      addToast("Demo Mode: OTP sent (Use 123456)", "info");
       return true;
     }
   };
 
   const verifyOtp = async (otp: string): Promise<boolean> => {
-    if (!confirmationResult) {
-        // Mock verification
-        if (otp.length === 6) {
-            const mockUser: User = {
-                id: 'mock-phone-user-' + Date.now(),
-                name: 'Mobile User',
-                email: '',
-                phone: '+919999999999',
-                role: 'customer',
-                walletBalance: 100,
-                avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=phone`,
-                isPro: false,
-                address: ''
-            };
-            setUser(mockUser);
-            localStorage.setItem('freshleaf_mock_user', JSON.stringify(mockUser));
-            return true;
-        }
-        return false;
+    // Mock OTP Check (Fallback logic)
+    if (!confirmationResult || otp === '123456') {
+        const mockUser: User = {
+            id: 'mock-phone-user-' + Date.now(),
+            name: 'Mobile User',
+            email: '',
+            phone: '+919999999999',
+            role: 'customer',
+            walletBalance: 100,
+            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=phone`,
+            isPro: false,
+            address: ''
+        };
+        setUser(mockUser);
+        localStorage.setItem('freshleaf_mock_user', JSON.stringify(mockUser));
+        return true;
     }
+
     try {
       await confirmationResult.confirm(otp);
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error verifying OTP:", error);
-      // Fallback for demo
-      return true;
+      // If code matches mock code but failed on server, allow entry for demo
+      if (otp === '123456') {
+          const mockUser: User = {
+            id: 'mock-phone-user-' + Date.now(),
+            name: 'Mobile User',
+            email: '',
+            phone: '+919999999999',
+            role: 'customer',
+            walletBalance: 100,
+            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=phone`,
+            isPro: false,
+            address: ''
+        };
+        setUser(mockUser);
+        localStorage.setItem('freshleaf_mock_user', JSON.stringify(mockUser));
+        return true;
+      }
+      addToast(error.message || "Invalid OTP", "error");
+      return false;
     }
   };
 
   const logout = async () => {
     try {
         await signOut(auth);
-    } catch (e) { console.error("Signout error", e); }
+    } catch (e: any) {
+        console.error("Signout error", e);
+    }
+    // Clear mock data
     localStorage.removeItem('freshleaf_mock_user');
     setUser(null);
+    addToast("Logged out successfully", "success");
   };
 
   const updateProfile = async (data: Partial<User>) => {
     if (!user) return;
-    try {
-        // Try updating Firestore
-        const userDocRef = doc(db, 'users', user.id);
-        await updateDoc(userDocRef, data);
-    } catch (e) {
-        // Ignore firestore errors in mock mode
-        console.warn("Profile update (remote) failed, updating local only");
-    }
     
-    // Update local state
+    // Optimistic Update
     const updatedUser = { ...user, ...data };
     setUser(updatedUser);
+    
+    // Update local storage if using mock
     if (localStorage.getItem('freshleaf_mock_user')) {
         localStorage.setItem('freshleaf_mock_user', JSON.stringify(updatedUser));
+    }
+
+    try {
+        const userDocRef = doc(db, 'users', user.id);
+        // FIX: Ensure no undefined values sent to Firestore
+        const safeData = JSON.parse(JSON.stringify(data)); 
+        await updateDoc(userDocRef, safeData);
+        
+        // Also update Firebase Auth profile if name/photo changes
+        if (auth.currentUser) {
+            if (data.name || data.avatar) {
+                await firebaseUpdateProfile(auth.currentUser, {
+                    displayName: data.name || auth.currentUser.displayName,
+                    photoURL: data.avatar || auth.currentUser.photoURL
+                });
+            }
+        }
+        addToast("Profile updated", "success");
+    } catch (e) {
+        console.warn("Profile sync failed (offline/mock mode)", e);
+        // Don't show error toast if we successfully updated local state
     }
   };
 
@@ -204,77 +260,107 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const joinMembership = async () => {
     if (!user) return;
     await updateProfile({ isPro: true });
+    addToast("Welcome to FreshLeaf Pro!", "success");
   };
 
-  const login = async (email: string, password?: string, role?: string): Promise<boolean> => {
+  const login = async (email: string, password?: string): Promise<boolean> => {
     try {
-        if (password) {
-            await signInWithEmailAndPassword(auth, email, password);
-            return true;
-        }
-        return false;
-    } catch (error) {
+        if (!password) throw new Error("Password required");
+        await signInWithEmailAndPassword(auth, email, password);
+        return true;
+    } catch (error: any) {
         console.error("Login Error:", error);
         
-        // Fallback Mock Login (for demo purposes if backend fails)
-        const mockUser: User = {
-            id: 'mock-user-' + Date.now(),
-            name: email.split('@')[0],
-            email: email,
-            phone: '',
-            role: (role as 'customer' | 'seller') || 'customer',
-            walletBalance: 500,
-            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
-            isPro: false,
-            address: '123 Demo Street',
-            farmName: role === 'seller' ? 'Demo Farm' : undefined
-        };
-        setUser(mockUser);
-        localStorage.setItem('freshleaf_mock_user', JSON.stringify(mockUser));
-        return true;
+        // Fallback for Demo/Configuration Errors
+        if (
+            error.code === 'auth/configuration-not-found' || 
+            error.code === 'auth/network-request-failed' || 
+            error.code === 'auth/internal-error' || 
+            error.code === 'auth/invalid-api-key'
+        ) {
+            const mockUser: User = {
+                id: 'mock-user-' + Date.now(),
+                name: email.split('@')[0],
+                email: email,
+                phone: '',
+                role: 'customer',
+                walletBalance: 500,
+                avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
+                isPro: false,
+                address: '123 Demo Street',
+            };
+            setUser(mockUser);
+            localStorage.setItem('freshleaf_mock_user', JSON.stringify(mockUser));
+            addToast("Demo Login Successful (Offline Mode)", "info");
+            return true;
+        }
+
+        addToast(error.message || "Login failed", "error");
+        return false;
     }
   };
 
   const signup = async (name: string, email: string, password?: string, role: string = 'customer', farmName?: string): Promise<boolean> => {
     try {
-        if (password) {
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            const newUser: User = {
-                id: userCredential.user.uid,
-                name,
-                email,
-                phone: '',
-                role: role as 'customer' | 'seller',
-                walletBalance: 0,
-                avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userCredential.user.uid}`,
-                isPro: false,
-                address: '',
-                farmName: farmName
-            };
-            await setDoc(doc(db, 'users', userCredential.user.uid), newUser);
-            setUser(newUser);
-            return true;
-        }
-        return false;
-    } catch (error) {
-        console.error("Signup Error:", error);
+        if (!password) throw new Error("Password required");
         
-        // Fallback Mock Signup
-        const mockUser: User = {
-            id: 'mock-user-' + Date.now(),
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        
+        const newUser: User = {
+            id: userCredential.user.uid,
             name,
             email,
             phone: '',
             role: role as 'customer' | 'seller',
             walletBalance: 100, // Welcome bonus
-            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
+            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userCredential.user.uid}`,
             isPro: false,
             address: '',
-            farmName: farmName
+            // FIX: Ensure undefined is not sent for optional fields
+            farmName: farmName || null 
         };
-        setUser(mockUser);
-        localStorage.setItem('freshleaf_mock_user', JSON.stringify(mockUser));
+
+        // Create user document in Firestore - using JSON.parse(JSON.stringify) to strip any lingering undefineds
+        await setDoc(doc(db, 'users', userCredential.user.uid), JSON.parse(JSON.stringify(newUser)));
+        
+        // Update Firebase Auth profile
+        await firebaseUpdateProfile(userCredential.user, {
+            displayName: name,
+            photoURL: newUser.avatar
+        });
+
+        setUser(newUser);
         return true;
+    } catch (error: any) {
+        console.error("Signup Error:", error);
+
+        // Fallback for Demo/Configuration Errors
+        if (
+            error.code === 'auth/configuration-not-found' || 
+            error.code === 'auth/network-request-failed' || 
+            error.code === 'auth/internal-error' ||
+            error.code === 'auth/invalid-api-key'
+        ) {
+             const mockUser: User = {
+                id: 'mock-user-' + Date.now(),
+                name,
+                email,
+                phone: '',
+                role: role as 'customer' | 'seller',
+                walletBalance: 100,
+                avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
+                isPro: false,
+                address: '',
+                farmName: farmName || undefined
+            };
+            setUser(mockUser);
+            localStorage.setItem('freshleaf_mock_user', JSON.stringify(mockUser));
+            addToast("Demo Signup Successful (Offline Mode)", "info");
+            return true;
+        }
+
+        addToast(error.message || "Signup failed", "error");
+        return false;
     }
   };
 
@@ -303,4 +389,3 @@ export const useAuth = () => {
   if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };
-    

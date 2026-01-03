@@ -1,8 +1,12 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+
+import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { storage } from './firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { useToast } from './ToastContext';
 
 interface ImageContextType {
   customImages: Record<string, string>;
-  uploadImage: (productId: string, file: File) => Promise<void>;
+  uploadImage: (productId: string, file: File) => Promise<string | null>;
   removeImage: (productId: string) => void;
   getProductImage: (productId: string, defaultImage: string) => string;
 }
@@ -11,46 +15,33 @@ const ImageContext = createContext<ImageContextType | undefined>(undefined);
 
 export const ImageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [customImages, setCustomImages] = useState<Record<string, string>>({});
+  const { addToast } = useToast();
 
-  // Load images from local storage on mount
-  useEffect(() => {
-    const storedImages = localStorage.getItem('freshleaf_custom_images');
-    if (storedImages) {
-      try {
-        setCustomImages(JSON.parse(storedImages));
-      } catch (e) {
-        console.error("Failed to parse custom images", e);
-      }
+  const uploadImage = async (productId: string, file: File): Promise<string | null> => {
+    try {
+      // Create a reference to 'images/productId-timestamp'
+      const storageRef = ref(storage, `products/${productId}-${Date.now()}`);
+      
+      const snapshot = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      
+      setCustomImages(prev => ({
+        ...prev,
+        [productId]: downloadURL
+      }));
+      
+      return downloadURL;
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      addToast("Failed to upload image to storage", "error");
+      return null;
     }
-  }, []);
-
-  const uploadImage = (productId: string, file: File) => {
-    return new Promise<void>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        setCustomImages(prev => {
-          const updated = { ...prev, [productId]: base64String };
-          try {
-            localStorage.setItem('freshleaf_custom_images', JSON.stringify(updated));
-          } catch (err) {
-            alert("Image is too large for browser storage. Please try a smaller image.");
-            return prev;
-          }
-          return updated;
-        });
-        resolve();
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
   };
 
   const removeImage = (productId: string) => {
     setCustomImages(prev => {
       const updated = { ...prev };
       delete updated[productId];
-      localStorage.setItem('freshleaf_custom_images', JSON.stringify(updated));
       return updated;
     });
   };
@@ -71,3 +62,4 @@ export const useImage = () => {
   if (!context) throw new Error('useImage must be used within an ImageProvider');
   return context;
 };
+    
