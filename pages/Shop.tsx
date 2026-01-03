@@ -25,110 +25,74 @@ const Mobile3DCarousel: React.FC<{
   const scrollRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  // Logic to determine the centered card
   const handleScroll = () => {
     if (scrollRef.current) {
         const container = scrollRef.current;
-        const center = container.scrollLeft + container.offsetWidth / 2;
-        
-        let closestIndex = 0;
-        let minDiff = Infinity;
-
-        Array.from(container.children).forEach((child, index) => {
-            const childCenter = (child as HTMLElement).offsetLeft + (child as HTMLElement).offsetWidth / 2;
-            const diff = Math.abs(center - childCenter);
-            if (diff < minDiff) {
-                minDiff = diff;
-                closestIndex = index;
-            }
-        });
-        
-        setActiveIndex(closestIndex);
+        const itemWidth = container.offsetWidth * 0.85; // 85vw
+        const index = Math.round(container.scrollLeft / itemWidth);
+        setActiveIndex(Math.max(0, Math.min(index, products.length - 1)));
     }
   };
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
         const container = scrollRef.current;
-        const scrollAmount = container.offsetWidth * 0.85; // Scroll approx one card width
-        container.scrollBy({ 
-            left: direction === 'left' ? -scrollAmount : scrollAmount, 
-            behavior: 'smooth' 
-        });
+        const itemWidth = container.offsetWidth * 0.85;
+        const newPos = direction === 'left' 
+            ? Math.max(0, container.scrollLeft - itemWidth)
+            : Math.min(container.scrollWidth - container.offsetWidth, container.scrollLeft + itemWidth);
+            
+        container.scrollTo({ left: newPos, behavior: 'smooth' });
     }
   };
 
   if (products.length === 0) return null;
-
-  // Limit items for performance in 3D view
-  const displayProducts = products.slice(0, 10); 
+  const displayProducts = products.slice(0, 8); // Limit for performance
 
   return (
-    <div className={`py-10 border-b border-gray-50 last:border-0 ${bgColor} animate-in fade-in slide-in-from-bottom-4 duration-700 md:hidden`}>
-      <div className="flex justify-between items-end px-6 mb-6">
+    <div className={`py-8 border-b border-gray-50 last:border-0 ${bgColor} animate-in fade-in slide-in-from-bottom-4 duration-700 md:hidden`}>
+      <div className="flex justify-between items-end px-6 mb-4">
         <div>
-            <h3 className="text-2xl font-extrabold text-gray-900 leading-none tracking-tight">{title}</h3>
-            {subtitle && <p className="text-xs text-gray-500 font-bold mt-2 uppercase tracking-wide opacity-80">{subtitle}</p>}
+            <h3 className="text-xl font-extrabold text-gray-900 leading-tight">{title}</h3>
+            {subtitle && <p className="text-xs text-gray-500 font-bold mt-1 uppercase tracking-wide opacity-80">{subtitle}</p>}
         </div>
         <button onClick={onSeeAll} className="text-xs font-bold text-leaf-700 flex items-center gap-1 bg-leaf-50/80 px-3 py-1.5 rounded-full shadow-sm hover:bg-leaf-100 transition">
-          View All <ChevronRight size={14} strokeWidth={3} />
+          View All <ChevronRight size={14} />
         </button>
       </div>
       
       <div className="relative group">
-        {/* Navigation Buttons (Glassmorphism) */}
-        <button 
-            onClick={() => scroll('left')} 
-            className={`absolute left-3 top-1/2 -translate-y-1/2 z-30 w-12 h-12 rounded-full bg-white/80 backdrop-blur-md shadow-lg border border-white flex items-center justify-center text-gray-900 transition-all duration-300 active:scale-90 hover:bg-white ${activeIndex === 0 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
-            aria-label="Previous"
-        >
-            <ChevronLeft size={24} strokeWidth={2.5} />
-        </button>
-        <button 
-            onClick={() => scroll('right')} 
-            className={`absolute right-3 top-1/2 -translate-y-1/2 z-30 w-12 h-12 rounded-full bg-white/80 backdrop-blur-md shadow-lg border border-white flex items-center justify-center text-gray-900 transition-all duration-300 active:scale-90 hover:bg-white ${activeIndex === displayProducts.length - 1 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
-            aria-label="Next"
-        >
-            <ChevronRight size={24} strokeWidth={2.5} />
-        </button>
+        {/* Navigation Arrows */}
+        {activeIndex > 0 && (
+            <button onClick={() => scroll('left')} className="absolute left-2 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white/90 shadow-md flex items-center justify-center text-gray-800"><ChevronLeft size={20}/></button>
+        )}
+        {activeIndex < displayProducts.length - 1 && (
+            <button onClick={() => scroll('right')} className="absolute right-2 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white/90 shadow-md flex items-center justify-center text-gray-800"><ChevronRight size={20}/></button>
+        )}
 
-        {/* Scroll Container */}
         <div 
             ref={scrollRef}
             onScroll={handleScroll}
-            className="flex overflow-x-auto gap-4 px-[7.5vw] pb-10 pt-4 scrollbar-hide snap-x snap-mandatory items-center"
+            className="flex overflow-x-auto gap-0 px-[7.5vw] pb-8 pt-4 scrollbar-hide snap-x snap-mandatory"
             style={{ scrollBehavior: 'smooth' }}
         >
             {displayProducts.map((product, idx) => {
                 const isActive = idx === activeIndex;
                 const dist = Math.abs(idx - activeIndex);
                 
-                // 3D Transform Logic
-                let scale = 'scale-90';
-                let opacity = 'opacity-50';
-                let blur = 'blur-[1px]';
-                let zIndex = 'z-0';
-                
-                if (isActive) {
-                    scale = 'scale-100';
-                    opacity = 'opacity-100';
-                    blur = 'blur-0';
-                    zIndex = 'z-20';
-                } else if (dist === 1) {
-                    scale = 'scale-95';
-                    opacity = 'opacity-80';
-                    blur = 'blur-0';
-                    zIndex = 'z-10';
-                }
+                // 3D & Scale Logic
+                const scale = isActive ? 'scale-100' : 'scale-90';
+                const opacity = isActive ? 'opacity-100' : 'opacity-60';
+                const zIndex = 10 - dist;
 
                 return (
                     <div 
                         key={product.id} 
-                        className={`min-w-[85vw] snap-center transform transition-all duration-500 ease-out origin-center ${scale} ${opacity} ${zIndex} ${blur}`}
+                        className={`min-w-[85vw] snap-center p-2 transition-all duration-500 ease-out`}
+                        style={{ zIndex }}
                     >
-                        {/* Card Wrapper */}
-                        <div className={`h-full bg-white rounded-[2.5rem] shadow-premium border border-gray-100 overflow-hidden relative transition-all duration-500 ${isActive ? 'ring-4 ring-leaf-500/10 shadow-2xl' : 'shadow-sm'}`}>
-                             <div className="p-2 h-full">
+                        <div className={`h-full bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden relative transition-all duration-500 transform ${scale} ${opacity} ${isActive ? 'shadow-2xl ring-1 ring-black/5' : ''}`}>
+                             <div className="h-full">
                                 <ProductCard product={product} /> 
                              </div>
                         </div>
@@ -204,7 +168,6 @@ export const Shop: React.FC = () => {
     let seasonIcon = Sun;
     let seasonColor = "text-orange-500";
 
-    // Simple seasonality mapping
     if (month >= 2 && month <= 5) { // Mar - Jun (Summer)
         keywords = ['Mango', 'Melon', 'Cucumber', 'Lychee', 'Watermelon'];
         seasonName = "Summer Specials";
@@ -293,7 +256,7 @@ export const Shop: React.FC = () => {
       ).slice(0, 5);
   }, [query, products]);
 
-  // --- CURATED COLLECTIONS (Daily Rotate) ---
+  // --- CURATED COLLECTIONS ---
   const curatedCollections = useMemo(() => {
     const today = new Date().getDate();
     const rotate = (arr: any[]) => {
@@ -301,20 +264,13 @@ export const Shop: React.FC = () => {
         return [...arr.slice(rotation), ...arr.slice(0, rotation)];
     };
 
-    const fruits = products.filter(p => ['Fruit', 'Mango', 'Banana', 'Apple', 'Citrus', 'Melon', 'Grapes', 'Berry', 'Stone Fruit', 'Imported Fruit', 'Exotic'].includes(p.category));
-    const vegs = products.filter(p => ['Fruit Veg', 'Root Veg', 'Bulb', 'Other Veg', 'Beans/Legumes', 'Flower Veg'].includes(p.category));
-    
     return {
-      fruits: fruits,
-      vegetables: vegs,
+      fruits: products.filter(p => ['Fruit', 'Mango', 'Banana', 'Apple', 'Citrus', 'Melon', 'Grapes', 'Berry', 'Stone Fruit', 'Imported Fruit', 'Exotic'].includes(p.category)),
+      vegetables: products.filter(p => ['Fruit Veg', 'Root Veg', 'Bulb', 'Other Veg', 'Beans/Legumes', 'Flower Veg'].includes(p.category)),
       leafy: products.filter(p => p.category === 'Leafy'),
       exotic: products.filter(p => p.category === 'Exotic' || p.category === 'Imported Fruit'),
       deals: products.filter(p => p.oldPrice && p.oldPrice > p.price).sort((a,b) => (b.oldPrice! - b.price) - (a.oldPrice! - a.price)),
-      budget: rotate(products.filter(p => p.price < 60)).slice(0, 10), // Profitable low cost items
-      breakfast: products.filter(p => ['Banana', 'Apple', 'Papaya', 'Avocado', 'Melon', 'Berry', 'Citrus'].some(k => p.category.includes(k) || p.name.en.includes(k))),
-      summer: products.filter(p => ['Mango', 'Watermelon', 'Cucumber', 'Lemon', 'Mint', 'Lychee'].some(k => p.name.en.includes(k))),
-      winter: products.filter(p => ['Carrot', 'Peas', 'Orange', 'Spinach', 'Mustard', 'Radish'].some(k => p.name.en.includes(k))),
-      everyday: products.filter(p => ['Potato', 'Onion', 'Tomato', 'Chilli', 'Garlic', 'Ginger'].some(k => p.name.en.includes(k))),
+      budget: rotate(products.filter(p => p.price < 60)).slice(0, 10),
     };
   }, [products]);
 
@@ -435,7 +391,7 @@ export const Shop: React.FC = () => {
                  
                  {/* Suggestions Dropdown */}
                  {showSuggestions && suggestions.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 bg-white rounded-xl shadow-xl mt-2 border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-1">
+                    <div className="absolute top-full left-0 right-0 bg-white rounded-xl shadow-xl mt-2 border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-1 z-50">
                         {suggestions.map(s => (
                             <button 
                                 key={s.id} 
@@ -445,10 +401,10 @@ export const Shop: React.FC = () => {
                                     setShowSuggestions(false);
                                 }}
                             >
-                                <img src={s.image} alt="" className="w-8 h-8 rounded object-cover" />
+                                <img src={getProductImage(s.id, s.image)} alt="" className="w-10 h-10 rounded-lg object-cover" />
                                 <div>
                                     <p className="text-sm font-bold text-gray-900">{s.name.en}</p>
-                                    <p className="text-xs text-gray-500">{s.category}</p>
+                                    <p className="text-[10px] text-gray-500">{s.category}</p>
                                 </div>
                             </button>
                         ))}
@@ -468,7 +424,7 @@ export const Shop: React.FC = () => {
                 />
              )}
 
-             {/* 1. Fruits */}
+             {/* Carousels */}
              <Mobile3DCarousel 
                 title="Orchard Fresh Fruits" 
                 subtitle="Sweetness from the trees" 
@@ -476,7 +432,6 @@ export const Shop: React.FC = () => {
                 onSeeAll={() => handleCategoryChange('Fruits')} 
              />
 
-             {/* ... other carousels ... */}
              <Mobile3DCarousel 
                 title="Daily Farm Veggies" 
                 subtitle="Harvested at dawn" 
@@ -521,6 +476,7 @@ export const Shop: React.FC = () => {
             
             {/* SIDEBAR FILTER (Hidden on Mobile, Visible on Laptop/Desktop) */}
             <aside className="hidden lg:block w-72 flex-shrink-0 space-y-8 sticky top-32 h-fit z-20">
+              {/* Desktop Search */}
               <div className="relative">
                  <Search className="absolute left-4 top-3.5 text-gray-400" size={18}/>
                  <input 
@@ -547,7 +503,7 @@ export const Shop: React.FC = () => {
                                     setShowSuggestions(false);
                                 }}
                             >
-                                <img src={s.image} alt="" className="w-8 h-8 rounded object-cover bg-gray-100" />
+                                <img src={getProductImage(s.id, s.image)} alt="" className="w-10 h-10 rounded-lg object-cover bg-gray-100" />
                                 <div>
                                     <p className="text-sm font-bold text-gray-900">{s.name.en}</p>
                                     <p className="text-[10px] text-gray-500">{s.category}</p>
@@ -577,9 +533,28 @@ export const Shop: React.FC = () => {
                  </div>
               </div>
 
+              {/* Category Filter */}
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                 <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide">Categories</h3>
+                 <div className="space-y-1">
+                    <button onClick={() => handleCategoryChange('All')} className={`w-full flex justify-between items-center text-left px-3 py-2 rounded-lg text-sm font-medium transition ${selectedCategory === 'All' ? 'bg-leaf-50 text-leaf-700 font-bold' : 'text-gray-600 hover:bg-gray-50'}`}>
+                        <span>All Products</span>
+                    </button>
+                    {Object.entries(categories).map(([cat, count]) => (
+                      <button key={cat} onClick={() => handleCategoryChange(cat)} className={`w-full flex justify-between items-center text-left px-3 py-2 rounded-lg text-sm font-medium transition ${selectedCategory === cat ? 'bg-leaf-50 text-leaf-700 font-bold' : 'text-gray-600 hover:bg-gray-50'}`}>
+                        <span>{cat}</span>
+                        <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-500">{count}</span>
+                      </button>
+                    ))}
+                 </div>
+              </div>
+
               {/* Price Slider */}
               <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                 <h3 className="font-bold text-gray-900 mb-6 text-sm uppercase tracking-wide">Price Range</h3>
+                 <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-gray-900 text-sm uppercase tracking-wide">Max Price</h3>
+                    <span className="text-leaf-700 bg-leaf-50 px-2 py-1 rounded-lg font-bold text-xs border border-leaf-100">₹{priceRange}</span>
+                 </div>
                  <div className="px-2">
                    <input 
                     type="range" 
@@ -589,9 +564,9 @@ export const Shop: React.FC = () => {
                     onChange={(e) => setPriceRange(Number(e.target.value))}
                     className="w-full h-2 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-leaf-600"
                    />
-                   <div className="flex justify-between mt-4 text-sm font-medium text-gray-600">
+                   <div className="flex justify-between mt-4 text-xs font-medium text-gray-400">
                      <span>₹0</span>
-                     <span className="text-leaf-700 bg-leaf-50 px-3 py-1 rounded-lg font-bold border border-leaf-100">₹{priceRange}</span>
+                     <span>₹{maxProductPrice}</span>
                    </div>
                  </div>
               </div>

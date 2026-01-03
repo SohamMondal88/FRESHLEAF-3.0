@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Bot, User, Minimize2, Loader2, Brain, Zap, Globe, MapPin, Sparkles, ChevronRight, ShoppingBag, Headphones, Camera, Paperclip, Image as ImageIcon } from 'lucide-react';
-import { GoogleGenAI, Chat, SchemaType } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { useProduct } from '../services/ProductContext';
 import { useNavigate } from 'react-router-dom';
 

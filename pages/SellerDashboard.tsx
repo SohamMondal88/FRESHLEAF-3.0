@@ -129,13 +129,12 @@ export const SellerDashboard: React.FC = () => {
     try {
         const apiKey = process.env.API_KEY;
         const ai = new GoogleGenAI({ apiKey });
-        const model = ai.models.getGenerativeModel({ model: "gemini-2.5-flash" }); // Using Flash for speed
         const prompt = `Write a short, appealing 2-sentence description for selling "${newProduct.nameEn}" (${newProduct.category}) fresh from an organic farm. Highlight freshness and health benefits.`;
         const result = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: prompt
         });
-        const desc = result.text.trim();
+        const desc = result.text?.trim() || "";
         setNewProduct(prev => ({ ...prev, description: desc }));
         addToast("Description generated!", "success");
     } catch (e) {
