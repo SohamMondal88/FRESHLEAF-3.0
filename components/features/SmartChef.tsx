@@ -24,7 +24,7 @@ export const SmartChef: React.FC<SmartChefProps> = ({ isOpen, onClose }) => {
 
     try {
       const apiKey = process.env.API_KEY;
-      // Fallback for demo if no API key
+      // Fallback if no API Key is available
       if (!apiKey) {
         setTimeout(() => {
             setRecipe(`**FreshLeaf Garden Salad (Demo)**\n\n*Ingredients:*\n- Spinach\n- Cherry Tomatoes\n- Cucumber\n\n*Instructions:*\n1. Wash all vegetables thoroughly.\n2. Chop cucumber and tomatoes.\n3. Toss with spinach and olive oil.\n4. Season with salt and pepper.`);
@@ -34,7 +34,6 @@ export const SmartChef: React.FC<SmartChefProps> = ({ isOpen, onClose }) => {
       }
 
       const ai = new GoogleGenAI({ apiKey });
-      const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
 
       let prompt = "";
       if (mode === 'cart') {
@@ -49,9 +48,14 @@ export const SmartChef: React.FC<SmartChefProps> = ({ isOpen, onClose }) => {
         prompt = `Suggest a healthy recipe based on this request: "${customInput}". Prioritize fresh vegetables and fruits. Format nicely with Markdown.`;
       }
 
-      const result = await model.generateContent(prompt);
-      setRecipe(result.response.text());
+      // Updated to use ai.models.generateContent properly
+      const result = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: prompt
+      });
+      setRecipe(result.text || null);
     } catch (error) {
+      console.error(error);
       setRecipe("I'm having trouble connecting to the kitchen server. Please try again later.");
     } finally {
       setLoading(false);

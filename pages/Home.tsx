@@ -1,11 +1,10 @@
 
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
-  ArrowRight, Leaf, Clock, MapPin, Star, Sparkles, 
-  CheckCircle, Zap, TrendingUp, Calendar, Heart, 
-  ChefHat, Play, ArrowUpRight, Truck, ShieldCheck,
-  Quote, Timer, Award, Droplets, RotateCcw
+  ArrowRight, Leaf, MapPin, Star, Sparkles, 
+  Zap, Calendar, ChefHat, Play, ArrowUpRight, 
+  Truck, ShieldCheck, Heart, Timer, Award, RotateCcw
 } from 'lucide-react';
 import { useProduct } from '../services/ProductContext';
 import { useAuth } from '../services/AuthContext';
@@ -23,31 +22,22 @@ export const Home: React.FC = () => {
   const navigate = useNavigate();
   
   const [loading, setLoading] = useState(true);
-  const [activeTestimonial, setActiveTestimonial] = useState(0);
   const [timeLeft, setTimeLeft] = useState({ hours: 12, minutes: 45, seconds: 30 });
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Data selection
   const featuredProducts = products.filter(p => p.isOrganic).slice(0, 4);
-  const seasonalProducts = products.filter(p => p.category === 'Fruit').slice(0, 4);
   const dealProduct = products.find(p => p.price > 150) || products[0];
 
   // Buy It Again Logic
   const previousItems = useMemo(() => {
     if (!orders || orders.length === 0) return [];
     
-    // Extract all items from all orders
-    const allItems = orders.flatMap(order => order.items);
-    
-    // Deduplicate by ID
+    // Extract all items from all orders and deduplicate
     const uniqueItemsMap = new Map();
-    allItems.forEach(item => {
+    orders.flatMap(order => order.items).forEach(item => {
         if (!uniqueItemsMap.has(item.id)) {
-            // Find current product state to ensure latest price/stock
             const currentProduct = products.find(p => p.id === item.id);
-            if (currentProduct) {
-                uniqueItemsMap.set(item.id, currentProduct);
-            }
+            if (currentProduct) uniqueItemsMap.set(item.id, currentProduct);
         }
     });
     
@@ -84,16 +74,16 @@ export const Home: React.FC = () => {
   return (
     <div className="w-full bg-[#FAFAF9] overflow-x-hidden font-sans" onMouseMove={handleMouseMove}>
       
-      {/* Fresh Stories Bar - Sticky with Glassmorphism */}
-      <div className="sticky top-[68px] z-30 bg-white/80 backdrop-blur-xl border-b border-gray-100/50 shadow-sm transition-all duration-300">
+      {/* Fresh Stories Bar - Sticky */}
+      <div className="sticky top-[72px] z-30 bg-white/80 backdrop-blur-xl border-b border-gray-100/50 shadow-sm transition-all duration-300">
          <FreshStories />
       </div>
 
       <DailyRewards />
 
       {/* 1. ULTRA MODERN HERO SECTION */}
-      <section className="relative min-h-[92vh] flex items-center overflow-hidden pt-10 lg:pt-0">
-        {/* Abstract Background */}
+      <section className="relative min-h-[85vh] flex items-center overflow-hidden pt-10 lg:pt-0">
+        {/* Abstract Background with Mouse Movement */}
         <div className="absolute inset-0 bg-[#F3F4F6] -z-20"></div>
         <div 
             className="absolute top-[-20%] right-[-10%] w-[900px] h-[900px] bg-gradient-to-br from-leaf-300/20 to-yellow-200/20 rounded-full blur-[120px] transition-transform duration-100 ease-out will-change-transform"
