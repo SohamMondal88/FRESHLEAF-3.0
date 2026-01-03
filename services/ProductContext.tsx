@@ -1,13 +1,16 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Product } from '../types';
 import { PRODUCTS as INITIAL_PRODUCTS } from '../constants';
+import { db } from './firebase';
+import { collection, getDocs, doc, writeBatch, query } from 'firebase/firestore';
 
 interface ProductContextType {
   products: Product[];
+  seedDatabase: () => Promise<void>;
   updateProduct: (id: string, updates: Partial<Product>) => void;
   bulkUpdateProducts: (ids: string[], updates: Partial<Product>) => void;
   addProduct: (product: Omit<Product, 'id' | 'rating' | 'reviews'>) => void;
-  resetProducts: () => void;
 }
 
 const ProductContext = createContext<ProductContextType | undefined>(undefined);
@@ -15,29 +18,38 @@ const ProductContext = createContext<ProductContextType | undefined>(undefined);
 export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [products, setProducts] = useState<Product[]>([]);
 
-  // Initialize products from local storage or constants
+  // Fetch products from Firestore
   useEffect(() => {
-    const storedProducts = localStorage.getItem('freshleaf_products_v1');
-    if (storedProducts) {
-      try {
-        setProducts(JSON.parse(storedProducts));
-      } catch (e) {
-        console.error("Failed to parse products", e);
+    const fetchProducts = async () => {
+      const q = query(collection(db, 'products'));
+      const snapshot = await getDocs(q);
+      
+      if (!snapshot.empty) {
+        const fetchedProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        setProducts(fetchedProducts);
+      } else {
+        // Fallback or seed opportunity
         setProducts(INITIAL_PRODUCTS);
       }
-    } else {
-      setProducts(INITIAL_PRODUCTS);
-    }
+    };
+    fetchProducts();
   }, []);
 
-  // Persist changes
-  useEffect(() => {
-    if (products.length > 0) {
-      localStorage.setItem('freshleaf_products_v1', JSON.stringify(products));
-    }
-  }, [products]);
+  // Utility to seed Firestore with constants (Run once)
+  const seedDatabase = async () => {
+    const batch = writeBatch(db);
+    INITIAL_PRODUCTS.forEach(p => {
+        const ref = doc(db, 'products', p.id);
+        batch.set(ref, p);
+    });
+    await batch.commit();
+    console.log("Database seeded!");
+    // Refresh
+    setProducts(INITIAL_PRODUCTS);
+  };
 
   const updateProduct = (id: string, updates: Partial<Product>) => {
+    // Implement Firestore update logic here if needed
     setProducts(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
   };
 
@@ -46,25 +58,20 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const addProduct = (newProductData: Omit<Product, 'id' | 'rating' | 'reviews'>) => {
+    // Placeholder for local state update
     const newProduct: Product = {
         ...newProductData,
         id: 'p-' + Date.now(),
         rating: 0,
         reviews: 0,
         inStock: true,
-        // Ensure gallery has at least main image
         gallery: newProductData.gallery.length > 0 ? newProductData.gallery : [newProductData.image]
     };
     setProducts(prev => [newProduct, ...prev]);
   };
 
-  const resetProducts = () => {
-    setProducts(INITIAL_PRODUCTS);
-    localStorage.removeItem('freshleaf_products_v1');
-  };
-
   return (
-    <ProductContext.Provider value={{ products, updateProduct, bulkUpdateProducts, addProduct, resetProducts }}>
+    <ProductContext.Provider value={{ products, seedDatabase, updateProduct, bulkUpdateProducts, addProduct }}>
       {children}
     </ProductContext.Provider>
   );

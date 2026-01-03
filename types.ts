@@ -27,6 +27,48 @@ export interface CartItem extends Product {
   selectedUnit: string; // e.g., '500g', '1kg'
 }
 
+export interface User {
+  id: string;
+  name: string;
+  email?: string;
+  phone: string;
+  address?: string;
+  city?: string;
+  pincode?: string;
+  isPro?: boolean; // Membership status
+  avatar?: string;
+  role: 'customer' | 'seller'; // Distinguish between buyers and farmers
+  farmName?: string; // For sellers
+  walletBalance: number; // Credit points
+}
+
+export interface Order {
+  id: string;
+  userId: string;
+  date: string;
+  createdAt: number; // Timestamp for cancellation logic
+  total: number;
+  status: 'Processing' | 'Packed' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
+  items: CartItem[];
+  trackingId?: string;
+  paymentMethod: string;
+  address: string;
+  courier: string; 
+  agent?: DeliveryAgent; // Assigned friend
+  customerName?: string;
+  customerPhone?: string;
+  instructions?: string[];
+}
+
+export interface DeliveryAgent {
+  name: string;
+  phone: string;
+  vehicleNumber: string;
+  avatar: string;
+  rating: number;
+}
+
+// ... rest of your types (BlogPost, etc)
 export interface BlogPost {
   id: string;
   title: string;
@@ -49,21 +91,6 @@ export interface Testimonial {
   rating: number;
 }
 
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  phone?: string;
-  address?: string;
-  city?: string;
-  pincode?: string;
-  isPro?: boolean; // Membership status
-  avatar?: string;
-  role: 'customer' | 'seller'; // Distinguish between buyers and farmers
-  farmName?: string; // For sellers
-  walletBalance: number; // Credit points
-}
-
 export interface Farmer {
   id: string;
   name: string;
@@ -75,37 +102,4 @@ export interface Farmer {
   certifications: string[];
   joinedDate: string;
   rating: number;
-}
-
-export interface DeliveryAgent {
-  name: string;
-  phone: string;
-  vehicleNumber: string;
-  avatar: string;
-  rating: number;
-}
-
-export interface Order {
-  id: string;
-  userId: string;
-  date: string;
-  createdAt: number; // Timestamp for cancellation logic
-  total: number;
-  status: 'Processing' | 'Packed' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
-  items: CartItem[];
-  trackingId?: string;
-  paymentMethod: string;
-  address: string;
-  courier: string; 
-  agent?: DeliveryAgent; // Assigned friend
-  customerName?: string;
-  customerPhone?: string;
-}
-
-export interface TrackingStep {
-  title: string;
-  subtitle: string;
-  timestamp: string;
-  completed: boolean;
-  icon: any;
 }
