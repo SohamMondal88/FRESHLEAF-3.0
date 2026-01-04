@@ -7,11 +7,11 @@ import {
   signInWithPhoneNumber, 
   onAuthStateChanged, 
   signOut,
-  ConfirmationResult,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile as firebaseUpdateProfile
 } from 'firebase/auth';
+import type { ConfirmationResult } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from './ToastContext';
 
@@ -98,7 +98,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 address: ''
             };
             setUser(fallbackUser);
-            // We don't block the UI here, just log warning
         }
       } else {
         // Only clear user if we are NOT using a mock session
@@ -231,11 +230,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     try {
         const userDocRef = doc(db, 'users', user.id);
-        // FIX: Ensure no undefined values sent to Firestore
         const safeData = JSON.parse(JSON.stringify(data)); 
         await updateDoc(userDocRef, safeData);
         
-        // Also update Firebase Auth profile if name/photo changes
         if (auth.currentUser) {
             if (data.name || data.avatar) {
                 await firebaseUpdateProfile(auth.currentUser, {
@@ -247,7 +244,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         addToast("Profile updated", "success");
     } catch (e) {
         console.warn("Profile sync failed (offline/mock mode)", e);
-        // Don't show error toast if we successfully updated local state
     }
   };
 
@@ -271,7 +267,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch (error: any) {
         console.error("Login Error:", error);
         
-        // Fallback for Demo/Configuration Errors
+        // Fallback for Demo/Configuration/Network Errors
         if (
             error.code === 'auth/configuration-not-found' || 
             error.code === 'auth/network-request-failed' || 
@@ -318,14 +314,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userCredential.user.uid}`,
             isPro: false,
             address: '',
-            // FIX: Ensure undefined is not sent for optional fields
             farmName: farmName || null 
         };
 
         // Create user document in Firestore - using JSON.parse(JSON.stringify) to strip any lingering undefineds
         await setDoc(doc(db, 'users', userCredential.user.uid), JSON.parse(JSON.stringify(newUser)));
         
-        // Update Firebase Auth profile
         await firebaseUpdateProfile(userCredential.user, {
             displayName: name,
             photoURL: newUser.avatar

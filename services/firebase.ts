@@ -18,7 +18,7 @@ const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 
-// Initialize Firestore with memory cache to avoid persistence issues in ephemeral environments
+// Initialize Firestore with memory cache to avoid persistence issues (fixes [code=unavailable])
 export const db = initializeFirestore(app, {
   localCache: memoryLocalCache()
 });

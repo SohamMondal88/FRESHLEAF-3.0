@@ -61,7 +61,7 @@ export const PincodeProvider: React.FC<{ children: ReactNode }> = ({ children })
         try {
           const { latitude, longitude } = position.coords;
           
-          // Use OpenStreetMap (Nominatim) for free reverse geocoding
+          // Use OpenStreetMap (Nominatim) for free reverse geocoding to avoid billing issues with Google API
           const response = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
           );
