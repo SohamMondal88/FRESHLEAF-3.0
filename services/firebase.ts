@@ -1,7 +1,7 @@
 
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
+import { initializeFirestore, memoryLocalCache } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
@@ -18,10 +18,9 @@ const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 
-// Initialize Firestore with specific settings to avoid backend connection timeouts
+// Initialize Firestore with memory cache to avoid persistence issues in ephemeral environments
 export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true, // Forces long polling instead of WebSockets, often fixes "Could not reach backend"
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+  localCache: memoryLocalCache()
 });
 
 export const storage = getStorage(app);

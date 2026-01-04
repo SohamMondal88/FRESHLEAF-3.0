@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Link, Outlet } from 'react-router-dom';
 import { 
-  Leaf, Facebook, Twitter, Instagram, Youtube
+  Leaf, Facebook, Twitter, Instagram, Youtube, Crosshair
 } from 'lucide-react';
 import { useAuth } from '../services/AuthContext';
 import { usePincode } from '../services/PincodeContext';
@@ -10,25 +10,38 @@ import { ChatBot } from './ChatBot';
 import { BackToTop } from './BackToTop';
 import { SmartChef } from './features/SmartChef';
 import { Navbar } from './Navbar';
-import { X, MapPin } from 'lucide-react';
+import { X, MapPin, Loader2 } from 'lucide-react';
 
 export const Layout: React.FC = () => {
   const [showChef, setShowChef] = useState(false);
-  const { pincode, setPincode, isServiceable, showModal, setShowModal } = usePincode();
+  const { pincode, setPincode, detectLocation, isServiceable, showModal, setShowModal } = usePincode();
   const [pincodeInput, setPincodeInput] = useState('');
   const [pincodeLoading, setPincodeLoading] = useState(false);
+  const [detectingLoc, setDetectingLoc] = useState(false);
   const [pincodeError, setPincodeError] = useState('');
 
   const handlePincodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!/^(7433\d{2})$/.test(pincodeInput)) {
-        setPincodeError("We only deliver to pincodes starting with 7433XX");
+    if (pincodeInput !== '743372') {
+        setPincodeError("We only deliver to pincode 743372");
         return;
     }
     setPincodeLoading(true);
+    setPincodeError('');
     const success = await setPincode(pincodeInput);
     setPincodeLoading(false);
     if (!success) setPincodeError("Sorry, we do not deliver to this location yet.");
+  };
+
+  const handleDetectLocation = async () => {
+    setDetectingLoc(true);
+    setPincodeError('');
+    const result = await detectLocation();
+    setDetectingLoc(false);
+    
+    if (!result.success) {
+      setPincodeError(result.message || "Could not detect location.");
+    }
   };
 
   return (
@@ -39,15 +52,51 @@ export const Layout: React.FC = () => {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in">
             <div className="bg-white rounded-[2rem] p-8 max-w-sm w-full shadow-2xl relative overflow-hidden animate-in zoom-in-95 border border-gray-100">
                 {!isServiceable && <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={20}/></button>}
+                
                 <div className="text-center mb-6">
-                    <div className="bg-green-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-green-600 border border-green-100 shadow-sm"><MapPin size={32}/></div>
-                    <h3 className="text-2xl font-extrabold text-gray-900">Check Delivery</h3>
-                    <p className="text-gray-500 text-sm mt-2">Enter pincode to check availability.</p>
+                    <div className="bg-leaf-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-leaf-600 border border-leaf-100 shadow-sm animate-bounce">
+                      <MapPin size={32}/>
+                    </div>
+                    <h3 className="text-2xl font-extrabold text-gray-900">Delivery Location</h3>
+                    <p className="text-gray-500 text-sm mt-2">We deliver to <b>743372</b>.</p>
                 </div>
+
+                {/* Detect Location Button */}
+                <button 
+                  onClick={handleDetectLocation}
+                  disabled={detectingLoc}
+                  className="w-full bg-leaf-600 text-white font-bold py-3.5 rounded-xl hover:bg-leaf-700 transition shadow-lg flex items-center justify-center gap-2 mb-6 active:scale-95 disabled:opacity-70 disabled:active:scale-100"
+                >
+                  {detectingLoc ? <Loader2 size={20} className="animate-spin" /> : <Crosshair size={20} />}
+                  {detectingLoc ? 'Detecting...' : 'Use Current Location'}
+                </button>
+
+                <div className="relative mb-6">
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200"></div></div>
+                  <div className="relative flex justify-center text-xs font-bold text-gray-400 uppercase bg-white px-2">Or enter manually</div>
+                </div>
+
                 <form onSubmit={handlePincodeSubmit}>
-                    <input type="text" maxLength={6} placeholder="Enter Pincode (7433XX)" value={pincodeInput} onChange={(e) => setPincodeInput(e.target.value.replace(/[^0-9]/g, ''))} className="w-full text-center text-lg font-bold border border-gray-200 bg-gray-50 rounded-xl py-3 mb-4 focus:outline-none focus:ring-2 focus:ring-leaf-500" />
-                    {pincodeError && <p className="text-red-500 text-xs text-center mb-4 font-bold">{pincodeError}</p>}
-                    <button type="submit" disabled={pincodeLoading} className="w-full bg-leaf-600 text-white font-bold py-3.5 rounded-xl hover:bg-leaf-700 transition shadow-lg">{pincodeLoading ? 'Checking...' : 'Check'}</button>
+                    <input 
+                      type="text" 
+                      maxLength={6} 
+                      placeholder="Enter Pincode (e.g. 743372)" 
+                      value={pincodeInput} 
+                      onChange={(e) => {
+                        setPincodeInput(e.target.value.replace(/[^0-9]/g, ''));
+                        setPincodeError('');
+                      }} 
+                      className="w-full text-center text-lg font-bold border border-gray-200 bg-gray-50 rounded-xl py-3 mb-3 focus:outline-none focus:ring-2 focus:ring-leaf-500 transition-all" 
+                    />
+                    {pincodeError && <p className="text-red-500 text-xs text-center mb-4 font-bold bg-red-50 py-2 rounded-lg">{pincodeError}</p>}
+                    
+                    <button 
+                      type="submit" 
+                      disabled={pincodeLoading || pincodeInput.length !== 6} 
+                      className="w-full bg-white border-2 border-gray-200 text-gray-700 font-bold py-3 rounded-xl hover:border-leaf-500 hover:text-leaf-600 transition disabled:opacity-50"
+                    >
+                      {pincodeLoading ? 'Checking...' : 'Check Availability'}
+                    </button>
                 </form>
             </div>
         </div>

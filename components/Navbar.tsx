@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Search, ShoppingCart, Menu, X, User, Heart, 
   MapPin, Phone, Crown, Sprout, ChefHat, 
-  Camera, Mic, ChevronDown, LogOut, LayoutDashboard
+  Mic, ChevronDown, LogOut, LayoutDashboard, Settings as SettingsIcon
 } from 'lucide-react';
 import { useCart } from '../services/CartContext';
 import { useAuth } from '../services/AuthContext';
@@ -40,7 +40,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenChef }) => {
   // Scroll Listener for Glass Effect
   useEffect(() => {
     const handleScroll = () => {
-      // Threshold of 20px to trigger the effect
       setIsScrolled(window.scrollY > 20);
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -220,7 +219,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenChef }) => {
                 <Search size={22} />
               </button>
 
-              {/* AI Chef Button (Premium Gradient) */}
+              {/* AI Chef Button */}
               <button 
                 onClick={onOpenChef} 
                 className="hidden md:flex items-center gap-2 bg-gradient-to-r from-orange-400 to-red-500 text-white px-5 py-3 rounded-full font-bold text-sm shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:scale-105 active:scale-95 transition-all group"
@@ -245,15 +244,26 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenChef }) => {
                 )}
               </Link>
 
-              {/* Profile Dropdown */}
+              {/* Profile Dropdown (Replaces Login/Signup) */}
               <div ref={profileRef} className="relative hidden sm:block">
                 {user ? (
                   <button 
                     onClick={() => setShowProfileMenu(!showProfileMenu)}
-                    className="flex items-center gap-2 p-1.5 pl-3 pr-1.5 rounded-full border border-gray-200 hover:border-leaf-300 hover:shadow-md transition-all bg-white group"
+                    className={`flex items-center gap-2 pl-3 pr-1.5 py-1.5 rounded-full border transition-all duration-300 group ${
+                      showProfileMenu 
+                        ? 'bg-leaf-50 border-leaf-300 ring-2 ring-leaf-100' 
+                        : 'bg-white border-gray-200 hover:border-leaf-300 hover:shadow-md'
+                    }`}
                   >
-                    <span className="text-xs font-bold text-gray-700 max-w-[80px] truncate group-hover:text-leaf-700">{user.name.split(' ')[0]}</span>
-                    <img src={user.avatar} alt={user.name} className="w-9 h-9 rounded-full object-cover bg-gray-100 border border-gray-100" />
+                    <div className="flex flex-col items-end mr-1">
+                      <span className="text-xs font-extrabold text-gray-700 max-w-[80px] truncate leading-none mb-0.5">{user.name.split(' ')[0]}</span>
+                      <span className="text-[9px] font-bold text-leaf-600 uppercase tracking-wider">{user.role === 'seller' ? 'Seller' : 'Member'}</span>
+                    </div>
+                    <img 
+                        src={user.avatar} 
+                        alt={user.name} 
+                        className="w-9 h-9 rounded-full object-cover bg-gray-100 border-2 border-white shadow-sm group-hover:scale-105 transition-transform" 
+                    />
                   </button>
                 ) : (
                   <Link to="/login" className="flex items-center gap-2 bg-gray-900 text-white px-6 py-3 rounded-full font-bold text-sm hover:bg-leaf-600 hover:shadow-lg transition-all active:scale-95">
@@ -263,24 +273,32 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenChef }) => {
 
                 {/* Dropdown Menu */}
                 {showProfileMenu && user && (
-                  <div className="absolute right-0 top-full mt-4 w-60 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 origin-top-right z-50">
-                    <div className="p-5 border-b border-gray-50 bg-gray-50/50">
+                  <div className="absolute right-0 top-full mt-4 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 origin-top-right z-50">
+                    <div className="p-5 border-b border-gray-50 bg-gradient-to-br from-gray-50 to-white">
                       <p className="font-bold text-gray-900 truncate text-base">{user.name}</p>
                       <p className="text-xs text-gray-500 truncate mt-0.5">{user.email}</p>
+                      <div className="mt-3 flex gap-2">
+                         <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold uppercase">{user.isPro ? 'PRO' : 'Free'} Plan</span>
+                         <span className="text-[10px] bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded font-bold uppercase flex items-center gap-1"><Crown size={10}/> {user.walletBalance} Pts</span>
+                      </div>
                     </div>
                     <div className="p-2 space-y-1">
-                      <Link to="/account" onClick={() => setShowProfileMenu(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-leaf-600 transition-colors">
-                        <User size={16} /> My Profile
+                      <Link to="/account" onClick={() => setShowProfileMenu(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-leaf-50 hover:text-leaf-700 transition-colors group">
+                        <div className="bg-gray-100 p-1.5 rounded-lg group-hover:bg-white text-gray-500 group-hover:text-leaf-600 transition"><User size={16} /></div> 
+                        Dashboard
                       </Link>
-                      <Link to="/orders" onClick={() => setShowProfileMenu(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-leaf-600 transition-colors">
-                        <LayoutDashboard size={16} /> Orders
+                      <Link to="/orders" onClick={() => setShowProfileMenu(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-leaf-50 hover:text-leaf-700 transition-colors group">
+                        <div className="bg-gray-100 p-1.5 rounded-lg group-hover:bg-white text-gray-500 group-hover:text-leaf-600 transition"><LayoutDashboard size={16} /></div>
+                        My Orders
                       </Link>
-                      <Link to="/wishlist" onClick={() => setShowProfileMenu(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-leaf-600 transition-colors">
-                        <Heart size={16} /> Wishlist
+                      <Link to="/account" onClick={() => setShowProfileMenu(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-leaf-50 hover:text-leaf-700 transition-colors group">
+                        <div className="bg-gray-100 p-1.5 rounded-lg group-hover:bg-white text-gray-500 group-hover:text-leaf-600 transition"><SettingsIcon size={16} /></div>
+                        Settings
                       </Link>
                       <div className="h-px bg-gray-100 my-1 mx-2"></div>
-                      <button onClick={logout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-colors text-left">
-                        <LogOut size={16} /> Sign Out
+                      <button onClick={logout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-colors text-left group">
+                        <div className="bg-red-50 p-1.5 rounded-lg group-hover:bg-white transition"><LogOut size={16} /></div>
+                        Sign Out
                       </button>
                     </div>
                   </div>
@@ -340,11 +358,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenChef }) => {
 
           <div className="p-6 flex-grow overflow-y-auto">
             {user ? (
-              <div className="bg-leaf-50/50 border border-leaf-100 p-4 rounded-2xl flex items-center gap-4 mb-8 active:scale-95 transition-transform" onClick={() => {navigate('/account'); setIsMenuOpen(false);}}>
+              <div className="bg-leaf-50/50 border border-leaf-100 p-4 rounded-2xl flex items-center gap-4 mb-8 active:scale-95 transition-transform shadow-sm" onClick={() => {navigate('/account'); setIsMenuOpen(false);}}>
                 <img src={user.avatar} className="w-12 h-12 rounded-full border-2 border-white shadow-sm object-cover" />
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-gray-900 truncate">{user.name}</p>
-                  <p className="text-xs text-leaf-600 font-medium">View Profile</p>
+                  <p className="text-xs text-leaf-600 font-medium">View Dashboard</p>
                 </div>
                 <ChevronDown className="-rotate-90 text-leaf-400" size={20}/>
               </div>

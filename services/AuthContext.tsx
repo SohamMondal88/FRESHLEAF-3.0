@@ -276,7 +276,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             error.code === 'auth/configuration-not-found' || 
             error.code === 'auth/network-request-failed' || 
             error.code === 'auth/internal-error' || 
-            error.code === 'auth/invalid-api-key'
+            error.code === 'auth/invalid-api-key' ||
+            error.code === 'unavailable' ||
+            error.message?.includes('unavailable')
         ) {
             const mockUser: User = {
                 id: 'mock-user-' + Date.now(),
@@ -339,7 +341,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             error.code === 'auth/configuration-not-found' || 
             error.code === 'auth/network-request-failed' || 
             error.code === 'auth/internal-error' ||
-            error.code === 'auth/invalid-api-key'
+            error.code === 'auth/invalid-api-key' ||
+            error.code === 'unavailable' ||
+            error.message?.includes('unavailable')
         ) {
              const mockUser: User = {
                 id: 'mock-user-' + Date.now(),
