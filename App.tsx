@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import { CartProvider } from './services/CartContext';
 import { AuthProvider } from './services/AuthContext';
 import { OrderProvider } from './services/OrderContext';
@@ -33,14 +34,16 @@ import { FarmerProfile } from './pages/FarmerProfile';
 
 const App: React.FC = () => {
   return (
-    <ToastProvider>
-      <AuthProvider>
-        <ProductProvider>
-          <OrderProvider>
-            <ImageProvider>
-              <CartProvider>
-                <PincodeProvider>
-                  <HashRouter>
+    <>
+      <Analytics />
+      <ToastProvider>
+        <AuthProvider>
+          <ProductProvider>
+            <OrderProvider>
+              <ImageProvider>
+                <CartProvider>
+                  <PincodeProvider>
+                    <HashRouter>
                     <Routes>
                       <Route path="/" element={<Layout />}>
                         <Route index element={<Shop />} />
@@ -76,14 +79,15 @@ const App: React.FC = () => {
                       <Route path="/seller/dashboard" element={<SellerDashboard />} />
                     </Routes>
                     <CookieConsent />
-                  </HashRouter>
-                </PincodeProvider>
-              </CartProvider>
-            </ImageProvider>
-          </OrderProvider>
-        </ProductProvider>
-      </AuthProvider>
-    </ToastProvider>
+                    </HashRouter>
+                  </PincodeProvider>
+                </CartProvider>
+              </ImageProvider>
+            </OrderProvider>
+          </ProductProvider>
+        </AuthProvider>
+      </ToastProvider>
+    </>
   );
 };
 
