@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, Bot, User, Minimize2, Loader2, Brain, Zap, Globe, MapPin, Sparkles, ChevronRight, ShoppingBag, Headphones, Camera, Paperclip, Image as ImageIcon } from 'lucide-react';
+import { MessageCircle, X, Send, Bot, User, Minimize2, Loader2, Brain, Zap, Globe, MapPin, Sparkles, ChevronRight, ShoppingBag, Headphones, Camera, Paperclip, Image as ImageIcon, ChevronDown } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { useProduct } from '../services/ProductContext';
 import { useNavigate } from 'react-router-dom';
@@ -156,17 +156,24 @@ export const ChatBot: React.FC = () => {
 
   return (
     <>
+      {/* Floating Toggle Button (Hidden when open on mobile to avoid z-index conflicts) */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={`fixed bottom-6 right-6 z-[60] p-4 rounded-full shadow-2xl transition-all duration-500 flex items-center justify-center border-4 border-white/50 backdrop-blur-md group active:scale-95 ${
-          isOpen ? 'bg-gray-900 rotate-90 scale-90' : 'bg-gradient-to-tr from-leaf-600 to-leaf-400 hover:scale-110 hover:shadow-leaf-500/40'
+          isOpen ? 'bg-gray-900 rotate-90 scale-90 sm:flex hidden' : 'bg-gradient-to-tr from-leaf-600 to-leaf-400 hover:scale-110 hover:shadow-leaf-500/40 flex'
         } text-white`}
       >
         {isOpen ? <X size={24} /> : <MessageCircle size={28} className="fill-current" />}
       </button>
 
+      {/* Chat Window */}
       {isOpen && (
-        <div className="fixed inset-0 md:inset-auto md:bottom-24 md:right-6 z-[60] w-full md:w-[400px] h-full md:h-[600px] md:max-h-[80vh] bg-white/95 backdrop-blur-xl md:rounded-[2.5rem] shadow-2xl flex flex-col border border-white/50 animate-in fade-in slide-in-from-bottom-10 duration-500 font-sans overflow-hidden">
+        <div className={`
+            fixed z-[70] sm:z-[60] bg-white/95 backdrop-blur-xl shadow-2xl flex flex-col border border-white/50 
+            animate-in fade-in slide-in-from-bottom-10 duration-300 font-sans overflow-hidden
+            inset-0 w-full h-[100dvh] rounded-none
+            sm:inset-auto sm:bottom-24 sm:right-6 sm:w-[400px] sm:h-[600px] sm:max-h-[80vh] sm:rounded-[2.5rem]
+        `}>
           
           {/* Header */}
           <div className="bg-gradient-to-r from-leaf-700 to-leaf-500 p-5 text-white shrink-0 relative overflow-hidden">
@@ -179,23 +186,32 @@ export const ChatBot: React.FC = () => {
                   <h3 className="font-bold text-lg tracking-tight leading-none">FreshLeaf AI</h3>
                   <span className="text-[10px] uppercase font-bold tracking-widest opacity-80 flex items-center gap-1 mt-1"><span className="w-1.5 h-1.5 bg-green-300 rounded-full animate-pulse"></span> Online</span>
                 </div>
-                <div className="ml-auto flex gap-1 bg-black/20 p-1 rounded-lg backdrop-blur-sm">
-                   {(['lite', 'thinking', 'maps'] as ChatMode[]).map(m => (
-                       <button 
-                        key={m} 
-                        onClick={() => setMode(m)} 
-                        title={m === 'lite' ? 'Fast Mode' : m === 'thinking' ? 'Deep Thinking' : 'Maps'}
-                        className={`p-1.5 rounded-md transition ${mode === m ? 'bg-white text-leaf-800 shadow-sm' : 'text-white/60 hover:text-white'}`}
-                       >
-                           {m === 'lite' ? <Zap size={14}/> : m === 'thinking' ? <Brain size={14}/> : <MapPin size={14}/>}
-                       </button>
-                   ))}
+                <div className="ml-auto flex gap-1 items-center">
+                   <div className="flex gap-1 bg-black/20 p-1 rounded-lg backdrop-blur-sm">
+                        {(['lite', 'thinking', 'maps'] as ChatMode[]).map(m => (
+                            <button 
+                                key={m} 
+                                onClick={() => setMode(m)} 
+                                title={m === 'lite' ? 'Fast Mode' : m === 'thinking' ? 'Deep Thinking' : 'Maps'}
+                                className={`p-1.5 rounded-md transition ${mode === m ? 'bg-white text-leaf-800 shadow-sm' : 'text-white/60 hover:text-white'}`}
+                            >
+                                {m === 'lite' ? <Zap size={14}/> : m === 'thinking' ? <Brain size={14}/> : <MapPin size={14}/>}
+                            </button>
+                        ))}
+                   </div>
+                   {/* Mobile Close Button */}
+                   <button 
+                        onClick={() => setIsOpen(false)}
+                        className="sm:hidden p-2 bg-white/10 hover:bg-white/20 rounded-full text-white ml-2 transition"
+                   >
+                        <ChevronDown size={20} />
+                   </button>
                 </div>
             </div>
           </div>
 
           {/* Chat Area */}
-          <div className="flex-grow overflow-y-auto p-5 bg-gray-50/50 space-y-4">
+          <div className="flex-grow overflow-y-auto p-5 bg-gray-50/50 space-y-4 scrollbar-thin scrollbar-thumb-gray-200">
             {messages.map((msg, idx) => (
               <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-in slide-in-from-bottom-2`}>
                 <div className={`flex items-end gap-2 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
@@ -247,7 +263,7 @@ export const ChatBot: React.FC = () => {
           </div>
 
           {/* Quick Actions */}
-          <div className="px-4 pb-2 flex gap-2 overflow-x-auto scrollbar-hide">
+          <div className="px-4 pb-2 flex gap-2 overflow-x-auto scrollbar-hide shrink-0">
              {QUICK_ACTIONS.map((action, i) => (
                  <button key={i} onClick={() => { navigate(action.action); setIsOpen(false); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-xs font-bold text-gray-600 hover:bg-leaf-50 hover:border-leaf-200 hover:text-leaf-700 transition whitespace-nowrap shadow-sm">
                      <action.icon size={12}/> {action.label}
@@ -256,7 +272,7 @@ export const ChatBot: React.FC = () => {
           </div>
 
           {/* Input Area */}
-          <div className="p-3 bg-white border-t border-gray-100">
+          <div className="p-3 bg-white border-t border-gray-100 shrink-0 pb-safe-or-4">
             {attachedImage && (
                 <div className="flex items-center gap-2 mb-2 bg-gray-50 p-2 rounded-lg">
                     <img src={attachedImage} className="w-8 h-8 rounded object-cover" alt="Preview"/>

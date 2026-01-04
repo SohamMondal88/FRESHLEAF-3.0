@@ -12,7 +12,6 @@ import { useOrder } from '../services/OrderContext';
 import { TESTIMONIALS, BLOG_POSTS } from '../constants';
 import { ProductCard } from '../components/ui/ProductCard';
 import { ProductCardSkeleton } from '../components/ui/Skeleton';
-import { FreshStories } from '../components/features/FreshStories';
 import { DailyRewards } from '../components/features/DailyRewards';
 
 export const Home: React.FC = () => {
@@ -74,11 +73,6 @@ export const Home: React.FC = () => {
   return (
     <div className="w-full bg-[#FAFAF9] overflow-x-hidden font-sans text-slate-800" onMouseMove={handleMouseMove}>
       
-      {/* Sticky Stories Bar */}
-      <div className="sticky top-[72px] z-30 bg-white/80 backdrop-blur-xl border-b border-gray-100/50 shadow-sm transition-all duration-300">
-         <FreshStories />
-      </div>
-
       <DailyRewards />
 
       {/* 1. MODERN PARALLAX HERO */}
