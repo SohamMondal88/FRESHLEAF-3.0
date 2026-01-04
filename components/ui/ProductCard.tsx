@@ -1,12 +1,11 @@
 
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Star, Heart, Eye, Minus, Plus, Zap as BuyIcon, Sprout, ShoppingBag } from 'lucide-react';
+import { ShoppingCart, Star, Heart, Eye, Zap as BuyIcon, Sprout } from 'lucide-react';
 import { Product } from '../../types';
 import { useCart } from '../../services/CartContext';
 import { useImage } from '../../services/ImageContext';
 import { QuickViewModal } from './QuickViewModal';
-import { FARMERS } from '../../constants';
 
 interface Props {
   product: Product;
@@ -37,8 +36,6 @@ export const ProductCard: React.FC<Props> = ({ product, highlightTerm, onWishlis
   const { addToCart, addToWishlist, isInWishlist, removeFromWishlist } = useCart();
   const { getProductImage } = useImage();
   const navigate = useNavigate();
-  const [qty, setQty] = useState(1);
-  const [isHovered, setIsHovered] = useState(false);
   const [showQuickView, setShowQuickView] = useState(false);
   
   const unitOptions = getUnitOptions(product.baseUnit);
@@ -51,16 +48,23 @@ export const ProductCard: React.FC<Props> = ({ product, highlightTerm, onWishlis
   const oldDisplayPrice = product.oldPrice ? Math.ceil(product.oldPrice * currentMultiplier) : null;
 
   const displayImage = getProductImage(product.id, product.image);
-  const farmer = FARMERS.find(f => f.id === product.sellerId);
 
   const handleAddToCart = (e: React.MouseEvent) => {
-    e.preventDefault(); e.stopPropagation();
-    addToCart({ ...product, image: displayImage }, qty, unitLabel, displayPrice);
-    setQty(1);
+    e.preventDefault(); 
+    e.stopPropagation();
+    addToCart({ ...product, image: displayImage }, 1, unitLabel, displayPrice);
+  };
+
+  const handleBuyNow = (e: React.MouseEvent) => {
+    e.preventDefault(); 
+    e.stopPropagation();
+    addToCart({ ...product, image: displayImage }, 1, unitLabel, displayPrice);
+    navigate('/checkout');
   };
 
   const toggleWishlist = (e: React.MouseEvent) => {
-    e.preventDefault(); e.stopPropagation();
+    e.preventDefault(); 
+    e.stopPropagation();
     if (onWishlistClick) {
         onWishlistClick(product);
     } else {
@@ -86,11 +90,7 @@ export const ProductCard: React.FC<Props> = ({ product, highlightTerm, onWishlis
 
   return (
     <>
-      <div 
-        className="group relative bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl hover:border-leaf-200 transition-all duration-300 flex flex-col h-full overflow-hidden"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-      >
+      <div className="group relative bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl hover:border-leaf-200 transition-all duration-300 flex flex-col h-full overflow-hidden">
         {/* 1. Image Area (Top) */}
         <div className="relative aspect-[4/3] bg-gray-50 overflow-hidden">
           <Link to={`/product/${product.id}`} className="block w-full h-full">
@@ -135,8 +135,8 @@ export const ProductCard: React.FC<Props> = ({ product, highlightTerm, onWishlis
         </div>
         
         {/* 2. Content Area (Middle) */}
-        <div className="p-5 flex-grow flex flex-col">
-          <div className="mb-3">
+        <div className="p-4 flex-grow flex flex-col">
+          <div className="mb-2">
             <div className="flex justify-between items-start mb-1">
                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{product.category}</span>
                <div className="flex items-center gap-1 text-yellow-400 text-[10px] font-bold">
@@ -151,19 +151,14 @@ export const ProductCard: React.FC<Props> = ({ product, highlightTerm, onWishlis
             </Link>
           </div>
 
-          {/* Description (Short) */}
-          <p className="text-xs text-gray-500 line-clamp-2 mb-4 leading-relaxed h-8">
-            {product.description}
-          </p>
-
           {/* Unit Selector */}
-          <div className="mt-auto mb-4">
+          <div className="mt-auto mb-3">
             <div className="flex gap-1 bg-gray-50 p-1 rounded-lg overflow-x-auto scrollbar-hide">
               {unitOptions.map((opt, idx) => (
                 <button 
                   key={opt.label} 
                   onClick={(e) => { e.preventDefault(); setSelectedUnitIdx(idx); }} 
-                  className={`flex-1 min-w-[50px] text-[10px] font-bold py-1.5 rounded-md transition-all whitespace-nowrap ${selectedUnitIdx === idx ? 'bg-white text-leaf-700 shadow-sm border border-gray-100' : 'text-gray-400 hover:text-gray-600'}`}
+                  className={`flex-1 min-w-[40px] text-[10px] font-bold py-1.5 rounded-md transition-all whitespace-nowrap ${selectedUnitIdx === idx ? 'bg-white text-leaf-700 shadow-sm border border-gray-100' : 'text-gray-400 hover:text-gray-600'}`}
                 >
                   {opt.label}
                 </button>
@@ -171,22 +166,28 @@ export const ProductCard: React.FC<Props> = ({ product, highlightTerm, onWishlis
             </div>
           </div>
 
-          {/* 3. Action Area (Bottom) */}
-          <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-3">
-            <div className="flex flex-col">
-               <div className="flex items-baseline gap-1">
-                 <span className="font-extrabold text-lg text-gray-900">₹{displayPrice}</span>
-                 {oldDisplayPrice && <span className="text-xs text-gray-400 line-through">₹{oldDisplayPrice}</span>}
-               </div>
-               <span className="text-[10px] text-gray-400 font-medium">per {unitLabel}</span>
-            </div>
+          {/* Price */}
+          <div className="flex items-baseline gap-1 mb-3">
+             <span className="font-extrabold text-lg text-gray-900">₹{displayPrice}</span>
+             {oldDisplayPrice && <span className="text-xs text-gray-400 line-through">₹{oldDisplayPrice}</span>}
+             <span className="text-[10px] text-gray-400 font-medium ml-auto">per {unitLabel}</span>
+          </div>
 
+          {/* 3. Action Area (Bottom) - Split Buttons */}
+          <div className="grid grid-cols-4 gap-2">
             <button 
               onClick={handleAddToCart}
-              className="bg-gray-900 hover:bg-leaf-600 text-white w-10 h-10 rounded-xl flex items-center justify-center shadow-lg transition-all active:scale-95"
+              className="col-span-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl flex items-center justify-center transition-all active:scale-95 border border-gray-200"
               title="Add to Cart"
             >
               <ShoppingCart size={18} />
+            </button>
+            
+            <button 
+              onClick={handleBuyNow}
+              className="col-span-3 bg-gray-900 hover:bg-leaf-600 text-white py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1 shadow-md hover:shadow-lg transition-all active:scale-95"
+            >
+              <BuyIcon size={14} fill="currentColor" /> Buy Now
             </button>
           </div>
         </div>

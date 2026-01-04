@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { ChefHat, Sparkles, X, ShoppingBag, Utensils, ArrowRight, Loader2, Play } from 'lucide-react';
+import { ChefHat, Sparkles, X, ShoppingBag, Utensils, Loader2, ShoppingCart } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { useCart } from '../../services/CartContext';
 
@@ -24,12 +24,12 @@ export const SmartChef: React.FC<SmartChefProps> = ({ isOpen, onClose }) => {
 
     try {
       const apiKey = process.env.API_KEY;
-      // Fallback if no API Key is available
       if (!apiKey) {
+        // Fallback for demo mode
         setTimeout(() => {
-            setRecipe(`**FreshLeaf Garden Salad (Demo)**\n\n*Ingredients:*\n- Spinach\n- Cherry Tomatoes\n- Cucumber\n\n*Instructions:*\n1. Wash all vegetables thoroughly.\n2. Chop cucumber and tomatoes.\n3. Toss with spinach and olive oil.\n4. Season with salt and pepper.`);
+            setRecipe(`**FreshLeaf Garden Salad (Demo Mode)**\n\n*Ingredients:*\n- Fresh Spinach\n- Cherry Tomatoes\n- Cucumber\n- Lemon Zest\n\n*Instructions:*\n1. Wash all vegetables thoroughly.\n2. Chop cucumber and tomatoes into bite-sized pieces.\n3. Toss with spinach and olive oil.\n4. Season with salt, pepper, and lemon juice.`);
             setLoading(false);
-        }, 2000);
+        }, 1500);
         return;
       }
 
@@ -39,21 +39,20 @@ export const SmartChef: React.FC<SmartChefProps> = ({ isOpen, onClose }) => {
       if (mode === 'cart') {
         const ingredients = cartItems.map(i => i.name.en).join(', ');
         if (!ingredients) {
-            setRecipe("Your cart is empty! Add some fresh veggies and I'll suggest a recipe.");
+            setRecipe("Your cart is empty! Add some fresh veggies and I'll suggest a delicious recipe.");
             setLoading(false);
             return;
         }
-        prompt = `Suggest a healthy, delicious Indian or Continental recipe using these ingredients: ${ingredients}. You can assume basic pantry staples (oil, salt, spices) are available. Format nicely with Markdown.`;
+        prompt = `Suggest a healthy, delicious Indian or Continental recipe using these ingredients from my shopping cart: ${ingredients}. You can assume basic pantry staples (oil, salt, spices) are available. Format nicely with Markdown.`;
       } else {
         prompt = `Suggest a healthy recipe based on this request: "${customInput}". Prioritize fresh vegetables and fruits. Format nicely with Markdown.`;
       }
 
-      // Use gemini-2.5-flash for faster response
       const result = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: prompt
       });
-      setRecipe(result.text || null);
+      setRecipe(result.text || "Could not generate recipe.");
     } catch (error) {
       console.error(error);
       setRecipe("I'm having trouble connecting to the kitchen server. Please try again later.");
@@ -92,8 +91,8 @@ export const SmartChef: React.FC<SmartChefProps> = ({ isOpen, onClose }) => {
                     onClick={() => setMode('cart')}
                     className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${mode === 'cart' ? 'border-orange-500 bg-orange-50 text-orange-700' : 'border-gray-200 bg-white hover:border-orange-200'}`}
                    >
-                      <ShoppingBag size={24}/>
-                      <span className="font-bold text-sm">Use My Cart</span>
+                      <ShoppingCart size={24}/>
+                      <span className="font-bold text-sm">Cook with Cart</span>
                    </button>
                    <button 
                     onClick={() => setMode('custom')}
@@ -114,14 +113,21 @@ export const SmartChef: React.FC<SmartChefProps> = ({ isOpen, onClose }) => {
                     />
                 )}
 
-                {mode === 'cart' && cartItems.length > 0 && (
+                {mode === 'cart' && (
                     <div className="bg-white p-4 rounded-xl border border-gray-200">
-                        <p className="text-xs font-bold text-gray-400 uppercase mb-2">Ingredients from Cart</p>
-                        <div className="flex flex-wrap gap-2">
-                            {cartItems.map(item => (
-                                <span key={item.id} className="bg-green-50 text-green-700 text-xs font-bold px-2 py-1 rounded-lg border border-green-100">{item.name.en}</span>
-                            ))}
-                        </div>
+                        <p className="text-xs font-bold text-gray-400 uppercase mb-2 flex justify-between">
+                            <span>Ingredients in Cart</span>
+                            <span className="text-leaf-600">{cartItems.length} Items</span>
+                        </p>
+                        {cartItems.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                                {cartItems.map(item => (
+                                    <span key={item.id} className="bg-green-50 text-green-700 text-xs font-bold px-2 py-1 rounded-lg border border-green-100">{item.name.en}</span>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-sm text-gray-500 italic">Your cart is empty. Add items to get suggestions!</p>
+                        )}
                     </div>
                 )}
 
@@ -146,7 +152,7 @@ export const SmartChef: React.FC<SmartChefProps> = ({ isOpen, onClose }) => {
            {recipe && (
              <div className="animate-in fade-in slide-in-from-bottom-4">
                 <div className="prose prose-orange max-w-none bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                    <div className="whitespace-pre-wrap font-medium text-gray-700">{recipe}</div>
+                    <div className="whitespace-pre-wrap font-medium text-gray-700 text-sm leading-relaxed">{recipe}</div>
                 </div>
                 <div className="mt-6 flex gap-3">
                     <button onClick={() => setRecipe(null)} className="flex-1 py-3 rounded-xl border border-gray-300 font-bold text-gray-600 hover:bg-gray-50">Try Another</button>

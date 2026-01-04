@@ -4,15 +4,15 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Search, X, Filter, ArrowUpDown, Star, Leaf, 
   MapPin, Zap, ChevronDown, RefreshCw, Grid, 
-  BookOpen, ShoppingCart, Check, ChevronRight, ChevronLeft,
-  Sun, Snowflake, Coffee, ShoppingBag, Flame, ArrowRight,
-  CloudRain
+  BookOpen, Check, ChevronRight, ChevronLeft,
+  Sun, Snowflake, CloudRain, Tractor, ShoppingCart
 } from 'lucide-react';
 import { useProduct } from '../services/ProductContext';
 import { useCart } from '../services/CartContext';
 import { useImage } from '../services/ImageContext';
 import { ProductCard } from '../components/ui/ProductCard';
 import { Product } from '../types';
+import { FARMERS } from '../constants';
 
 // --- MOBILE 3D CAROUSEL COMPONENT ---
 const Mobile3DCarousel: React.FC<{ 
@@ -23,34 +23,12 @@ const Mobile3DCarousel: React.FC<{
   bgColor?: string;
 }> = ({ title, subtitle, products, onSeeAll, bgColor = 'bg-white' }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [activeIndex, setActiveIndex] = useState(0);
 
-  const handleScroll = () => {
-    if (scrollRef.current) {
-        const container = scrollRef.current;
-        const itemWidth = container.offsetWidth * 0.85; // 85vw
-        const index = Math.round(container.scrollLeft / itemWidth);
-        setActiveIndex(Math.max(0, Math.min(index, products.length - 1)));
-    }
-  };
-
-  const scroll = (direction: 'left' | 'right') => {
-    if (scrollRef.current) {
-        const container = scrollRef.current;
-        const itemWidth = container.offsetWidth * 0.85;
-        const newPos = direction === 'left' 
-            ? Math.max(0, container.scrollLeft - itemWidth)
-            : Math.min(container.scrollWidth - container.offsetWidth, container.scrollLeft + itemWidth);
-            
-        container.scrollTo({ left: newPos, behavior: 'smooth' });
-    }
-  };
-
-  if (products.length === 0) return null;
-  const displayProducts = products.slice(0, 8); // Limit for performance
+  const displayProducts = products.slice(0, 8); 
+  if (displayProducts.length === 0) return null;
 
   return (
-    <div className={`py-8 border-b border-gray-50 last:border-0 ${bgColor} animate-in fade-in slide-in-from-bottom-4 duration-700 md:hidden`}>
+    <div className={`py-8 border-b border-gray-50 last:border-0 ${bgColor} md:hidden`}>
       <div className="flex justify-between items-end px-6 mb-4">
         <div>
             <h3 className="text-xl font-extrabold text-gray-900 leading-tight">{title}</h3>
@@ -62,39 +40,19 @@ const Mobile3DCarousel: React.FC<{
       </div>
       
       <div className="relative group">
-        {/* Navigation Arrows */}
-        {activeIndex > 0 && (
-            <button onClick={() => scroll('left')} className="absolute left-2 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white/90 shadow-md flex items-center justify-center text-gray-800"><ChevronLeft size={20}/></button>
-        )}
-        {activeIndex < displayProducts.length - 1 && (
-            <button onClick={() => scroll('right')} className="absolute right-2 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white/90 shadow-md flex items-center justify-center text-gray-800"><ChevronRight size={20}/></button>
-        )}
-
         <div 
             ref={scrollRef}
-            onScroll={handleScroll}
-            className="flex overflow-x-auto gap-0 px-[7.5vw] pb-8 pt-4 scrollbar-hide snap-x snap-mandatory"
-            style={{ scrollBehavior: 'smooth' }}
+            className="flex overflow-x-auto gap-4 px-6 pb-8 pt-4 scrollbar-hide snap-x snap-mandatory scroll-smooth"
         >
             {displayProducts.map((product, idx) => {
-                const isActive = idx === activeIndex;
-                const dist = Math.abs(idx - activeIndex);
-                
-                // 3D & Scale Logic
-                const scale = isActive ? 'scale-100' : 'scale-90';
-                const opacity = isActive ? 'opacity-100' : 'opacity-60';
-                const zIndex = 10 - dist;
-
                 return (
                     <div 
                         key={product.id} 
-                        className={`min-w-[85vw] snap-center p-2 transition-all duration-500 ease-out`}
-                        style={{ zIndex }}
+                        className="min-w-[85vw] snap-center transition-all duration-500 ease-out"
                     >
-                        <div className={`h-full bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden relative transition-all duration-500 transform ${scale} ${opacity} ${isActive ? 'shadow-2xl ring-1 ring-black/5' : ''}`}>
-                             <div className="h-full">
-                                <ProductCard product={product} /> 
-                             </div>
+                        {/* 3D Card Container Effect */}
+                        <div className="h-full transform transition-all duration-300">
+                             <ProductCard product={product} /> 
                         </div>
                     </div>
                 );
@@ -109,8 +67,8 @@ export const Shop: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { products } = useProduct();
-  const { addToCart } = useCart();
   const { getProductImage } = useImage();
+  const { addToCart } = useCart();
   
   // URL Params
   const query = searchParams.get('q') || '';
@@ -123,19 +81,48 @@ export const Shop: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState(categoryParam);
   const [sortOption, setSortOption] = useState('featured');
   const [viewMode, setViewMode] = useState<'grid' | 'journal'>('grid'); 
-  const [filters, setFilters] = useState({
+  
+  // Advanced Filters State
+  const [filters, setFilters] = useState<{
+    organic: boolean;
+    local: boolean;
+    onSale: boolean;
+    inStock: boolean;
+    rating4Plus: boolean;
+    farmers: Set<string>;
+    subCategories: Set<string>;
+  }>({
     organic: false,
     local: false,
     onSale: false,
     inStock: false,
-    rating4Plus: false
+    rating4Plus: false,
+    farmers: new Set(),
+    subCategories: new Set()
   });
+
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   
-  // Device Check - Treat Tablets (>=768px) as "Grid View" devices
+  // Device Check
   const [isLargeScreen, setIsLargeScreen] = useState(window.innerWidth >= 768);
+
+  // Available Data for Filters
+  const availableFarmers = useMemo(() => {
+      const sellerIds = new Set(products.map(p => p.sellerId).filter(Boolean));
+      return FARMERS.filter(f => sellerIds.has(f.id));
+  }, [products]);
+
+  const availableSubCategories = useMemo(() => {
+      if (selectedCategory === 'Vegetables') {
+          return ['Root Veg', 'Fruit Veg', 'Leafy', 'Bulb', 'Beans/Legumes', 'Flower Veg'];
+      }
+      if (selectedCategory === 'Fruits') {
+          return ['Tropical', 'Citrus', 'Stone Fruit', 'Melon', 'Berry', 'Exotic'];
+      }
+      return [];
+  }, [selectedCategory]);
 
   useEffect(() => {
     const handleResize = () => setIsLargeScreen(window.innerWidth >= 768);
@@ -206,7 +193,7 @@ export const Shop: React.FC = () => {
     return selectedCategory === 'All' && 
            !query && 
            priceRange === maxProductPrice && 
-           !Object.values(filters).some(Boolean);
+           !Object.values(filters).some(val => val === true || (val instanceof Set && val.size > 0));
   }, [selectedCategory, query, priceRange, filters, maxProductPrice]);
 
   // Filtered Products for Grid View
@@ -221,18 +208,28 @@ export const Shop: React.FC = () => {
         if (!matchName && !matchCat) return false;
       }
 
-      if (selectedCategory !== 'All' && product.category !== selectedCategory) {
-         if (selectedCategory === 'Fruits' && !['Fruit', 'Mango', 'Banana', 'Apple', 'Citrus', 'Melon', 'Grapes', 'Berry', 'Stone Fruit', 'Imported Fruit', 'Exotic'].includes(product.category)) return false;
-         if (selectedCategory === 'Vegetables' && !['Fruit Veg', 'Root Veg', 'Bulb', 'Other Veg', 'Beans/Legumes', 'Flower Veg'].includes(product.category)) return false;
-         if (!['Fruits', 'Vegetables', 'All'].includes(selectedCategory) && product.category !== selectedCategory) return false;
+      // Main Category Logic
+      if (selectedCategory !== 'All') {
+         if (selectedCategory === 'Fruits' && !['Fruit', 'Mango', 'Banana', 'Apple', 'Citrus', 'Melon', 'Grapes', 'Berry', 'Stone Fruit', 'Imported Fruit', 'Exotic', 'Tropical'].includes(product.category)) return false;
+         else if (selectedCategory === 'Vegetables' && !['Fruit Veg', 'Root Veg', 'Bulb', 'Other Veg', 'Beans/Legumes', 'Flower Veg', 'Leafy'].includes(product.category)) return false;
+         else if (!['Fruits', 'Vegetables', 'All'].includes(selectedCategory) && product.category !== selectedCategory) return false;
       }
 
+      // Filter by Price
       if (product.price > priceRange) return false;
+
+      // Checkbox Filters
       if (filters.organic && !product.isOrganic) return false;
       if (filters.local && !product.isLocal) return false;
       if (filters.inStock && !product.inStock) return false;
       if (filters.onSale && !product.oldPrice) return false;
       if (filters.rating4Plus && product.rating < 4) return false;
+
+      // Farmer Filter
+      if (filters.farmers.size > 0 && (!product.sellerId || !filters.farmers.has(product.sellerId))) return false;
+
+      // Sub-Category Filter
+      if (filters.subCategories.size > 0 && !filters.subCategories.has(product.category)) return false;
 
       return true;
     }).sort((a, b) => {
@@ -258,11 +255,7 @@ export const Shop: React.FC = () => {
 
   // --- CURATED COLLECTIONS ---
   const curatedCollections = useMemo(() => {
-    const today = new Date().getDate();
-    const rotate = (arr: any[]) => {
-        const rotation = today % (arr.length || 1);
-        return [...arr.slice(rotation), ...arr.slice(0, rotation)];
-    };
+    const rotate = (arr: any[]) => arr; // Simplified for now
 
     return {
       fruits: products.filter(p => ['Fruit', 'Mango', 'Banana', 'Apple', 'Citrus', 'Melon', 'Grapes', 'Berry', 'Stone Fruit', 'Imported Fruit', 'Exotic'].includes(p.category)),
@@ -293,15 +286,31 @@ export const Shop: React.FC = () => {
     else newParams.set('category', cat);
     setSearchParams(newParams);
     setIsMobileFilterOpen(false);
+    setFilters(prev => ({...prev, subCategories: new Set()}));
   };
 
   const toggleFilter = (key: keyof typeof filters) => {
-    setFilters(prev => ({ ...prev, [key]: !prev[key] }));
+    setFilters(prev => {
+        const val = prev[key];
+        if (typeof val === 'boolean') {
+            return { ...prev, [key]: !val };
+        }
+        return prev;
+    });
+  };
+
+  const toggleSetFilter = (key: 'farmers' | 'subCategories', value: string) => {
+      setFilters(prev => {
+          const newSet = new Set(prev[key]);
+          if (newSet.has(value)) newSet.delete(value);
+          else newSet.add(value);
+          return { ...prev, [key]: newSet };
+      });
   };
 
   const clearFilters = () => {
     setPriceRange(maxProductPrice);
-    setFilters({ organic: false, local: false, onSale: false, inStock: false, rating4Plus: false });
+    setFilters({ organic: false, local: false, onSale: false, inStock: false, rating4Plus: false, farmers: new Set(), subCategories: new Set() });
     setSelectedCategory('All');
     setSearchParams({});
     setSortOption('featured');
@@ -317,7 +326,8 @@ export const Shop: React.FC = () => {
   const activeFilterCount = [
     selectedCategory !== 'All',
     priceRange < maxProductPrice,
-    ...Object.values(filters)
+    filters.organic, filters.local, filters.onSale, filters.inStock, filters.rating4Plus,
+    filters.farmers.size > 0, filters.subCategories.size > 0
   ].filter(Boolean).length;
 
   return (
@@ -332,7 +342,7 @@ export const Shop: React.FC = () => {
               className="w-full h-full object-cover brightness-[0.6]"
             />
          </div>
-         <div className="relative z-10 text-center text-white px-4 animate-in slide-in-from-bottom-8 duration-700">
+         <div className="relative z-10 text-center text-white px-4">
             <div className="inline-flex items-center gap-2 border border-white/30 bg-white/10 backdrop-blur-md px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mb-4">
                <BookOpen size={14} /> The Market • Vol. 12
             </div>
@@ -369,7 +379,7 @@ export const Shop: React.FC = () => {
       {/* MAIN LAYOUT */}
       <div className="container mx-auto px-0 md:px-4 py-8">
         
-        {/* MOBILE VIEW: CAROUSELS (Only if Default View and Small Screen) */}
+        {/* MOBILE VIEW: CAROUSELS */}
         {!isLargeScreen && isDefaultView ? (
           <div className="space-y-2 pb-20">
              
@@ -388,28 +398,6 @@ export const Shop: React.FC = () => {
                    className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-leaf-500 shadow-sm"
                  />
                  <Search className="absolute left-3 top-3 text-gray-400" size={18}/>
-                 
-                 {/* Suggestions Dropdown */}
-                 {showSuggestions && suggestions.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 bg-white rounded-xl shadow-xl mt-2 border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-1 z-50">
-                        {suggestions.map(s => (
-                            <button 
-                                key={s.id} 
-                                className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 border-b border-gray-50 last:border-0"
-                                onClick={() => {
-                                    setSearchParams({ q: s.name.en });
-                                    setShowSuggestions(false);
-                                }}
-                            >
-                                <img src={getProductImage(s.id, s.image)} alt="" className="w-10 h-10 rounded-lg object-cover" />
-                                <div>
-                                    <p className="text-sm font-bold text-gray-900">{s.name.en}</p>
-                                    <p className="text-[10px] text-gray-500">{s.category}</p>
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                 )}
                </div>
              </div>
 
@@ -424,7 +412,6 @@ export const Shop: React.FC = () => {
                 />
              )}
 
-             {/* Carousels */}
              <Mobile3DCarousel 
                 title="Orchard Fresh Fruits" 
                 subtitle="Sweetness from the trees" 
@@ -461,20 +448,12 @@ export const Shop: React.FC = () => {
                 onSeeAll={() => setFilters(f => ({...f, onSale: true}))} 
                 bgColor="bg-orange-50/50"
              />
-
-             <Mobile3DCarousel 
-                title="🔥 Budget Picks" 
-                subtitle="Profitable choices under ₹60" 
-                products={curatedCollections.budget} 
-                onSeeAll={() => setPriceRange(60)} 
-             />
-
           </div>
         ) : (
-          /* TABLET/DESKTOP VIEW (OR FILTERED MOBILE): GRID LAYOUT */
-          <div className="flex flex-col lg:flex-row gap-10 animate-in fade-in slide-in-from-bottom-4 px-4 md:px-0">
+          /* TABLET/DESKTOP VIEW */
+          <div className="flex flex-col lg:flex-row gap-10 px-4 md:px-0">
             
-            {/* SIDEBAR FILTER (Hidden on Mobile, Visible on Laptop/Desktop) */}
+            {/* SIDEBAR FILTER */}
             <aside className="hidden lg:block w-72 flex-shrink-0 space-y-8 sticky top-32 h-fit z-20">
               {/* Desktop Search */}
               <div className="relative">
@@ -490,28 +469,6 @@ export const Shop: React.FC = () => {
                    placeholder="Search catalogue..." 
                    className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-leaf-500 focus:ring-4 focus:ring-leaf-500/10 transition shadow-sm"
                  />
-                 
-                 {/* Desktop Suggestions */}
-                 {showSuggestions && suggestions.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 bg-white rounded-xl shadow-xl mt-2 border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-1 z-30">
-                        {suggestions.map(s => (
-                            <button 
-                                key={s.id} 
-                                className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 border-b border-gray-50 last:border-0"
-                                onClick={() => {
-                                    setSearchParams({ q: s.name.en });
-                                    setShowSuggestions(false);
-                                }}
-                            >
-                                <img src={getProductImage(s.id, s.image)} alt="" className="w-10 h-10 rounded-lg object-cover bg-gray-100" />
-                                <div>
-                                    <p className="text-sm font-bold text-gray-900">{s.name.en}</p>
-                                    <p className="text-[10px] text-gray-500">{s.category}</p>
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                 )}
               </div>
 
               {/* View Mode Toggle */}
@@ -533,100 +490,87 @@ export const Shop: React.FC = () => {
                  </div>
               </div>
 
-              {/* Category Filter */}
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                 <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide">Categories</h3>
-                 <div className="space-y-1">
-                    <button onClick={() => handleCategoryChange('All')} className={`w-full flex justify-between items-center text-left px-3 py-2 rounded-lg text-sm font-medium transition ${selectedCategory === 'All' ? 'bg-leaf-50 text-leaf-700 font-bold' : 'text-gray-600 hover:bg-gray-50'}`}>
-                        <span>All Products</span>
-                    </button>
-                    {Object.entries(categories).map(([cat, count]) => (
-                      <button key={cat} onClick={() => handleCategoryChange(cat)} className={`w-full flex justify-between items-center text-left px-3 py-2 rounded-lg text-sm font-medium transition ${selectedCategory === cat ? 'bg-leaf-50 text-leaf-700 font-bold' : 'text-gray-600 hover:bg-gray-50'}`}>
-                        <span>{cat}</span>
-                        <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-500">{count}</span>
-                      </button>
-                    ))}
-                 </div>
-              </div>
-
-              {/* Price Slider */}
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                 <div className="flex justify-between items-center mb-6">
-                    <h3 className="font-bold text-gray-900 text-sm uppercase tracking-wide">Max Price</h3>
-                    <span className="text-leaf-700 bg-leaf-50 px-2 py-1 rounded-lg font-bold text-xs border border-leaf-100">₹{priceRange}</span>
-                 </div>
-                 <div className="px-2">
-                   <input 
-                    type="range" 
-                    min="0" 
-                    max={maxProductPrice} 
-                    value={priceRange} 
-                    onChange={(e) => setPriceRange(Number(e.target.value))}
-                    className="w-full h-2 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-leaf-600"
-                   />
-                   <div className="flex justify-between mt-4 text-xs font-medium text-gray-400">
-                     <span>₹0</span>
-                     <span>₹{maxProductPrice}</span>
-                   </div>
-                 </div>
-              </div>
-
-              {/* Checkbox Filters */}
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide">Refine By</h3>
-                <div className="space-y-3">
-                  {[
-                    { key: 'organic', label: 'Organic Certified', icon: Leaf, color: 'text-green-500' },
-                    { key: 'local', label: 'Locally Sourced', icon: MapPin, color: 'text-blue-500' },
-                    { key: 'rating4Plus', label: '4★ & Above', icon: Star, color: 'text-yellow-500' },
-                    { key: 'onSale', label: 'On Sale', icon: Zap, color: 'text-orange-500' },
-                    { key: 'inStock', label: 'In Stock', icon: Check, color: 'text-gray-400' }
-                  ].map(({ key, label, icon: Icon, color }) => (
-                    <label key={key} className="flex items-center gap-3 cursor-pointer group p-2 hover:bg-gray-50 rounded-lg transition -mx-2">
-                      <div className={`w-5 h-5 rounded border flex items-center justify-center transition ${filters[key as keyof typeof filters] ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300 group-hover:border-leaf-400'}`}>
-                        {filters[key as keyof typeof filters] && <Check size={12} className="text-white" />}
+              {/* Advanced Filters Container */}
+              <div className="space-y-6">
+                  {/* Vegetable/Fruit Types */}
+                  {availableSubCategories.length > 0 && (
+                      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                        <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide">Types</h3>
+                        <div className="space-y-2">
+                            {availableSubCategories.map(sub => (
+                                <label key={sub} className="flex items-center gap-3 cursor-pointer group">
+                                    <div className={`w-4 h-4 rounded border flex items-center justify-center transition ${filters.subCategories.has(sub) ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300'}`}>
+                                        {filters.subCategories.has(sub) && <Check size={10} className="text-white" />}
+                                    </div>
+                                    <input 
+                                        type="checkbox" 
+                                        className="hidden" 
+                                        checked={filters.subCategories.has(sub)}
+                                        onChange={() => toggleSetFilter('subCategories', sub)}
+                                    />
+                                    <span className="text-sm text-gray-600 group-hover:text-gray-900">{sub}</span>
+                                </label>
+                            ))}
+                        </div>
                       </div>
-                      <input 
-                        type="checkbox" 
-                        className="hidden"
-                        checked={filters[key as keyof typeof filters]}
-                        onChange={() => toggleFilter(key as keyof typeof filters)}
-                      />
-                      <span className="text-sm text-gray-600 group-hover:text-gray-900 flex items-center gap-2 font-medium">
-                        <Icon size={14} className={color} fill={key === 'rating4Plus' ? 'currentColor' : 'none'} /> {label}
-                      </span>
-                    </label>
-                  ))}
-                </div>
+                  )}
+
+                  {/* Farmers Filter */}
+                  {availableFarmers.length > 0 && (
+                      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 max-h-64 overflow-y-auto">
+                        <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide flex items-center gap-2"><Tractor size={14}/> Sourced From</h3>
+                        <div className="space-y-3">
+                            {availableFarmers.map(farmer => (
+                                <label key={farmer.id} className="flex items-center gap-3 cursor-pointer group">
+                                    <div className={`w-4 h-4 rounded border flex items-center justify-center transition ${filters.farmers.has(farmer.id) ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300'}`}>
+                                        {filters.farmers.has(farmer.id) && <Check size={10} className="text-white" />}
+                                    </div>
+                                    <input 
+                                        type="checkbox" 
+                                        className="hidden" 
+                                        checked={filters.farmers.has(farmer.id)}
+                                        onChange={() => toggleSetFilter('farmers', farmer.id)}
+                                    />
+                                    <span className="text-sm text-gray-600 group-hover:text-gray-900 truncate">{farmer.farmName}</span>
+                                </label>
+                            ))}
+                        </div>
+                      </div>
+                  )}
+
+                  {/* Checkbox Filters */}
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                    <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide">Refine By</h3>
+                    <div className="space-y-3">
+                      {[
+                        { key: 'organic', label: 'Organic Certified', icon: Leaf, color: 'text-green-500' },
+                        { key: 'local', label: 'Locally Sourced', icon: MapPin, color: 'text-blue-500' },
+                        { key: 'rating4Plus', label: '4★ & Above', icon: Star, color: 'text-yellow-500' },
+                        { key: 'onSale', label: 'On Sale', icon: Zap, color: 'text-orange-500' },
+                        { key: 'inStock', label: 'In Stock', icon: Check, color: 'text-gray-400' }
+                      ].map(({ key, label, icon: Icon, color }) => (
+                        <label key={key} className="flex items-center gap-3 cursor-pointer group p-2 hover:bg-gray-50 rounded-lg transition -mx-2">
+                          <div className={`w-5 h-5 rounded border flex items-center justify-center transition ${filters[key as keyof typeof filters] ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300 group-hover:border-leaf-400'}`}>
+                            {filters[key as keyof typeof filters] && <Check size={12} className="text-white" />}
+                          </div>
+                          <input 
+                            type="checkbox" 
+                            className="hidden"
+                            checked={filters[key as keyof typeof filters] as boolean}
+                            onChange={() => toggleFilter(key as keyof typeof filters)}
+                          />
+                          <span className="text-sm text-gray-600 group-hover:text-gray-900 flex items-center gap-2 font-medium">
+                            <Icon size={14} className={color} fill={key === 'rating4Plus' ? 'currentColor' : 'none'} /> {label}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
               </div>
             </aside>
 
             {/* MAIN GRID CONTENT */}
             <main className="flex-1">
-               
-               {/* Seasonal Banner (Desktop) */}
-               {isDefaultView && seasonalBestSellers.products.length > 0 && (
-                   <div className="mb-8 bg-white rounded-3xl p-6 shadow-sm border border-gray-100 relative overflow-hidden">
-                       <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-100/50 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-                       
-                       <div className="flex items-center gap-3 mb-6 relative z-10">
-                           <div className="bg-yellow-100 p-2 rounded-xl text-yellow-700"><seasonalBestSellers.icon size={24}/></div>
-                           <div>
-                               <h2 className={`text-xl font-extrabold text-gray-900 ${seasonalBestSellers.color}`}>{seasonalBestSellers.name}</h2>
-                               <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Handpicked for this month</p>
-                           </div>
-                       </div>
-
-                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 relative z-10">
-                           {seasonalBestSellers.products.map(p => (
-                               <div key={p.id} className="scale-90 origin-top-left">
-                                   <ProductCard product={p} />
-                               </div>
-                           ))}
-                       </div>
-                   </div>
-               )}
-
                {/* Header Bar */}
                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
                   <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -684,7 +628,7 @@ export const Shop: React.FC = () => {
 
                {/* Active Filters */}
                {activeFilterCount > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-6 animate-in slide-in-from-top-2">
+                  <div className="flex flex-wrap gap-2 mb-6">
                     <span className="text-xs font-bold text-gray-400 mr-2 uppercase tracking-wide self-center">Active:</span>
                     
                     {selectedCategory !== 'All' && (
@@ -697,11 +641,30 @@ export const Shop: React.FC = () => {
                         Max: ₹{priceRange} <X size={12} />
                       </button>
                     )}
-                    {Object.entries(filters).map(([key, isActive]) => isActive && (
-                      <button key={key} onClick={() => toggleFilter(key as keyof typeof filters)} className="bg-white border border-leaf-200 text-leaf-700 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 hover:bg-leaf-50 transition shadow-sm capitalize">
-                        {key.replace(/([A-Z])/g, ' $1').replace('4 Plus', '+').trim()} <X size={12} />
-                      </button>
-                    ))}
+                    {Object.entries(filters).map(([key, isActive]) => {
+                        if (isActive === true) {
+                            return (
+                                <button key={key} onClick={() => toggleFilter(key as keyof typeof filters)} className="bg-white border border-leaf-200 text-leaf-700 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 hover:bg-leaf-50 transition shadow-sm capitalize">
+                                    {key.replace(/([A-Z])/g, ' $1').replace('4 Plus', '+').trim()} <X size={12} />
+                                </button>
+                            );
+                        }
+                        if (key === 'farmers' && (isActive as Set<string>).size > 0) {
+                            return (
+                                <button key={key} onClick={() => setFilters(prev => ({...prev, farmers: new Set()}))} className="bg-white border border-leaf-200 text-leaf-700 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 hover:bg-leaf-50 transition shadow-sm">
+                                    Farmers: {(isActive as Set<string>).size} <X size={12} />
+                                </button>
+                            );
+                        }
+                        if (key === 'subCategories' && (isActive as Set<string>).size > 0) {
+                            return (
+                                <button key={key} onClick={() => setFilters(prev => ({...prev, subCategories: new Set()}))} className="bg-white border border-leaf-200 text-leaf-700 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 hover:bg-leaf-50 transition shadow-sm">
+                                    Types: {(isActive as Set<string>).size} <X size={12} />
+                                </button>
+                            );
+                        }
+                        return null;
+                    })}
                     
                     <button onClick={clearFilters} className="text-xs font-bold text-red-500 hover:text-red-700 ml-auto hover:underline px-2">
                       Clear All
@@ -713,13 +676,13 @@ export const Shop: React.FC = () => {
                {filteredProducts.length > 0 ? (
                  <>
                    {viewMode === 'grid' ? (
-                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6 animate-in fade-in duration-500">
+                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
                         {currentProducts.map(product => (
                           <ProductCard key={product.id} product={product} highlightTerm={query} />
                         ))}
                      </div>
                    ) : (
-                     <div className="space-y-6 animate-in fade-in duration-500">
+                     <div className="space-y-6">
                         {currentProducts.map(product => {
                           const details = getProductDetails(product);
                           return (
@@ -796,9 +759,8 @@ export const Shop: React.FC = () => {
                   )}
                  </>
                ) : (
-                 <div className="bg-white rounded-[2rem] p-16 text-center border border-gray-100 shadow-sm animate-in zoom-in-95 flex flex-col items-center">
+                 <div className="bg-white rounded-[2rem] p-16 text-center border border-gray-100 shadow-sm flex flex-col items-center">
                    <div className="bg-gray-50 w-32 h-32 rounded-full flex items-center justify-center mb-6 relative">
-                     <div className="absolute inset-0 bg-leaf-100 rounded-full animate-ping opacity-20"></div>
                      <Search size={48} className="text-leaf-300" />
                    </div>
                    <h3 className="text-2xl font-extrabold text-gray-900 mb-3">No harvests found</h3>
@@ -862,7 +824,12 @@ export const Shop: React.FC = () => {
                     ].map(({ key, label, icon: Icon }) => (
                       <label key={key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                         <span className="text-sm font-bold text-gray-700 flex items-center gap-2"><Icon size={14}/> {label}</span>
-                        <input type="checkbox" className="w-5 h-5 accent-leaf-600 rounded" checked={filters[key as keyof typeof filters]} onChange={() => toggleFilter(key as keyof typeof filters)} />
+                        <input 
+                            type="checkbox" 
+                            className="w-5 h-5 accent-leaf-600 rounded" 
+                            checked={filters[key as keyof typeof filters] as boolean} 
+                            onChange={() => toggleFilter(key as keyof typeof filters)} 
+                        />
                       </label>
                     ))}
                   </div>

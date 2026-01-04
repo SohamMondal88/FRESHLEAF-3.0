@@ -81,7 +81,7 @@ export const PRODUCTS: Product[] = [
 // --- FRUITS ---
 createProduct('f-1', 'Apple Washington', 'वाशिंगटन सेब', 'ওয়াশিংটন আপেল', 'Imported Fruit', 135,
 'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766939617/ixecdq2lpuifqrpgzfd5.png?auto=format&fit=crop&w=800&q=80',
-'Crisp and sweet Washington apples.', 'kg'),
+'Crisp and sweet Washington apples known for their deep red color and crunch.\n\nOrigin Farm: Green Valley Organics, Nashik\nHarvest Date: Late October 2023\nNutrition: High in Fiber, Vitamin C, and Potassium.\nStorage Tips: Keep refrigerated in the crisper drawer to maintain crunchiness for up to 2 weeks.', 'kg'),
 
 createProduct('f-2', 'Apple Shimla', 'शिमला सेब', 'শিমলা আপেল', 'Apple', 115,
 'https://res.cloudinary.com/dooyfg1pa/image/upload/v1766939605/ejxryzkod1q4ajeqmhtl.png?auto=format&fit=crop&w=800&q=80',

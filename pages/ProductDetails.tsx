@@ -1,12 +1,14 @@
 
 import React, { useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Star, Truck, Shield, Minus, Plus, MapPin, CheckCircle, ArrowLeft, Info, Heart, XCircle } from 'lucide-react';
+import { Star, Truck, Shield, Minus, Plus, MapPin, CheckCircle, ArrowLeft, Info, Heart, XCircle, ArrowRight, User } from 'lucide-react';
 import { useProduct } from '../services/ProductContext';
 import { useCart } from '../services/CartContext';
 import { useImage } from '../services/ImageContext';
 import { usePincode } from '../services/PincodeContext';
 import { ProductCard } from '../components/ui/ProductCard';
+import { FARMERS } from '../constants';
+import { useToast } from '../services/ToastContext';
 
 export const ProductDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -15,11 +17,16 @@ export const ProductDetails: React.FC = () => {
   const { addToCart, addToWishlist, isInWishlist, removeFromWishlist } = useCart();
   const { getProductImage } = useImage();
   const { pincode, isServiceable, setPincode } = usePincode();
+  const { addToast } = useToast();
   
   const [qty, setQty] = useState(1);
   const [activeTab, setActiveTab] = useState<'description' | 'nutrition' | 'reviews'>('description');
   const [checkPincodeInput, setCheckPincodeInput] = useState(pincode || '');
   const [pincodeStatus, setPincodeStatus] = useState<'idle' | 'checking' | 'serviceable' | 'unserviceable'>(pincode ? (isServiceable ? 'serviceable' : 'unserviceable') : 'idle');
+
+  // Review State
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
 
   // Determine initial main image (custom image takes precedence)
   const defaultImage = product?.gallery[0] || product?.image || '';
@@ -30,8 +37,12 @@ export const ProductDetails: React.FC = () => {
     if (!product) return [];
     return products
       .filter(p => p.category === product.category && p.id !== product.id)
-      .slice(0, 4);
+      .slice(0, 8); // Expanded for carousel
   }, [product, products]);
+
+  const farmer = useMemo(() => {
+      return FARMERS.find(f => f.id === product?.sellerId);
+  }, [product]);
 
   if (!product) return <div className="p-20 text-center">Product not found</div>;
 
@@ -55,7 +66,15 @@ export const ProductDetails: React.FC = () => {
       setPincodeStatus(success ? 'serviceable' : 'unserviceable');
   };
 
-  // Mock Nutrition Data Generator
+  const handleSubmitReview = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!reviewComment.trim()) return;
+      addToast("Review submitted successfully!", "success");
+      setReviewComment('');
+      setReviewRating(5);
+  };
+
+  // Mock Nutrition Data Generator (Simplified generic fallbacks)
   const nutritionData = [
     { label: 'Calories', value: '52 kcal' },
     { label: 'Carbohydrates', value: '14 g' },
@@ -163,8 +182,8 @@ export const ProductDetails: React.FC = () => {
                 )}
               </div>
 
-              <p className="text-gray-600 leading-relaxed mb-8 text-lg">
-                {product.description} Sourced directly from verified organic farms. Handpicked for quality and freshness.
+              <p className="text-gray-600 leading-relaxed mb-8 text-lg whitespace-pre-line">
+                {product.description}
               </p>
 
               {/* Delivery Checker */}
@@ -250,24 +269,32 @@ export const ProductDetails: React.FC = () => {
                 {activeTab === 'description' && (
                   <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <h3 className="text-xl font-bold text-gray-900 mb-4">Product Details</h3>
-                    <p className="text-gray-600 leading-relaxed mb-6">
-                      Our {product.name.en} is grown using sustainable farming practices without harmful pesticides. 
-                      Harvested at peak ripeness to ensure maximum flavor and nutritional value. 
-                      Perfect for healthy snacking, cooking, or juicing.
+                    <p className="text-gray-600 leading-relaxed mb-6 whitespace-pre-line">
+                      {product.description}
                     </p>
-                    <h4 className="font-bold text-gray-900 mb-3">Storage Tips</h4>
-                    <ul className="list-disc pl-5 text-gray-600 space-y-2">
-                      <li>Keep in a cool, dry place away from direct sunlight.</li>
-                      <li>Refrigerate to extend shelf life up to 1 week.</li>
-                      <li>Wash thoroughly before consumption.</li>
-                    </ul>
+                    
+                    {farmer && (
+                      <div className="mt-8 p-6 bg-leaf-50/50 border border-leaf-100 rounded-2xl flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                           <img src={farmer.avatar} alt={farmer.name} className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-sm" />
+                           <div>
+                              <p className="text-xs text-leaf-600 font-bold uppercase tracking-wider mb-0.5">Grown by</p>
+                              <h4 className="font-bold text-gray-900 text-lg leading-tight">{farmer.name}</h4>
+                              <p className="text-xs text-gray-500">{farmer.location}</p>
+                           </div>
+                        </div>
+                        <Link to={`/farmer/${farmer.id}`} className="text-sm font-bold text-leaf-700 hover:text-leaf-800 hover:underline flex items-center gap-1 transition-colors">
+                           View Profile <ArrowRight size={16}/>
+                        </Link>
+                      </div>
+                    )}
                   </div>
                 )}
                 
                 {activeTab === 'nutrition' && (
                   <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <h3 className="text-xl font-bold text-gray-900 mb-4">Nutrition Facts</h3>
-                    <p className="text-sm text-gray-500 mb-6">Per 100g serving</p>
+                    <p className="text-sm text-gray-500 mb-6">Per 100g serving (approx.)</p>
                     <div className="border border-gray-200 rounded-xl overflow-hidden">
                       {nutritionData.map((item, idx) => (
                         <div key={idx} className={`flex justify-between p-4 ${idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}>
@@ -281,10 +308,10 @@ export const ProductDetails: React.FC = () => {
 
                 {activeTab === 'reviews' && (
                   <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
-                    <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center justify-between mb-2">
                       <h3 className="text-xl font-bold text-gray-900">Customer Reviews</h3>
-                      <button className="text-sm font-bold text-leaf-600 hover:underline">Write a Review</button>
                     </div>
+                    
                     {reviews.map(review => (
                       <div key={review.id} className="border-b border-gray-100 last:border-0 pb-6 last:pb-0">
                         <div className="flex justify-between items-start mb-2">
@@ -300,6 +327,42 @@ export const ProductDetails: React.FC = () => {
                         <p className="text-gray-600 text-sm">{review.comment}</p>
                       </div>
                     ))}
+
+                    {/* Write Review Form */}
+                    <div className="mt-8 pt-8 border-t border-gray-100">
+                        <h4 className="font-bold text-gray-900 mb-4">Write a Review</h4>
+                        <form onSubmit={handleSubmitReview} className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Rating</label>
+                                <div className="flex gap-2">
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                        <button 
+                                            key={star} 
+                                            type="button"
+                                            onClick={() => setReviewRating(star)}
+                                            className="focus:outline-none transition-transform hover:scale-110"
+                                        >
+                                            <Star 
+                                                size={24} 
+                                                className={star <= reviewRating ? "text-yellow-400 fill-current" : "text-gray-300"} 
+                                            />
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Comment</label>
+                                <textarea 
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-leaf-500 focus:ring-1 focus:ring-leaf-500"
+                                    rows={3}
+                                    placeholder="Share your experience..."
+                                    value={reviewComment}
+                                    onChange={(e) => setReviewComment(e.target.value)}
+                                ></textarea>
+                            </div>
+                            <button type="submit" className="bg-gray-900 text-white px-6 py-2 rounded-xl font-bold text-sm hover:bg-leaf-600 transition">Submit Review</button>
+                        </form>
+                    </div>
                   </div>
                 )}
               </div>
@@ -338,14 +401,18 @@ export const ProductDetails: React.FC = () => {
           </div>
         </div>
 
-        {/* RELATED PRODUCTS */}
+        {/* RELATED PRODUCTS CAROUSEL */}
         {relatedProducts.length > 0 && (
           <div className="mb-12">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">You Might Also Like</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-              {relatedProducts.map(p => (
-                <ProductCard key={p.id} product={p} />
-              ))}
+            <div className="relative">
+                <div className="flex overflow-x-auto gap-4 pb-4 snap-x scrollbar-hide">
+                    {relatedProducts.map(p => (
+                        <div key={p.id} className="min-w-[260px] snap-center">
+                            <ProductCard product={p} />
+                        </div>
+                    ))}
+                </div>
             </div>
           </div>
         )}
