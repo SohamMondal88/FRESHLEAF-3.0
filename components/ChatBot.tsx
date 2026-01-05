@@ -160,7 +160,7 @@ export const ChatBot: React.FC = () => {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={`fixed bottom-6 right-6 z-[60] p-4 rounded-full shadow-2xl transition-all duration-500 flex items-center justify-center border-4 border-white/50 backdrop-blur-md group active:scale-95 ${
-          isOpen ? 'bg-gray-900 rotate-90 scale-90 sm:flex hidden' : 'bg-gradient-to-tr from-leaf-600 to-leaf-400 hover:scale-110 hover:shadow-leaf-500/40 flex'
+          isOpen ? 'bg-gray-900 rotate-90 scale-90 sm:flex hidden' : 'bg-gradient-to-br from-emerald-600 to-teal-500 hover:scale-110 hover:shadow-emerald-500/40 flex'
         } text-white`}
       >
         {isOpen ? <X size={24} /> : <MessageCircle size={28} className="fill-current" />}
@@ -169,17 +169,17 @@ export const ChatBot: React.FC = () => {
       {/* Chat Window */}
       {isOpen && (
         <div className={`
-            fixed z-[70] sm:z-[60] bg-white/95 backdrop-blur-xl shadow-2xl flex flex-col border border-white/50 
+            fixed z-[70] sm:z-[60] bg-white/90 backdrop-blur-xl shadow-2xl flex flex-col border border-white/50 
             animate-in fade-in slide-in-from-bottom-10 duration-300 font-sans overflow-hidden
             inset-0 w-full h-[100dvh] rounded-none
             sm:inset-auto sm:bottom-24 sm:right-6 sm:w-[400px] sm:h-[600px] sm:max-h-[80vh] sm:rounded-[2.5rem]
         `}>
           
           {/* Header */}
-          <div className="bg-gradient-to-r from-leaf-700 to-leaf-500 p-5 text-white shrink-0 relative overflow-hidden">
+          <div className="bg-gradient-to-r from-emerald-600 to-teal-500 p-5 text-white shrink-0 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
             <div className="flex items-center gap-3 relative z-10">
-                <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md shadow-inner">
+                <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md shadow-inner border border-white/10">
                   <Bot size={24} className="text-white" />
                 </div>
                 <div>
@@ -187,13 +187,13 @@ export const ChatBot: React.FC = () => {
                   <span className="text-[10px] uppercase font-bold tracking-widest opacity-80 flex items-center gap-1 mt-1"><span className="w-1.5 h-1.5 bg-green-300 rounded-full animate-pulse"></span> Online</span>
                 </div>
                 <div className="ml-auto flex gap-1 items-center">
-                   <div className="flex gap-1 bg-black/20 p-1 rounded-lg backdrop-blur-sm">
+                   <div className="flex gap-1 bg-black/20 p-1 rounded-lg backdrop-blur-sm border border-white/10">
                         {(['lite', 'thinking', 'maps'] as ChatMode[]).map(m => (
                             <button 
                                 key={m} 
                                 onClick={() => setMode(m)} 
                                 title={m === 'lite' ? 'Fast Mode' : m === 'thinking' ? 'Deep Thinking' : 'Maps'}
-                                className={`p-1.5 rounded-md transition ${mode === m ? 'bg-white text-leaf-800 shadow-sm' : 'text-white/60 hover:text-white'}`}
+                                className={`p-1.5 rounded-md transition ${mode === m ? 'bg-white text-emerald-800 shadow-sm' : 'text-white/60 hover:text-white'}`}
                             >
                                 {m === 'lite' ? <Zap size={14}/> : m === 'thinking' ? <Brain size={14}/> : <MapPin size={14}/>}
                             </button>
@@ -215,10 +215,14 @@ export const ChatBot: React.FC = () => {
             {messages.map((msg, idx) => (
               <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-in slide-in-from-bottom-2`}>
                 <div className={`flex items-end gap-2 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                  <div className={`w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold ${msg.role === 'model' ? 'bg-leaf-100 text-leaf-700' : 'bg-gray-200 text-gray-600'}`}>
+                  <div className={`w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold ${msg.role === 'model' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'}`}>
                     {msg.role === 'model' ? 'AI' : 'U'}
                   </div>
-                  <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm ${msg.role === 'user' ? 'bg-gray-900 text-white rounded-br-sm' : 'bg-white text-gray-800 border border-gray-100 rounded-bl-sm'}`}>
+                  <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm backdrop-blur-sm ${
+                    msg.role === 'user' 
+                      ? 'bg-emerald-600 text-white rounded-br-sm' 
+                      : 'bg-white/80 text-gray-800 border border-white rounded-bl-sm'
+                  }`}>
                     {msg.image && (
                         <img src={msg.image} alt="Uploaded" className="w-full h-32 object-cover rounded-lg mb-2 border border-white/20" />
                     )}
@@ -230,15 +234,15 @@ export const ChatBot: React.FC = () => {
                     {msg.groundingChunks.map((chunk: any, i: number) => {
                         if (chunk.web) {
                             return (
-                                <a key={i} href={chunk.web.uri} target="_blank" className="block bg-white border border-gray-100 p-2 rounded-xl text-xs hover:border-leaf-300 transition shadow-sm">
-                                    <div className="font-bold text-leaf-700 truncate mb-0.5 flex items-center gap-1"><Globe size={10}/> {chunk.web.title}</div>
+                                <a key={i} href={chunk.web.uri} target="_blank" className="block bg-white/90 border border-gray-100 p-2 rounded-xl text-xs hover:border-emerald-300 transition shadow-sm backdrop-blur-sm">
+                                    <div className="font-bold text-emerald-700 truncate mb-0.5 flex items-center gap-1"><Globe size={10}/> {chunk.web.title}</div>
                                 </a>
                             );
                         }
                         if (chunk.maps) {
                              return (
-                                <a key={i} href={chunk.maps.googleMapsLink} target="_blank" className="block bg-white border border-gray-100 p-2 rounded-xl text-xs hover:border-leaf-300 transition shadow-sm">
-                                    <div className="font-bold text-leaf-700 truncate mb-0.5 flex items-center gap-1"><MapPin size={10}/> {chunk.maps.title}</div>
+                                <a key={i} href={chunk.maps.googleMapsLink} target="_blank" className="block bg-white/90 border border-gray-100 p-2 rounded-xl text-xs hover:border-emerald-300 transition shadow-sm backdrop-blur-sm">
+                                    <div className="font-bold text-emerald-700 truncate mb-0.5 flex items-center gap-1"><MapPin size={10}/> {chunk.maps.title}</div>
                                     <div className="text-gray-500 truncate">{chunk.maps.address}</div>
                                 </a>
                             );
@@ -251,11 +255,12 @@ export const ChatBot: React.FC = () => {
             ))}
             {isLoading && (
               <div className="flex items-center gap-2 ml-2">
-                 <div className="w-6 h-6 bg-leaf-100 rounded-full flex items-center justify-center"><Bot size={12} className="text-leaf-600"/></div>
-                 <div className="bg-white px-4 py-3 rounded-2xl rounded-bl-sm border border-gray-100 shadow-sm flex gap-1">
-                    <span className="w-1.5 h-1.5 bg-leaf-400 rounded-full animate-bounce"></span>
-                    <span className="w-1.5 h-1.5 bg-leaf-400 rounded-full animate-bounce [animation-delay:0.1s]"></span>
-                    <span className="w-1.5 h-1.5 bg-leaf-400 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+                 <div className="w-6 h-6 bg-emerald-100 rounded-full flex items-center justify-center"><Bot size={12} className="text-emerald-600"/></div>
+                 <div className="bg-white/80 px-4 py-3 rounded-2xl rounded-bl-sm border border-white shadow-sm flex gap-1 items-center backdrop-blur-sm">
+                    <span className="text-xs text-gray-500 font-medium mr-2">Typing</span>
+                    <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce"></span>
+                    <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce [animation-delay:0.1s]"></span>
+                    <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce [animation-delay:0.2s]"></span>
                  </div>
               </div>
             )}
@@ -263,18 +268,18 @@ export const ChatBot: React.FC = () => {
           </div>
 
           {/* Quick Actions */}
-          <div className="px-4 pb-2 flex gap-2 overflow-x-auto scrollbar-hide shrink-0">
+          <div className="px-4 pb-2 flex gap-2 overflow-x-auto scrollbar-hide shrink-0 bg-white/30 backdrop-blur-md">
              {QUICK_ACTIONS.map((action, i) => (
-                 <button key={i} onClick={() => { navigate(action.action); setIsOpen(false); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-xs font-bold text-gray-600 hover:bg-leaf-50 hover:border-leaf-200 hover:text-leaf-700 transition whitespace-nowrap shadow-sm">
+                 <button key={i} onClick={() => { navigate(action.action); setIsOpen(false); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/80 border border-gray-200 rounded-full text-xs font-bold text-gray-600 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition whitespace-nowrap shadow-sm backdrop-blur-sm">
                      <action.icon size={12}/> {action.label}
                  </button>
              ))}
           </div>
 
           {/* Input Area */}
-          <div className="p-3 bg-white border-t border-gray-100 shrink-0 pb-safe-or-4">
+          <div className="p-3 bg-white/80 backdrop-blur-xl border-t border-gray-100 shrink-0 pb-safe-or-4">
             {attachedImage && (
-                <div className="flex items-center gap-2 mb-2 bg-gray-50 p-2 rounded-lg">
+                <div className="flex items-center gap-2 mb-2 bg-gray-50 p-2 rounded-lg border border-gray-100">
                     <img src={attachedImage} className="w-8 h-8 rounded object-cover" alt="Preview"/>
                     <span className="text-xs text-gray-500 flex-grow truncate">Image attached</span>
                     <button onClick={() => setAttachedImage(null)}><X size={14} className="text-gray-400 hover:text-red-500"/></button>
@@ -284,7 +289,7 @@ export const ChatBot: React.FC = () => {
               <button 
                 type="button" 
                 onClick={() => fileInputRef.current?.click()}
-                className="p-3 bg-gray-100 rounded-xl text-gray-500 hover:text-leaf-600 transition hover:bg-leaf-50"
+                className="p-3 bg-gray-100/80 rounded-xl text-gray-500 hover:text-emerald-600 transition hover:bg-emerald-50 backdrop-blur-sm"
               >
                 <Camera size={20} />
               </button>
@@ -301,12 +306,12 @@ export const ChatBot: React.FC = () => {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={mode === 'thinking' ? "Ask complex questions..." : "Ask me anything..."}
-                className="flex-grow bg-gray-100 rounded-xl px-4 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-leaf-500/20 focus:bg-white transition-all font-medium"
+                className="flex-grow bg-gray-100/80 rounded-xl px-4 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:bg-white transition-all font-medium backdrop-blur-sm"
               />
               <button
                 type="submit"
                 disabled={isLoading || (!input.trim() && !attachedImage)}
-                className="p-3 bg-leaf-600 text-white rounded-xl hover:bg-leaf-700 disabled:opacity-50 disabled:bg-gray-300 transition-all shadow-md active:scale-95 flex items-center justify-center"
+                className="p-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:opacity-50 disabled:bg-gray-300 transition-all shadow-md active:scale-95 flex items-center justify-center"
               >
                 {isLoading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
               </button>

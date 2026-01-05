@@ -127,10 +127,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenChef }) => {
 
       {/* 2. MAIN NAVBAR (Sticky & Glass) */}
       <header 
-        className={`fixed w-full z-40 transition-all duration-300 ${
+        className={`fixed w-full z-40 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${
           isScrolled 
-            ? 'top-0 bg-white/80 backdrop-blur-xl shadow-soft border-b border-gray-100/50 py-2' 
-            : 'top-10 bg-white border-b border-transparent py-4'
+            ? 'top-0 bg-white/70 backdrop-blur-xl shadow-lg border-b border-white/20 py-2 supports-[backdrop-filter]:bg-white/60' 
+            : 'top-10 bg-white/40 backdrop-blur-sm border-b border-white/10 py-4'
         }`}
       >
         <div className="container mx-auto px-4">
@@ -145,12 +145,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenChef }) => {
                 <span className="text-2xl font-black text-gray-900 leading-none tracking-tight font-sans">
                   Fresh<span className="text-leaf-600">Leaf</span>
                 </span>
-                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-[0.2em] ml-0.5">Organic</span>
+                <span className="text-[9px] font-bold text-gray-500 uppercase tracking-[0.2em] ml-0.5">Organic</span>
               </div>
             </Link>
 
             {/* CENTER: Desktop Navigation Pills */}
-            <nav className="hidden lg:flex items-center gap-1 bg-gray-100/50 p-1.5 rounded-full border border-gray-100/50 backdrop-blur-sm">
+            <nav className="hidden lg:flex items-center gap-1 bg-white/40 p-1.5 rounded-full border border-white/30 backdrop-blur-md shadow-sm">
               {navLinks.map(link => (
                 <Link 
                   key={link.path} 
@@ -158,7 +158,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenChef }) => {
                   className={`px-6 py-2.5 rounded-full text-sm font-bold transition-all duration-300 relative overflow-hidden ${
                     location.pathname === link.path 
                       ? 'bg-white text-leaf-700 shadow-sm' 
-                      : 'text-gray-500 hover:text-leaf-700 hover:bg-white/50'
+                      : 'text-gray-600 hover:text-leaf-700 hover:bg-white/50'
                   }`}
                 >
                   {link.name}
@@ -177,9 +177,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenChef }) => {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Search fresh..." 
-                    className="pl-11 pr-12 py-3 w-64 bg-gray-100/50 border border-gray-200 rounded-full text-sm font-medium focus:bg-white focus:w-80 focus:border-leaf-200 focus:ring-4 focus:ring-leaf-500/10 transition-all duration-300 outline-none placeholder:text-gray-400"
+                    className="pl-11 pr-12 py-3 w-64 bg-white/50 border border-gray-200/50 rounded-full text-sm font-medium focus:bg-white focus:w-80 focus:border-leaf-200 focus:ring-4 focus:ring-leaf-500/10 transition-all duration-300 outline-none placeholder:text-gray-500 backdrop-blur-sm"
                   />
-                  <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-leaf-600 transition-colors" />
+                  <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-leaf-600 transition-colors" />
                   
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2 text-gray-400">
                     <button type="button" className="hover:text-leaf-600 transition-colors p-1 rounded-full hover:bg-leaf-50"><Mic size={16}/></button>
@@ -188,7 +188,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenChef }) => {
 
                 {/* Suggestions Dropdown */}
                 {suggestions.length > 0 && (
-                  <div className="absolute top-full right-0 w-80 bg-white rounded-2xl shadow-xl mt-4 border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-2 z-50">
+                  <div className="absolute top-full right-0 w-80 bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl mt-4 border border-white/20 overflow-hidden animate-in fade-in slide-in-from-top-2 z-50 ring-1 ring-black/5">
                     <div className="p-2">
                       <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-3 py-2 bg-gray-50/50 mb-1 rounded-lg">Top Matches</div>
                       {suggestions.map(s => (
@@ -214,7 +214,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenChef }) => {
               {/* Mobile Search Toggle */}
               <button 
                 onClick={() => setIsSearchOpen(!isSearchOpen)}
-                className="xl:hidden p-3 rounded-full text-gray-600 hover:bg-gray-100 transition-colors active:scale-95"
+                className="xl:hidden p-3 rounded-full text-gray-700 hover:bg-white/50 transition-colors active:scale-95"
               >
                 <Search size={22} />
               </button>
@@ -229,13 +229,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenChef }) => {
               </button>
 
               {/* Wishlist */}
-              <Link to="/wishlist" className="hidden sm:flex p-3 rounded-full text-gray-600 hover:bg-red-50 hover:text-red-500 transition-all relative group active:scale-95">
+              <Link to="/wishlist" className="hidden sm:flex p-3 rounded-full text-gray-700 hover:bg-red-50 hover:text-red-500 transition-all relative group active:scale-95">
                 <Heart size={22} className="group-hover:scale-110 transition-transform"/>
                 {wishlist.length > 0 && <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-white"></span>}
               </Link>
 
               {/* Cart */}
-              <Link to="/cart" className="p-3 rounded-full text-gray-600 hover:bg-leaf-50 hover:text-leaf-600 transition-all relative group active:scale-95">
+              <Link to="/cart" className="p-3 rounded-full text-gray-700 hover:bg-leaf-50 hover:text-leaf-600 transition-all relative group active:scale-95">
                 <ShoppingCart size={22} className="group-hover:scale-110 transition-transform"/>
                 {totalItems > 0 && (
                   <span className="absolute top-0 right-0 bg-leaf-600 text-white text-[10px] font-bold h-5 min-w-[1.25rem] px-1 flex items-center justify-center rounded-full border-2 border-white shadow-sm group-hover:-translate-y-1 transition-transform">
@@ -252,7 +252,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenChef }) => {
                     className={`flex items-center gap-2 pl-3 pr-1.5 py-1.5 rounded-full border transition-all duration-300 group ${
                       showProfileMenu 
                         ? 'bg-leaf-50 border-leaf-300 ring-2 ring-leaf-100' 
-                        : 'bg-white border-gray-200 hover:border-leaf-300 hover:shadow-md'
+                        : 'bg-white/60 border-gray-200/50 hover:border-leaf-300 hover:shadow-md backdrop-blur-sm'
                     }`}
                   >
                     <div className="flex flex-col items-end mr-1">
@@ -273,8 +273,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenChef }) => {
 
                 {/* Dropdown Menu */}
                 {showProfileMenu && user && (
-                  <div className="absolute right-0 top-full mt-4 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 origin-top-right z-50">
-                    <div className="p-5 border-b border-gray-50 bg-gradient-to-br from-gray-50 to-white">
+                  <div className="absolute right-0 top-full mt-4 w-64 bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 overflow-hidden animate-in fade-in zoom-in-95 origin-top-right z-50 ring-1 ring-black/5">
+                    <div className="p-5 border-b border-gray-100 bg-gradient-to-br from-gray-50/50 to-white/50">
                       <p className="font-bold text-gray-900 truncate text-base">{user.name}</p>
                       <p className="text-xs text-gray-500 truncate mt-0.5">{user.email}</p>
                       <div className="mt-3 flex gap-2">
