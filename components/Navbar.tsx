@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Search, ShoppingCart, Menu, X, User, Heart, 
   MapPin, Phone, Crown, Sprout, ChefHat, 
-  Mic, ChevronDown, LogOut, LayoutDashboard, Settings as SettingsIcon
+  Mic, ChevronDown, LogOut, LayoutDashboard, Settings as SettingsIcon, Loader2
 } from 'lucide-react';
 import { useCart } from '../services/CartContext';
 import { useAuth } from '../services/AuthContext';
@@ -28,7 +28,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenChef }) => {
   const profileRef = useRef<HTMLDivElement>(null);
   
   const { cartItems, wishlist } = useCart();
-  const { user, logout } = useAuth();
+  const { user, logout, loading } = useAuth();
   const { products } = useProduct();
   const { pincode, setShowModal } = usePincode();
   
@@ -246,7 +246,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenChef }) => {
 
               {/* Profile Dropdown (Replaces Login/Signup) */}
               <div ref={profileRef} className="relative hidden sm:block">
-                {user ? (
+                {loading ? (
+                  <div className="w-20 h-10 bg-gray-100 rounded-full animate-pulse flex items-center justify-center">
+                    <Loader2 size={16} className="animate-spin text-gray-400" />
+                  </div>
+                ) : user ? (
                   <button 
                     onClick={() => setShowProfileMenu(!showProfileMenu)}
                     className={`flex items-center gap-2 pl-3 pr-1.5 py-1.5 rounded-full border transition-all duration-300 group ${
@@ -357,7 +361,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenChef }) => {
           </div>
 
           <div className="p-6 flex-grow overflow-y-auto">
-            {user ? (
+            {loading ? (
+               <div className="flex justify-center p-4"><Loader2 className="animate-spin text-leaf-600" /></div>
+            ) : user ? (
               <div className="bg-leaf-50/50 border border-leaf-100 p-4 rounded-2xl flex items-center gap-4 mb-8 active:scale-95 transition-transform shadow-sm" onClick={() => {navigate('/account'); setIsMenuOpen(false);}}>
                 <img src={user.avatar} className="w-12 h-12 rounded-full border-2 border-white shadow-sm object-cover" />
                 <div className="flex-1 min-w-0">

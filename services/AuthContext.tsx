@@ -159,6 +159,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const verifyOtp = async (otp: string): Promise<boolean> => {
+    setLoading(true);
     // Mock OTP Check (Fallback logic)
     if (!confirmationResult || otp === '123456') {
         const mockUser: User = {
@@ -174,13 +175,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         };
         setUser(mockUser);
         localStorage.setItem('freshleaf_mock_user', JSON.stringify(mockUser));
+        setLoading(false);
         return true;
     }
 
     try {
       await confirmationResult.confirm(otp);
+      // Loading will be set to false by onAuthStateChanged listener
       return true;
     } catch (error: any) {
+      setLoading(false);
       console.error("Error verifying OTP:", error);
       // If code matches mock code but failed on server, allow entry for demo
       if (otp === '123456') {
@@ -261,8 +265,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (email: string, password?: string): Promise<boolean> => {
     try {
+        setLoading(true);
         if (!password) throw new Error("Password required");
         await signInWithEmailAndPassword(auth, email, password);
+        // Loading will be set to false by onAuthStateChanged listener which fires after login
         return true;
     } catch (error: any) {
         console.error("Login Error:", error);
@@ -289,10 +295,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             };
             setUser(mockUser);
             localStorage.setItem('freshleaf_mock_user', JSON.stringify(mockUser));
+            setLoading(false);
             addToast("Demo Login Successful (Offline Mode)", "info");
             return true;
         }
 
+        setLoading(false);
         addToast(error.message || "Login failed", "error");
         return false;
     }
@@ -300,6 +308,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const signup = async (name: string, email: string, password?: string, role: string = 'customer', farmName?: string): Promise<boolean> => {
     try {
+        setLoading(true);
         if (!password) throw new Error("Password required");
         
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -325,7 +334,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             photoURL: newUser.avatar
         });
 
+        // Optimistically set user before auth state change fires to avoid lag
         setUser(newUser);
+        setLoading(false);
         return true;
     } catch (error: any) {
         console.error("Signup Error:", error);
@@ -353,10 +364,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             };
             setUser(mockUser);
             localStorage.setItem('freshleaf_mock_user', JSON.stringify(mockUser));
+            setLoading(false);
             addToast("Demo Signup Successful (Offline Mode)", "info");
             return true;
         }
 
+        setLoading(false);
         addToast(error.message || "Signup failed", "error");
         return false;
     }

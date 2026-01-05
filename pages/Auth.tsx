@@ -136,7 +136,7 @@ export const Login: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   // @ts-ignore
-  const from = location.state?.from?.pathname || '/home';
+  const from = location.state?.from?.pathname || '/shop';
 
   useEffect(() => {
     if (authMethod === 'phone') {
