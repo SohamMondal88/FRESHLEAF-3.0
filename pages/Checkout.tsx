@@ -5,7 +5,7 @@ import { useCart } from '../services/CartContext';
 import { useAuth } from '../services/AuthContext';
 import { useOrder } from '../services/OrderContext';
 import { useToast } from '../services/ToastContext';
-import { ShieldCheck, CreditCard, Banknote, MapPin, BellOff, PhoneOff, Package, Plus, Loader2, MessageSquare } from 'lucide-react';
+import { ShieldCheck, CreditCard, Banknote, MapPin, BellOff, PhoneOff, Package, Plus, Loader2, MessageSquare, Wallet } from 'lucide-react';
 import { DeliverySlotPicker } from '../components/DeliverySlotPicker';
 
 declare global {
@@ -26,6 +26,7 @@ export const Checkout: React.FC = () => {
   const [deliveryInstructions, setDeliveryInstructions] = useState<string[]>([]);
   const [customInstruction, setCustomInstruction] = useState('');
   const [geoLocating, setGeoLocating] = useState(false);
+  const [useWallet, setUseWallet] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -75,21 +76,32 @@ export const Checkout: React.FC = () => {
     );
   };
 
+  // Payment Calculations
+  const walletBalance = user?.walletBalance || 0;
+  const walletDeduction = useWallet ? Math.min(walletBalance, bill.grandTotal) : 0;
+  const finalPayable = Math.max(0, bill.grandTotal - walletDeduction);
+  const pointsToEarn = parseFloat((bill.grandTotal * 0.1).toFixed(2));
+
   const processOrder = async (paymentId?: string) => {
     try {
+        let methodString = '';
+        if (finalPayable === 0) methodString = 'Wallet';
+        else if (formData.paymentMethod === 'cod') methodString = useWallet ? 'Wallet + COD' : 'Cash on Delivery';
+        else methodString = useWallet ? `Wallet + Online (Rzp: ${paymentId})` : `Online (Rzp: ${paymentId})`;
+
         const orderId = await createOrder(
             cartItems, 
             bill, // Pass full bill breakdown
             `${formData.address}, ${formData.city} - ${formData.zip}`, 
-            formData.paymentMethod === 'cod' ? 'Cash on Delivery' : `Online (Rzp: ${paymentId})`, 
+            methodString, 
             formData.phone, 
             `${formData.firstName} ${formData.lastName}`,
             deliveryInstructions,
-            customInstruction
+            customInstruction,
+            walletDeduction
         );
 
         clearCart();
-        addToast('Order placed successfully!', 'success');
         navigate(`/order-confirmation?id=${orderId}`);
     } catch (error) {
         console.error("Order creation failed", error);
@@ -109,6 +121,12 @@ export const Checkout: React.FC = () => {
 
     setLoading(true);
 
+    // If fully paid by wallet
+    if (finalPayable === 0) {
+        await processOrder();
+        return;
+    }
+
     if (formData.paymentMethod === 'cod') {
         await processOrder();
     } else {
@@ -120,7 +138,7 @@ export const Checkout: React.FC = () => {
 
         const options = {
             key: process.env.RAZORPAY_KEY_ID || "rzp_test_YourKeyHere",
-            amount: Math.round(bill.grandTotal * 100), // Amount in paise
+            amount: Math.round(finalPayable * 100), // Amount in paise
             currency: "INR",
             name: "FreshLeaf",
             description: "Fresh Vegetables & Fruits Order",
@@ -226,35 +244,85 @@ export const Checkout: React.FC = () => {
                 </div>
             </div>
 
-            {/* Payment Method */}
+            {/* Wallet & Payment */}
             <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-                <h3 className="font-bold text-sm text-gray-900 mb-3">Payment Method</h3>
-                <div className="space-y-3">
-                    <label className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all ${formData.paymentMethod === 'razorpay' ? 'border-leaf-500 bg-leaf-50 ring-1 ring-leaf-200' : 'border-gray-200 hover:border-gray-300'}`}>
-                        <input type="radio" name="paymentMethod" value="razorpay" checked={formData.paymentMethod === 'razorpay'} onChange={() => setFormData({...formData, paymentMethod: 'razorpay'})} className="accent-leaf-600 w-5 h-5" />
-                        <div className="flex items-center justify-between w-full">
-                            <span className="font-bold text-gray-800 flex items-center gap-2"><CreditCard size={18} className="text-leaf-600"/> Pay Online (Razorpay)</span>
-                            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-bold">Fast</span>
+                <h3 className="font-bold text-sm text-gray-900 mb-3">Payment</h3>
+                
+                {/* Wallet Toggle */}
+                {walletBalance > 0 && (
+                    <label className="flex items-center justify-between p-4 mb-4 rounded-xl border border-yellow-200 bg-yellow-50/50 cursor-pointer hover:bg-yellow-50 transition">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-yellow-100 p-2 rounded-lg text-yellow-700"><Wallet size={20}/></div>
+                            <div>
+                                <p className="font-bold text-sm text-gray-900">Use Wallet Balance</p>
+                                <p className="text-xs text-gray-500">Available: ₹{walletBalance}</p>
+                            </div>
                         </div>
+                        <input 
+                            type="checkbox" 
+                            checked={useWallet} 
+                            onChange={() => setUseWallet(!useWallet)} 
+                            className="w-5 h-5 accent-yellow-600 rounded"
+                        />
                     </label>
-                    <label className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all ${formData.paymentMethod === 'cod' ? 'border-leaf-500 bg-leaf-50 ring-1 ring-leaf-200' : 'border-gray-200 hover:border-gray-300'}`}>
-                        <input type="radio" name="paymentMethod" value="cod" checked={formData.paymentMethod === 'cod'} onChange={() => setFormData({...formData, paymentMethod: 'cod'})} className="accent-leaf-600 w-5 h-5" />
-                        <div className="flex items-center justify-between w-full">
-                            <span className="font-bold text-gray-800 flex items-center gap-2"><Banknote size={18} className="text-gray-600"/> Cash on Delivery</span>
-                        </div>
-                    </label>
-                </div>
+                )}
+
+                {walletDeduction > 0 && (
+                    <div className="flex justify-between items-center text-sm font-bold text-green-600 mb-4 px-2">
+                        <span>Wallet Deduction</span>
+                        <span>- ₹{walletDeduction}</span>
+                    </div>
+                )}
+
+                {/* Main Methods (Only if amount remains) */}
+                {finalPayable > 0 && (
+                    <div className="space-y-3">
+                        <label className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all ${formData.paymentMethod === 'razorpay' ? 'border-leaf-500 bg-leaf-50 ring-1 ring-leaf-200' : 'border-gray-200 hover:border-gray-300'}`}>
+                            <input type="radio" name="paymentMethod" value="razorpay" checked={formData.paymentMethod === 'razorpay'} onChange={() => setFormData({...formData, paymentMethod: 'razorpay'})} className="accent-leaf-600 w-5 h-5" />
+                            <div className="flex items-center justify-between w-full">
+                                <span className="font-bold text-gray-800 flex items-center gap-2"><CreditCard size={18} className="text-leaf-600"/> Pay Online (Razorpay)</span>
+                                <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-bold">Fast</span>
+                            </div>
+                        </label>
+                        <label className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all ${formData.paymentMethod === 'cod' ? 'border-leaf-500 bg-leaf-50 ring-1 ring-leaf-200' : 'border-gray-200 hover:border-gray-300'}`}>
+                            <input type="radio" name="paymentMethod" value="cod" checked={formData.paymentMethod === 'cod'} onChange={() => setFormData({...formData, paymentMethod: 'cod'})} className="accent-leaf-600 w-5 h-5" />
+                            <div className="flex items-center justify-between w-full">
+                                <span className="font-bold text-gray-800 flex items-center gap-2"><Banknote size={18} className="text-gray-600"/> Cash on Delivery</span>
+                            </div>
+                        </label>
+                    </div>
+                )}
             </div>
 
-            {/* Pay Button */}
-            <button 
-                type="submit" 
-                disabled={loading}
-                className="w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-xl font-bold shadow-lg shadow-green-200 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-                {loading ? <Loader2 className="animate-spin" size={24}/> : <ShieldCheck size={20}/>}
-                {loading ? 'Processing...' : `Pay ₹${bill.grandTotal}`}
-            </button>
+            {/* Total & Action */}
+            <div className="bg-gray-900 text-white p-5 rounded-2xl shadow-lg">
+                <div className="flex justify-between items-center mb-4 text-gray-300 text-sm">
+                    <span>Order Total</span>
+                    <span>₹{bill.grandTotal}</span>
+                </div>
+                {walletDeduction > 0 && (
+                    <div className="flex justify-between items-center mb-4 text-yellow-400 text-sm font-bold">
+                        <span>Wallet Used</span>
+                        <span>- ₹{walletDeduction}</span>
+                    </div>
+                )}
+                <div className="flex justify-between items-center mb-6 text-xl font-extrabold">
+                    <span>To Pay</span>
+                    <span>₹{finalPayable}</span>
+                </div>
+                <div className="bg-white/10 rounded-lg p-3 text-center mb-4">
+                    <p className="text-xs text-green-300 font-bold">You will earn {pointsToEarn} points on this order!</p>
+                </div>
+
+                <button 
+                    type="submit" 
+                    disabled={loading}
+                    className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed transition-all"
+                >
+                    {loading ? <Loader2 className="animate-spin" size={24}/> : <ShieldCheck size={20}/>}
+                    {loading ? 'Processing...' : (finalPayable === 0 ? 'Place Order' : `Pay ₹${finalPayable}`)}
+                </button>
+            </div>
         </form>
       </div>
     </div>

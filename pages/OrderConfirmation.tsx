@@ -1,6 +1,7 @@
+
 import React, { useEffect } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { CheckCircle, Truck, Package, Calendar, Download, MessageCircle, ArrowRight } from 'lucide-react';
+import { CheckCircle, Truck, Package, Calendar, Download, MessageCircle, ArrowRight, Gift } from 'lucide-react';
 import { useOrder } from '../services/OrderContext';
 
 export const OrderConfirmation: React.FC = () => {
@@ -39,9 +40,16 @@ export const OrderConfirmation: React.FC = () => {
         </div>
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Order Confirmed!</h1>
         <p className="text-gray-600 mb-4">Thank you for shopping with FreshLeaf.</p>
-        <p className="text-lg font-bold text-gray-800 bg-gray-50 inline-block px-4 py-2 rounded-lg mb-8 border border-gray-200">
+        <p className="text-lg font-bold text-gray-800 bg-gray-50 inline-block px-4 py-2 rounded-lg mb-6 border border-gray-200">
            Order ID: {order.id}
         </p>
+
+        {order.pointsEarned && order.pointsEarned > 0 && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-8 flex items-center justify-center gap-3 animate-pulse">
+                <Gift className="text-yellow-600" size={24}/>
+                <span className="font-bold text-yellow-800 text-lg">You earned {order.pointsEarned} Points!</span>
+            </div>
+        )}
         
         {/* Feature Section (Order Steps) */}
         <div className="space-y-4 mb-8 text-left bg-gray-50 p-6 rounded-xl border border-gray-100">

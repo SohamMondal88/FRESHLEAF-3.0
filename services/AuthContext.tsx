@@ -55,6 +55,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // 2. Firebase Listener
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
+        // If we already have the user state set (e.g. from optimistic login), skip fetching to avoid flicker
+        if (user && user.id === fbUser.uid) {
+            setLoading(false);
+            return;
+        }
+
         // Fetch user profile from Firestore
         const userDocRef = doc(db, 'users', fbUser.uid);
         try {
@@ -74,7 +80,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 isPro: false,
                 address: ''
               };
-              // FIX: Ensure no undefined fields are passed to Firestore
               const safeUser = JSON.parse(JSON.stringify(newUser));
               try {
                 await setDoc(userDocRef, safeUser);
@@ -85,7 +90,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
         } catch (error) {
             console.error("Error fetching user profile:", error);
-            // Fallback: Use basic Auth data if Firestore fails (offline/client-offline)
             const fallbackUser: User = {
                 id: fbUser.uid,
                 name: fbUser.displayName || 'FreshLeaf User',
@@ -100,7 +104,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setUser(fallbackUser);
         }
       } else {
-        // Only clear user if we are NOT using a mock session
         if (!localStorage.getItem('freshleaf_mock_user')) {
             setUser(null);
         }
@@ -138,7 +141,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const appVerifier = (window as any).recaptchaVerifier;
       if (!appVerifier) {
           console.warn("Recaptcha not initialized, using mock OTP flow");
-          // Fallback to allow flow to continue even if Recaptcha fails
           return true; 
       }
 
@@ -152,7 +154,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return true;
     } catch (error: any) {
       console.error("Error sending OTP:", error);
-      // Fallback for Demo/Error cases (auth/internal-error, invalid-app-credential)
       addToast("Demo Mode: OTP sent (Use 123456)", "info");
       return true;
     }
@@ -160,7 +161,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const verifyOtp = async (otp: string): Promise<boolean> => {
     setLoading(true);
-    // Mock OTP Check (Fallback logic)
     if (!confirmationResult || otp === '123456') {
         const mockUser: User = {
             id: 'mock-phone-user-' + Date.now(),
@@ -181,12 +181,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     try {
       await confirmationResult.confirm(otp);
-      // Loading will be set to false by onAuthStateChanged listener
       return true;
     } catch (error: any) {
       setLoading(false);
       console.error("Error verifying OTP:", error);
-      // If code matches mock code but failed on server, allow entry for demo
       if (otp === '123456') {
           const mockUser: User = {
             id: 'mock-phone-user-' + Date.now(),
@@ -214,7 +212,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch (e: any) {
         console.error("Signout error", e);
     }
-    // Clear mock data
     localStorage.removeItem('freshleaf_mock_user');
     setUser(null);
     addToast("Logged out successfully", "success");
@@ -223,11 +220,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const updateProfile = async (data: Partial<User>) => {
     if (!user) return;
     
-    // Optimistic Update
     const updatedUser = { ...user, ...data };
     setUser(updatedUser);
     
-    // Update local storage if using mock
     if (localStorage.getItem('freshleaf_mock_user')) {
         localStorage.setItem('freshleaf_mock_user', JSON.stringify(updatedUser));
     }
@@ -267,13 +262,41 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
         setLoading(true);
         if (!password) throw new Error("Password required");
-        await signInWithEmailAndPassword(auth, email, password);
-        // Loading will be set to false by onAuthStateChanged listener which fires after login
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        
+        // IMMEDIATE STATE UPDATE: Do not wait for onAuthStateChanged
+        // Construct basic user from credential immediately
+        const fbUser = userCredential.user;
+        
+        // Try to fetch extended profile quickly, but have fallback
+        let fullUser: User = {
+            id: fbUser.uid,
+            name: fbUser.displayName || email.split('@')[0],
+            email: fbUser.email || email,
+            phone: fbUser.phoneNumber || '',
+            role: 'customer',
+            walletBalance: 0,
+            avatar: fbUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${fbUser.uid}`,
+            isPro: false,
+            address: ''
+        };
+
+        // Try getting doc, but don't block too long if possible (though getDoc is usually needed for role)
+        try {
+            const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
+            if (userDoc.exists()) {
+                fullUser = { ...fullUser, ...userDoc.data() } as User;
+            }
+        } catch (e) {
+            console.warn("Fast login: Profile fetch skipped/failed, using basic info");
+        }
+
+        setUser(fullUser);
+        setLoading(false);
         return true;
     } catch (error: any) {
         console.error("Login Error:", error);
         
-        // Fallback for Demo/Configuration/Network Errors
         if (
             error.code === 'auth/configuration-not-found' || 
             error.code === 'auth/network-request-failed' || 
@@ -326,22 +349,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             farmName: farmName || null 
         };
 
-        // Create user document in Firestore - using JSON.parse(JSON.stringify) to strip any lingering undefineds
-        await setDoc(doc(db, 'users', userCredential.user.uid), JSON.parse(JSON.stringify(newUser)));
+        // Fire and forget Firestore write to speed up UI transition
+        setDoc(doc(db, 'users', userCredential.user.uid), JSON.parse(JSON.stringify(newUser))).catch(e => console.error("Signup profile save bg error", e));
         
-        await firebaseUpdateProfile(userCredential.user, {
+        firebaseUpdateProfile(userCredential.user, {
             displayName: name,
             photoURL: newUser.avatar
-        });
+        }).catch(e => console.error("Profile update bg error", e));
 
-        // Optimistically set user before auth state change fires to avoid lag
         setUser(newUser);
         setLoading(false);
         return true;
     } catch (error: any) {
         console.error("Signup Error:", error);
 
-        // Fallback for Demo/Configuration Errors
         if (
             error.code === 'auth/configuration-not-found' || 
             error.code === 'auth/network-request-failed' || 

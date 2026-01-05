@@ -58,6 +58,8 @@ export interface Order {
   customerName?: string;
   customerPhone?: string;
   instructions?: string[];
+  walletUsed?: number;
+  pointsEarned?: number;
 }
 
 export interface DeliveryAgent {
