@@ -5,6 +5,8 @@ import { ShoppingCart, Star, Heart, Eye, Zap as BuyIcon, Sprout } from 'lucide-r
 import { Product } from '../../types';
 import { useCart } from '../../services/CartContext';
 import { useImage } from '../../services/ImageContext';
+import { useAuth } from '../../services/AuthContext';
+import { useToast } from '../../services/ToastContext';
 import { QuickViewModal } from './QuickViewModal';
 
 interface Props {
@@ -35,6 +37,8 @@ const getUnitOptions = (baseUnit: string) => {
 export const ProductCard: React.FC<Props> = ({ product, highlightTerm, onWishlistClick }) => {
   const { addToCart, addToWishlist, isInWishlist, removeFromWishlist } = useCart();
   const { getProductImage } = useImage();
+  const { user } = useAuth();
+  const { addToast } = useToast();
   const navigate = useNavigate();
   const [showQuickView, setShowQuickView] = useState(false);
   
@@ -52,12 +56,26 @@ export const ProductCard: React.FC<Props> = ({ product, highlightTerm, onWishlis
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault(); 
     e.stopPropagation();
+    
+    if (!user) {
+        addToast("Please login to add items to cart", "info");
+        navigate('/login');
+        return;
+    }
+
     addToCart({ ...product, image: displayImage }, 1, unitLabel, displayPrice);
   };
 
   const handleBuyNow = (e: React.MouseEvent) => {
     e.preventDefault(); 
     e.stopPropagation();
+
+    if (!user) {
+        addToast("Please login to buy items", "info");
+        navigate('/login');
+        return;
+    }
+
     addToCart({ ...product, image: displayImage }, 1, unitLabel, displayPrice);
     navigate('/checkout');
   };

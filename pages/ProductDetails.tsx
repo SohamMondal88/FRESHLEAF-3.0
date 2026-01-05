@@ -1,11 +1,12 @@
 
 import React, { useState, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Star, Truck, Shield, Minus, Plus, MapPin, CheckCircle, ArrowLeft, Info, Heart, XCircle, ArrowRight, User } from 'lucide-react';
 import { useProduct } from '../services/ProductContext';
 import { useCart } from '../services/CartContext';
 import { useImage } from '../services/ImageContext';
 import { usePincode } from '../services/PincodeContext';
+import { useAuth } from '../services/AuthContext';
 import { ProductCard } from '../components/ui/ProductCard';
 import { FARMERS } from '../constants';
 import { useToast } from '../services/ToastContext';
@@ -17,7 +18,9 @@ export const ProductDetails: React.FC = () => {
   const { addToCart, addToWishlist, isInWishlist, removeFromWishlist } = useCart();
   const { getProductImage } = useImage();
   const { pincode, isServiceable, setPincode } = usePincode();
+  const { user } = useAuth();
   const { addToast } = useToast();
+  const navigate = useNavigate();
   
   const [qty, setQty] = useState(1);
   const [activeTab, setActiveTab] = useState<'description' | 'nutrition' | 'reviews'>('description');
@@ -64,6 +67,16 @@ export const ProductDetails: React.FC = () => {
       setPincodeStatus('checking');
       const success = await setPincode(checkPincodeInput);
       setPincodeStatus(success ? 'serviceable' : 'unserviceable');
+  };
+
+  const handleAddToCart = () => {
+      if (!user) {
+          addToast("Please login to add items to cart", "info");
+          navigate('/login');
+          return;
+      }
+      const cartProduct = { ...product, image: getProductImage(product.id, product.image) };
+      addToCart(cartProduct, qty);
   };
 
   const handleSubmitReview = (e: React.FormEvent) => {
@@ -217,10 +230,7 @@ export const ProductDetails: React.FC = () => {
                     <button onClick={() => setQty(qty + 1)} className="w-14 h-full flex items-center justify-center hover:bg-gray-200 rounded-r-2xl transition"><Plus size={20}/></button>
                   </div>
                   <button 
-                    onClick={() => {
-                        const cartProduct = { ...product, image: getProductImage(product.id, product.image) };
-                        addToCart(cartProduct, qty);
-                    }}
+                    onClick={handleAddToCart}
                     disabled={!product.inStock}
                     className={`flex-grow text-white h-14 rounded-2xl font-bold text-lg transition shadow-xl active:scale-95 flex items-center justify-center gap-2 ${product.inStock ? 'bg-gray-900 hover:bg-leaf-600 shadow-leaf-500/20' : 'bg-gray-400 cursor-not-allowed'}`}
                   >

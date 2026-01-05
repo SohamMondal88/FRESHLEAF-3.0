@@ -1,9 +1,12 @@
+
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Star, Minus, Plus, ShoppingCart, CheckCircle, Zap as BuyIcon } from 'lucide-react';
 import { Product } from '../../types';
 import { useCart } from '../../services/CartContext';
 import { useImage } from '../../services/ImageContext';
+import { useAuth } from '../../services/AuthContext';
+import { useToast } from '../../services/ToastContext';
 import { Link, useNavigate } from 'react-router-dom';
 
 interface QuickViewModalProps {
@@ -14,6 +17,8 @@ interface QuickViewModalProps {
 export const QuickViewModal: React.FC<QuickViewModalProps> = ({ product, onClose }) => {
   const { addToCart } = useCart();
   const { getProductImage } = useImage();
+  const { user } = useAuth();
+  const { addToast } = useToast();
   const navigate = useNavigate();
   const [qty, setQty] = useState(1);
   
@@ -27,12 +32,24 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({ product, onClose
   const formatPrice = (price: number) =>
     new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(price);
 
+  const checkLogin = () => {
+    if (!user) {
+        addToast("Please login to purchase items", "info");
+        onClose();
+        navigate('/login');
+        return false;
+    }
+    return true;
+  };
+
   const handleAddToCart = () => {
+    if (!checkLogin()) return;
     addToCart(product, qty, selectedUnit, product.price);
     onClose();
   };
 
   const handleBuyNow = () => {
+    if (!checkLogin()) return;
     addToCart(product, qty, selectedUnit, product.price);
     onClose();
     navigate('/checkout');
