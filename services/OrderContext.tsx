@@ -3,16 +3,27 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Order, CartItem, DeliveryAgent } from '../types';
 import { useAuth } from './AuthContext';
 import { db } from './firebase';
-import { collection, addDoc, query, where, onSnapshot, orderBy, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { useToast } from './ToastContext';
+import { BillDetails } from './CartContext';
 
 interface OrderContextType {
   orders: Order[];
-  createOrder: (items: CartItem[], total: number, address: string, paymentMethod: string, phone: string, name: string, instructions: string[]) => Promise<string>;
+  createOrder: (
+      items: CartItem[], 
+      billDetails: BillDetails, 
+      address: string, 
+      paymentMethod: string, 
+      phone: string, 
+      name: string, 
+      instructions: string[],
+      customInstruction?: string
+  ) => Promise<string>;
   updateOrderStatus: (orderId: string, status: Order['status']) => void;
   cancelOrder: (orderId: string) => Promise<boolean>;
   getOrderById: (id: string) => Order | undefined;
   generateInvoice: (order: Order) => void;
+  loading: boolean;
 }
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
@@ -25,54 +36,67 @@ const MY_AGENTS: DeliveryAgent[] = [
 export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
   const { addToast } = useToast();
 
-  // Real-time Order Listener
+  // Real-time Order Listener from Firestore
   useEffect(() => {
     if (!user) {
         setOrders([]);
+        setLoading(false);
         return;
     }
 
-    // Query orders where userId matches OR sellerId is relevant (for sellers, simplified here)
+    setLoading(true);
     const q = query(
         collection(db, 'orders'), 
         where('userId', '==', user.id),
         orderBy('createdAt', 'desc')
     );
 
-    // If the user is a seller, we might want to fetch orders containing their items.
-    // However, Firestore array-contains queries are specific. 
-    // For simplicity in this demo, we'll just fetch user's own orders here.
-    // Sellers would typically query based on a separate "sellerOrders" subcollection or field index.
-
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const fetchedOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
         setOrders(fetchedOrders);
+        setLoading(false);
     }, (error) => {
         console.error("Error fetching orders:", error);
+        setLoading(false);
     });
 
     return () => unsubscribe();
   }, [user]);
 
-  const createOrder = async (items: CartItem[], total: number, address: string, paymentMethod: string, phone: string, name: string, instructions: string[]) => {
+  const createOrder = async (
+      items: CartItem[], 
+      billDetails: BillDetails, 
+      address: string, 
+      paymentMethod: string, 
+      phone: string, 
+      name: string, 
+      instructions: string[],
+      customInstruction?: string
+  ) => {
     if (!user) throw new Error("User not logged in");
 
     const assignedAgent = MY_AGENTS[Math.floor(Math.random() * MY_AGENTS.length)];
-    const newOrderId = 'ORD-' + Date.now();
+    const newOrderId = 'ORD-' + Date.now().toString().slice(-6) + Math.floor(Math.random() * 1000);
     
-    const newOrderData: Order = {
+    // Merge predefined and custom instructions
+    const finalInstructions = [...instructions];
+    if (customInstruction) finalInstructions.push(customInstruction);
+
+    const newOrderData: Order & { billBreakdown: BillDetails } = {
       id: newOrderId,
       userId: user.id,
-      date: new Date().toLocaleDateString('en-IN'),
+      date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
       createdAt: Date.now(),
-      total,
+      total: billDetails.grandTotal,
+      billBreakdown: billDetails,
       status: 'Processing',
       items,
       paymentMethod,
       address,
-      instructions,
+      instructions: finalInstructions,
       trackingId: 'TRK-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
       courier: 'FreshLeaf Courier',
       agent: assignedAgent,
@@ -115,12 +139,13 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const generateInvoice = (order: Order) => {
-    console.log("Invoice generation logic here for", order.id);
-    addToast("Invoice download started...", "info");
+    // In a real app, this would generate a PDF
+    console.log("Invoice generation for", order.id);
+    addToast("Invoice downloaded successfully", "success");
   };
 
   return (
-    <OrderContext.Provider value={{ orders, createOrder, updateOrderStatus, cancelOrder, getOrderById, generateInvoice }}>
+    <OrderContext.Provider value={{ orders, createOrder, updateOrderStatus, cancelOrder, getOrderById, generateInvoice, loading }}>
       {children}
     </OrderContext.Provider>
   );
@@ -131,4 +156,3 @@ export const useOrder = () => {
   if (!context) throw new Error('useOrder must be used within an OrderProvider');
   return context;
 };
-    

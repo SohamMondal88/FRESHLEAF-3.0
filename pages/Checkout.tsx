@@ -5,7 +5,7 @@ import { useCart } from '../services/CartContext';
 import { useAuth } from '../services/AuthContext';
 import { useOrder } from '../services/OrderContext';
 import { useToast } from '../services/ToastContext';
-import { ShieldCheck, CreditCard, Banknote, MapPin, BellOff, PhoneOff, Package, Plus, Loader2 } from 'lucide-react';
+import { ShieldCheck, CreditCard, Banknote, MapPin, BellOff, PhoneOff, Package, Plus, Loader2, MessageSquare } from 'lucide-react';
 import { DeliverySlotPicker } from '../components/DeliverySlotPicker';
 
 declare global {
@@ -23,7 +23,8 @@ export const Checkout: React.FC = () => {
   const [loading, setLoading] = useState(false);
   
   const [deliverySlot, setDeliverySlot] = useState<{date: string, time: string} | null>(null);
-  const [deliveryInstruction, setDeliveryInstruction] = useState<string[]>([]);
+  const [deliveryInstructions, setDeliveryInstructions] = useState<string[]>([]);
+  const [customInstruction, setCustomInstruction] = useState('');
   const [geoLocating, setGeoLocating] = useState(false);
 
   // Form State
@@ -34,15 +35,20 @@ export const Checkout: React.FC = () => {
     address: user?.address || '',
     city: user?.city || 'Kolkata', 
     zip: user?.pincode || '',
-    paymentMethod: 'razorpay' // Default to online
+    paymentMethod: 'razorpay'
   });
+
+  // Redirect if cart empty
+  useEffect(() => {
+      if (cartItems.length === 0) navigate('/cart');
+  }, [cartItems, navigate]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const toggleInstruction = (inst: string) => {
-      setDeliveryInstruction(prev => prev.includes(inst) ? prev.filter(i => i !== inst) : [...prev, inst]);
+      setDeliveryInstructions(prev => prev.includes(inst) ? prev.filter(i => i !== inst) : [...prev, inst]);
   };
 
   const detectLocation = () => {
@@ -70,16 +76,16 @@ export const Checkout: React.FC = () => {
   };
 
   const processOrder = async (paymentId?: string) => {
-    // Create Order with all details
     try {
         const orderId = await createOrder(
             cartItems, 
-            bill.finalTotal, 
+            bill, // Pass full bill breakdown
             `${formData.address}, ${formData.city} - ${formData.zip}`, 
             formData.paymentMethod === 'cod' ? 'Cash on Delivery' : `Online (Rzp: ${paymentId})`, 
             formData.phone, 
             `${formData.firstName} ${formData.lastName}`,
-            deliveryInstruction
+            deliveryInstructions,
+            customInstruction
         );
 
         clearCart();
@@ -106,7 +112,6 @@ export const Checkout: React.FC = () => {
     if (formData.paymentMethod === 'cod') {
         await processOrder();
     } else {
-        // Razorpay Flow
         if (!window.Razorpay) {
             addToast("Razorpay SDK failed to load. Please refresh.", "error");
             setLoading(false);
@@ -114,8 +119,8 @@ export const Checkout: React.FC = () => {
         }
 
         const options = {
-            key: process.env.RAZORPAY_KEY_ID || "rzp_test_YourKeyHere", // Fallback for dev
-            amount: bill.finalTotal * 100, // Amount in paise
+            key: process.env.RAZORPAY_KEY_ID || "rzp_test_YourKeyHere",
+            amount: Math.round(bill.grandTotal * 100), // Amount in paise
             currency: "INR",
             name: "FreshLeaf",
             description: "Fresh Vegetables & Fruits Order",
@@ -131,9 +136,7 @@ export const Checkout: React.FC = () => {
                 email: user?.email || "",
                 contact: formData.phone
             },
-            theme: {
-                color: "#4CAF50"
-            },
+            theme: { color: "#4CAF50" },
             modal: {
                 ondismiss: function() {
                     setLoading(false);
@@ -157,10 +160,10 @@ export const Checkout: React.FC = () => {
     }
   };
 
-  const instructions = [
+  const instructionOptions = [
       { id: 'door', label: 'Leave at Door', icon: Package },
       { id: 'bell', label: 'No Doorbell', icon: BellOff },
-      { id: 'call', label: 'Avoid Calling', icon: PhoneOff },
+      { id: 'call', label: 'Call on Arrival', icon: PhoneOff },
   ];
 
   return (
@@ -172,24 +175,33 @@ export const Checkout: React.FC = () => {
             
             {/* Delivery Instructions */}
             <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-                <h3 className="font-bold text-sm text-gray-900 mb-3">Delivery Preferences</h3>
-                <div className="grid grid-cols-3 gap-3">
-                    {instructions.map(inst => (
+                <h3 className="font-bold text-sm text-gray-900 mb-3 flex items-center gap-2"><MessageSquare size={16}/> Delivery Instructions</h3>
+                
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                    {instructionOptions.map(inst => (
                         <button
                             key={inst.id}
                             type="button"
                             onClick={() => toggleInstruction(inst.label)}
                             className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${
-                                deliveryInstruction.includes(inst.label) 
-                                ? 'bg-green-50 border-green-500 text-green-700' 
+                                deliveryInstructions.includes(inst.label) 
+                                ? 'bg-green-50 border-green-500 text-green-700 shadow-sm' 
                                 : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
                             }`}
                         >
                             <inst.icon size={20} className="mb-1" />
-                            <span className="text-[10px] font-bold">{inst.label}</span>
+                            <span className="text-[10px] font-bold text-center leading-tight">{inst.label}</span>
                         </button>
                     ))}
                 </div>
+                
+                <input 
+                    type="text" 
+                    placeholder="Any specific directions? (e.g. Near blue gate)"
+                    value={customInstruction}
+                    onChange={(e) => setCustomInstruction(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-green-500 transition-colors"
+                />
             </div>
 
             {/* Address */}
@@ -241,11 +253,10 @@ export const Checkout: React.FC = () => {
                 className="w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-xl font-bold shadow-lg shadow-green-200 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
             >
                 {loading ? <Loader2 className="animate-spin" size={24}/> : <ShieldCheck size={20}/>}
-                {loading ? 'Processing...' : `Pay ₹${bill.finalTotal}`}
+                {loading ? 'Processing...' : `Pay ₹${bill.grandTotal}`}
             </button>
         </form>
       </div>
     </div>
   );
 };
-    

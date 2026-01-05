@@ -1,14 +1,16 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Minus, ArrowLeft, ShoppingBag, Bike, Info, ArrowRight, Trash2, ShieldCheck, Gift } from 'lucide-react';
+import { Plus, Minus, ArrowLeft, ShoppingBag, Bike, Info, ArrowRight, Trash2, ShieldCheck, Gift, Tag, ChevronDown, ChevronUp } from 'lucide-react';
 import { useCart } from '../services/CartContext';
 import { useImage } from '../services/ImageContext';
 
 export const Cart: React.FC = () => {
-  const { cartItems, removeFromCart, updateQuantity, bill, setTip, tip } = useCart();
+  const { cartItems, removeFromCart, updateQuantity, bill, setTip, tip, loading } = useCart();
   const { getProductImage } = useImage();
   const navigate = useNavigate();
+  const [showBillDetails, setShowBillDetails] = useState(true);
+  const [customTip, setCustomTip] = useState('');
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(price);
@@ -16,6 +18,17 @@ export const Cart: React.FC = () => {
   const freeDeliveryThreshold = 499;
   const progress = Math.min((bill.itemTotal / freeDeliveryThreshold) * 100, 100);
   const remaining = freeDeliveryThreshold - bill.itemTotal;
+
+  const handleCustomTipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = e.target.value.replace(/[^0-9]/g, '');
+      setCustomTip(val);
+      if (val) setTip(parseInt(val));
+      else setTip(0);
+  };
+
+  if (loading) {
+      return <div className="min-h-screen flex items-center justify-center bg-[#FAFAF9]"><div className="animate-spin text-leaf-600"><Bike size={40}/></div></div>;
+  }
 
   if (cartItems.length === 0) {
     return (
@@ -104,61 +117,104 @@ export const Cart: React.FC = () => {
                     ))}
                 </div>
 
-                {/* Tip Section */}
+                {/* Tipping Section */}
                 <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                    <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2"><Gift size={16} className="text-pink-500"/> Tip your delivery partner</h3>
-                    <div className="flex gap-3 overflow-x-auto scrollbar-hide">
-                        {[10, 20, 30, 50].map(amt => (
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                            <Gift size={16} className="text-pink-500"/> Tip your delivery partner
+                        </h3>
+                        <span className="text-[10px] bg-pink-50 text-pink-600 px-2 py-1 rounded font-bold">100% goes to them</span>
+                    </div>
+                    
+                    <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
+                        {[10, 20, 30].map(amt => (
                             <button 
                                 key={amt} 
-                                onClick={() => setTip(tip === amt ? 0 : amt)}
-                                className={`px-5 py-2.5 rounded-xl text-sm font-bold border transition-all ${
+                                onClick={() => { setTip(tip === amt ? 0 : amt); setCustomTip(''); }}
+                                className={`px-6 py-3 rounded-xl text-sm font-bold border flex-shrink-0 transition-all ${
                                     tip === amt 
-                                    ? 'bg-yellow-50 border-yellow-400 text-yellow-800 shadow-sm' 
+                                    ? 'bg-yellow-50 border-yellow-400 text-yellow-800 shadow-sm scale-105' 
                                     : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
                                 }`}
                             >
-                                {amt === 0 ? 'None' : `₹${amt}`}
+                                ₹{amt}
                             </button>
                         ))}
+                        <div className={`relative flex items-center rounded-xl border transition-all ${customTip || (tip > 0 && ![10,20,30].includes(tip)) ? 'border-yellow-400 bg-yellow-50' : 'border-gray-200 bg-white'}`}>
+                            <span className="pl-3 text-sm font-bold text-gray-500">₹</span>
+                            <input 
+                                type="text"
+                                placeholder="Custom"
+                                value={customTip}
+                                onChange={handleCustomTipChange}
+                                className="w-20 p-3 bg-transparent outline-none text-sm font-bold text-gray-900 placeholder:font-medium"
+                            />
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* Right: Summary Sticky */}
+            {/* Right: Detailed Bill Summary */}
             <div className="w-full lg:w-1/3 lg:sticky lg:top-24 space-y-4 animate-in slide-in-from-right-4 duration-500">
                 <div className="bg-white p-6 rounded-3xl shadow-lg border border-gray-100">
-                    <h3 className="font-extrabold text-gray-900 mb-6 text-lg">Bill Summary</h3>
+                    <div 
+                        className="flex justify-between items-center cursor-pointer mb-4" 
+                        onClick={() => setShowBillDetails(!showBillDetails)}
+                    >
+                        <h3 className="font-extrabold text-gray-900 text-lg">Bill Summary</h3>
+                        {showBillDetails ? <ChevronUp size={20} className="text-gray-400"/> : <ChevronDown size={20} className="text-gray-400"/>}
+                    </div>
                     
-                    <div className="space-y-3 text-sm">
-                        <div className="flex justify-between text-gray-600">
-                            <span>Item Total</span>
-                            <span className="font-medium text-gray-900">{formatPrice(bill.itemTotal)}</span>
-                        </div>
-                        <div className="flex justify-between text-gray-600">
-                            <span className="flex items-center gap-1">Handling Fee <Info size={12} className="text-gray-400"/></span>
-                            <span className="font-medium text-gray-900">{formatPrice(bill.handlingFee)}</span>
-                        </div>
-                        <div className="flex justify-between text-gray-600">
-                            <span>Delivery Fee</span>
-                            {bill.deliveryFee === 0 ? <span className="text-green-600 font-bold">FREE</span> : <span className="font-medium text-gray-900">{formatPrice(bill.deliveryFee)}</span>}
-                        </div>
-                        {tip > 0 && (
-                            <div className="flex justify-between text-pink-600">
-                                <span>Tip Added</span>
-                                <span className="font-bold">{formatPrice(tip)}</span>
+                    {showBillDetails && (
+                        <div className="space-y-3 text-sm border-b border-dashed border-gray-200 pb-4 mb-4 animate-in fade-in">
+                            <div className="flex justify-between text-gray-500">
+                                <span>MRP Total</span>
+                                <span>{formatPrice(bill.mrpTotal)}</span>
                             </div>
-                        )}
-                        <div className="border-t border-dashed border-gray-200 pt-4 mt-2 flex justify-between items-center">
-                            <span className="font-extrabold text-gray-900 text-lg">To Pay</span>
-                            <span className="font-extrabold text-gray-900 text-xl">{formatPrice(bill.finalTotal)}</span>
+                            <div className="flex justify-between text-green-600 font-medium">
+                                <span className="flex items-center gap-1"><Tag size={12}/> Product Discount</span>
+                                <span>- {formatPrice(bill.discount)}</span>
+                            </div>
+                            <div className="flex justify-between text-gray-600">
+                                <span>Item Total</span>
+                                <span className="font-bold text-gray-900">{formatPrice(bill.itemTotal)}</span>
+                            </div>
+                            <div className="flex justify-between text-gray-500 text-xs">
+                                <span>Handling Fee</span>
+                                <span>{formatPrice(bill.handlingFee)}</span>
+                            </div>
+                            <div className="flex justify-between text-gray-500 text-xs">
+                                <span>Platform Fee</span>
+                                <span>{formatPrice(bill.platformFee)}</span>
+                            </div>
+                            {bill.smallCartFee > 0 && (
+                                <div className="flex justify-between text-orange-600 text-xs">
+                                    <span className="flex items-center gap-1">Small Cart Fee <Info size={10}/></span>
+                                    <span>{formatPrice(bill.smallCartFee)}</span>
+                                </div>
+                            )}
+                            <div className="flex justify-between text-gray-600">
+                                <span>Delivery Fee</span>
+                                {bill.deliveryFee === 0 ? <span className="text-green-600 font-bold">FREE</span> : <span className="font-medium text-gray-900">{formatPrice(bill.deliveryFee)}</span>}
+                            </div>
+                            {bill.tip > 0 && (
+                                <div className="flex justify-between text-pink-600 font-medium">
+                                    <span className="flex items-center gap-1"><Gift size={12}/> Delivery Tip</span>
+                                    <span>{formatPrice(bill.tip)}</span>
+                                </div>
+                            )}
                         </div>
+                    )}
+
+                    <div className="flex justify-between items-center">
+                        <span className="font-extrabold text-gray-900 text-lg">Grand Total</span>
+                        <span className="font-extrabold text-leaf-700 text-2xl">{formatPrice(bill.grandTotal)}</span>
                     </div>
 
                     <div className="mt-6 bg-green-50 rounded-xl p-3 flex items-start gap-3">
                         <ShieldCheck size={20} className="text-green-600 mt-0.5 shrink-0"/>
                         <p className="text-xs text-green-800 font-medium leading-relaxed">
-                            Safe and secure payments. 100% authentic products sourced directly from farms.
+                            Savings of {formatPrice(bill.discount)} on this order. 100% Secure Payments.
                         </p>
                     </div>
 

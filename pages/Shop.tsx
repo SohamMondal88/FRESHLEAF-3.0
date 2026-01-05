@@ -5,7 +5,7 @@ import {
   Search, X, Filter, ArrowUpDown, Star, Leaf, 
   MapPin, Zap, ChevronDown, RefreshCw, Grid, 
   BookOpen, Check, ChevronRight, ChevronLeft,
-  Sun, Snowflake, CloudRain, Tractor, ShoppingCart
+  Sun, Snowflake, CloudRain, Tractor, ShoppingCart, Minus, Plus, ChevronUp
 } from 'lucide-react';
 import { useProduct } from '../services/ProductContext';
 import { useCart } from '../services/CartContext';
@@ -120,6 +120,34 @@ const Mobile3DCarousel: React.FC<{
   );
 };
 
+// --- COLLAPSIBLE FILTER SECTION COMPONENT ---
+const FilterSection: React.FC<{ 
+    title: string; 
+    icon?: React.ElementType; 
+    children: React.ReactNode; 
+    defaultOpen?: boolean 
+}> = ({ title, icon: Icon, children, defaultOpen = true }) => {
+    const [isOpen, setIsOpen] = useState(defaultOpen);
+    
+    return (
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-4 transition-all">
+            <button 
+                onClick={() => setIsOpen(!isOpen)} 
+                className="w-full flex items-center justify-between font-bold text-gray-900 text-sm uppercase tracking-wide mb-2 group"
+            >
+                <div className="flex items-center gap-2">
+                    {Icon && <Icon size={16} className="text-leaf-600"/>} {title}
+                </div>
+                {isOpen ? <ChevronUp size={16} className="text-gray-400 group-hover:text-leaf-600"/> : <ChevronDown size={16} className="text-gray-400 group-hover:text-leaf-600"/>}
+            </button>
+            
+            <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[500px] opacity-100 mt-3' : 'max-h-0 opacity-0'}`}>
+                {children}
+            </div>
+        </div>
+    );
+};
+
 export const Shop: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -134,11 +162,14 @@ export const Shop: React.FC = () => {
   // --- LOCAL STATE ---
   const maxProductPrice = useMemo(() => products.length > 0 ? Math.max(...products.map(p => p.price), 1000) : 1000, [products]);
   
-  // Initialize with a high value to prevent initial filtering of expensive items
-  const [priceRange, setPriceRange] = useState<number>(10000); 
+  // Price Range State
+  const [minPrice, setMinPrice] = useState<number>(0);
+  const [maxPrice, setMaxPrice] = useState<number>(10000); 
+  
   const [selectedCategory, setSelectedCategory] = useState(categoryParam);
   const [sortOption, setSortOption] = useState('featured');
   const [viewMode, setViewMode] = useState<'grid' | 'journal'>('grid'); 
+  const [farmerSearch, setFarmerSearch] = useState('');
   
   // Advanced Filters State
   const [filters, setFilters] = useState<{
@@ -169,8 +200,12 @@ export const Shop: React.FC = () => {
   // Available Data for Filters
   const availableFarmers = useMemo(() => {
       const sellerIds = new Set(products.map(p => p.sellerId).filter(Boolean));
-      return FARMERS.filter(f => sellerIds.has(f.id));
-  }, [products]);
+      let farmers = FARMERS.filter(f => sellerIds.has(f.id));
+      if (farmerSearch) {
+          farmers = farmers.filter(f => f.farmName.toLowerCase().includes(farmerSearch.toLowerCase()) || f.name.toLowerCase().includes(farmerSearch.toLowerCase()));
+      }
+      return farmers;
+  }, [products, farmerSearch]);
 
   const availableSubCategories = useMemo(() => {
       if (selectedCategory === 'Vegetables') {
@@ -196,8 +231,8 @@ export const Shop: React.FC = () => {
   useEffect(() => {
     // Only set price range if it hasn't been interacted with (or is default high)
     // and we have a valid max price from products
-    if (maxProductPrice > 0 && priceRange === 10000) {
-        setPriceRange(maxProductPrice);
+    if (maxProductPrice > 0 && maxPrice === 10000) {
+        setMaxPrice(maxProductPrice);
     }
   }, [maxProductPrice]);
 
@@ -254,9 +289,9 @@ export const Shop: React.FC = () => {
   const isDefaultView = useMemo(() => {
     return selectedCategory === 'All' && 
            !query && 
-           (priceRange === maxProductPrice || maxProductPrice === 0 || priceRange === 10000) && 
+           (maxPrice === maxProductPrice || maxProductPrice === 0 || maxPrice === 10000) && minPrice === 0 &&
            !Object.values(filters).some(val => val === true || (val instanceof Set && val.size > 0));
-  }, [selectedCategory, query, priceRange, filters, maxProductPrice]);
+  }, [selectedCategory, query, minPrice, maxPrice, filters, maxProductPrice]);
 
   // Filtered Products for Grid View
   const filteredProducts = useMemo(() => {
@@ -277,8 +312,8 @@ export const Shop: React.FC = () => {
          else if (!['Fruits', 'Vegetables', 'All'].includes(selectedCategory) && product.category !== selectedCategory) return false;
       }
 
-      // Filter by Price
-      if (product.price > priceRange) return false;
+      // Filter by Price Range
+      if (product.price < minPrice || product.price > maxPrice) return false;
 
       // Checkbox Filters
       if (filters.organic && !product.isOrganic) return false;
@@ -303,29 +338,16 @@ export const Shop: React.FC = () => {
         default: return 0;
       }
     });
-  }, [products, query, selectedCategory, priceRange, filters, sortOption]);
-
-  // Suggestions logic
-  const suggestions = useMemo(() => {
-      if (!query || query.length < 2) return [];
-      const lowerQ = query.toLowerCase();
-      return products.filter(p => 
-          p.name.en.toLowerCase().includes(lowerQ) || 
-          p.category.toLowerCase().includes(lowerQ)
-      ).slice(0, 5);
-  }, [query, products]);
+  }, [products, query, selectedCategory, minPrice, maxPrice, filters, sortOption]);
 
   // --- CURATED COLLECTIONS ---
   const curatedCollections = useMemo(() => {
-    const rotate = (arr: any[]) => arr; // Simplified for now
-
     return {
       fruits: products.filter(p => ['Fruit', 'Mango', 'Banana', 'Apple', 'Citrus', 'Melon', 'Grapes', 'Berry', 'Stone Fruit', 'Imported Fruit', 'Exotic'].includes(p.category)),
       vegetables: products.filter(p => ['Fruit Veg', 'Root Veg', 'Bulb', 'Other Veg', 'Beans/Legumes', 'Flower Veg'].includes(p.category)),
       leafy: products.filter(p => p.category === 'Leafy'),
       exotic: products.filter(p => p.category === 'Exotic' || p.category === 'Imported Fruit'),
       deals: products.filter(p => p.oldPrice && p.oldPrice > p.price).sort((a,b) => (b.oldPrice! - b.price) - (a.oldPrice! - a.price)),
-      budget: rotate(products.filter(p => p.price < 60)).slice(0, 10),
     };
   }, [products]);
 
@@ -338,7 +360,7 @@ export const Shop: React.FC = () => {
   useEffect(() => {
     setCurrentPage(1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [query, selectedCategory, priceRange, filters, sortOption, viewMode]);
+  }, [query, selectedCategory, minPrice, maxPrice, filters, sortOption, viewMode]);
 
   // --- HANDLERS ---
   const handleCategoryChange = (cat: string) => {
@@ -371,7 +393,8 @@ export const Shop: React.FC = () => {
   };
 
   const clearFilters = () => {
-    setPriceRange(maxProductPrice);
+    setMinPrice(0);
+    setMaxPrice(maxProductPrice);
     setFilters({ organic: false, local: false, onSale: false, inStock: false, rating4Plus: false, farmers: new Set(), subCategories: new Set() });
     setSelectedCategory('All');
     setSearchParams({});
@@ -387,7 +410,7 @@ export const Shop: React.FC = () => {
 
   const activeFilterCount = [
     selectedCategory !== 'All',
-    priceRange < maxProductPrice && priceRange !== 10000,
+    minPrice > 0 || (maxPrice < maxProductPrice && maxPrice !== 10000),
     filters.organic, filters.local, filters.onSale, filters.inStock, filters.rating4Plus,
     filters.farmers.size > 0, filters.subCategories.size > 0
   ].filter(Boolean).length;
@@ -521,10 +544,11 @@ export const Shop: React.FC = () => {
                 ) : (
                   /* TABLET/DESKTOP VIEW */
                   <div className="flex flex-col lg:flex-row gap-10 px-4 md:px-0">
-                    {/* SIDEBAR FILTER & MAIN GRID CONTENT - Kept same as previous */}
-                    <aside className="hidden lg:block w-72 flex-shrink-0 space-y-8 sticky top-32 h-fit z-20">
-                      {/* ... same as previous sidebar ... */}
-                      <div className="relative">
+                    {/* SIDEBAR FILTER & MAIN GRID CONTENT */}
+                    <aside className="hidden lg:block w-72 flex-shrink-0 space-y-4 sticky top-32 h-fit z-20">
+                      
+                      {/* Search */}
+                      <div className="relative mb-4">
                          <Search className="absolute left-4 top-3.5 text-gray-400" size={18}/>
                          <input 
                            type="text" 
@@ -539,35 +563,73 @@ export const Shop: React.FC = () => {
                          />
                       </div>
 
-                      {/* View Mode Toggle */}
-                      <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-                         <h3 className="font-bold text-gray-900 mb-3 text-xs uppercase tracking-wide">Display Mode</h3>
-                         <div className="grid grid-cols-2 gap-2 bg-gray-100 p-1 rounded-xl">
-                            <button 
-                              onClick={() => setViewMode('grid')}
-                              className={`flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition ${viewMode === 'grid' ? 'bg-white shadow-sm text-leaf-700' : 'text-gray-500 hover:text-gray-700'}`}
-                            >
-                              <Grid size={16}/> Grid
-                            </button>
-                            <button 
-                              onClick={() => setViewMode('journal')}
-                              className={`flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition ${viewMode === 'journal' ? 'bg-white shadow-sm text-leaf-700' : 'text-gray-500 hover:text-gray-700'}`}
-                            >
-                              <BookOpen size={16}/> Journal
-                            </button>
-                         </div>
-                      </div>
+                      {/* Filter Sections */}
+                      <FilterSection title="Price Range" icon={Zap}>
+                          <div className="px-2 pb-2">
+                              <div className="flex items-center justify-between mb-4 gap-2">
+                                  <div className="bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 flex items-center w-full">
+                                      <span className="text-gray-400 text-xs font-bold mr-1">₹</span>
+                                      <input 
+                                        type="number" 
+                                        min="0" max={maxPrice} 
+                                        value={minPrice} 
+                                        onChange={(e) => setMinPrice(Number(e.target.value))} 
+                                        className="w-full bg-transparent text-sm font-bold text-gray-800 outline-none"
+                                        placeholder="Min"
+                                      />
+                                  </div>
+                                  <span className="text-gray-400 font-bold">-</span>
+                                  <div className="bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 flex items-center w-full">
+                                      <span className="text-gray-400 text-xs font-bold mr-1">₹</span>
+                                      <input 
+                                        type="number" 
+                                        min={minPrice} max={maxProductPrice} 
+                                        value={maxPrice} 
+                                        onChange={(e) => setMaxPrice(Number(e.target.value))} 
+                                        className="w-full bg-transparent text-sm font-bold text-gray-800 outline-none"
+                                        placeholder="Max"
+                                      />
+                                  </div>
+                              </div>
+                              <input 
+                                type="range" 
+                                min="0" 
+                                max={maxProductPrice} 
+                                value={maxPrice} 
+                                onChange={(e) => setMaxPrice(Number(e.target.value))} 
+                                className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none accent-leaf-600 cursor-pointer" 
+                              />
+                              <div className="flex justify-between mt-1 text-[10px] text-gray-400 font-bold">
+                                  <span>₹0</span>
+                                  <span>₹{maxProductPrice}</span>
+                              </div>
+                          </div>
+                      </FilterSection>
 
-                      {/* Advanced Filters Container */}
-                      <div className="space-y-6">
-                          {/* Vegetable/Fruit Types */}
-                          {availableSubCategories.length > 0 && (
-                              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                                <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide">Types</h3>
-                                <div className="space-y-2">
+                      <FilterSection title="Categories" icon={Grid}>
+                          <div className="flex flex-wrap gap-2">
+                            {['All', 'Fruits', 'Vegetables', 'Leafy', 'Exotic'].map(cat => (
+                                <button
+                                    key={cat}
+                                    onClick={() => handleCategoryChange(cat)}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                                        selectedCategory === cat 
+                                        ? 'bg-leaf-50 text-leaf-700 border-leaf-200' 
+                                        : 'bg-white text-gray-500 border-gray-100 hover:border-gray-200'
+                                    }`}
+                                >
+                                    {cat}
+                                </button>
+                            ))}
+                          </div>
+                      </FilterSection>
+
+                      {availableSubCategories.length > 0 && (
+                          <FilterSection title="Sub-Category" icon={Leaf}>
+                                <div className="space-y-1 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
                                     {availableSubCategories.map(sub => (
-                                        <label key={sub} className="flex items-center gap-3 cursor-pointer group">
-                                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition ${filters.subCategories.has(sub) ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300'}`}>
+                                        <label key={sub} className="flex items-center gap-3 cursor-pointer group hover:bg-gray-50 p-2 rounded-lg transition -mx-2">
+                                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition flex-shrink-0 ${filters.subCategories.has(sub) ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300'}`}>
                                                 {filters.subCategories.has(sub) && <Check size={10} className="text-white" />}
                                             </div>
                                             <input 
@@ -576,21 +638,29 @@ export const Shop: React.FC = () => {
                                                 checked={filters.subCategories.has(sub)}
                                                 onChange={() => toggleSetFilter('subCategories', sub)}
                                             />
-                                            <span className="text-sm text-gray-600 group-hover:text-gray-900">{sub}</span>
+                                            <span className="text-sm text-gray-600 group-hover:text-gray-900 font-medium truncate">{sub}</span>
                                         </label>
                                     ))}
                                 </div>
-                              </div>
-                          )}
+                          </FilterSection>
+                      )}
 
-                          {/* Farmers Filter */}
-                          {availableFarmers.length > 0 && (
-                              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 max-h-64 overflow-y-auto">
-                                <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide flex items-center gap-2"><Tractor size={14}/> Sourced From</h3>
-                                <div className="space-y-3">
+                      {availableFarmers.length > 0 && (
+                          <FilterSection title="Farmers" icon={Tractor}>
+                                <div className="mb-2 relative">
+                                    <input 
+                                        type="text" 
+                                        placeholder="Find farmer..." 
+                                        value={farmerSearch}
+                                        onChange={(e) => setFarmerSearch(e.target.value)}
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-2 py-1.5 text-xs focus:outline-none focus:border-leaf-400"
+                                    />
+                                    <Search size={12} className="absolute left-2.5 top-2 text-gray-400" />
+                                </div>
+                                <div className="space-y-1 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
                                     {availableFarmers.map(farmer => (
-                                        <label key={farmer.id} className="flex items-center gap-3 cursor-pointer group">
-                                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition ${filters.farmers.has(farmer.id) ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300'}`}>
+                                        <label key={farmer.id} className="flex items-center gap-3 cursor-pointer group hover:bg-gray-50 p-2 rounded-lg transition -mx-2">
+                                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition flex-shrink-0 ${filters.farmers.has(farmer.id) ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300'}`}>
                                                 {filters.farmers.has(farmer.id) && <Check size={10} className="text-white" />}
                                             </div>
                                             <input 
@@ -599,42 +669,43 @@ export const Shop: React.FC = () => {
                                                 checked={filters.farmers.has(farmer.id)}
                                                 onChange={() => toggleSetFilter('farmers', farmer.id)}
                                             />
-                                            <span className="text-sm text-gray-600 group-hover:text-gray-900 truncate">{farmer.farmName}</span>
+                                            <span className="text-sm text-gray-600 group-hover:text-gray-900 truncate font-medium">{farmer.farmName}</span>
                                         </label>
                                     ))}
                                 </div>
-                              </div>
-                          )}
+                          </FilterSection>
+                      )}
 
-                          {/* Checkbox Filters */}
-                          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                            <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide">Refine By</h3>
-                            <div className="space-y-3">
-                              {[
-                                { key: 'organic', label: 'Organic Certified', icon: Leaf, color: 'text-green-500' },
-                                { key: 'local', label: 'Locally Sourced', icon: MapPin, color: 'text-blue-500' },
-                                { key: 'rating4Plus', label: '4★ & Above', icon: Star, color: 'text-yellow-500' },
-                                { key: 'onSale', label: 'On Sale', icon: Zap, color: 'text-orange-500' },
-                                { key: 'inStock', label: 'In Stock', icon: Check, color: 'text-gray-400' }
-                              ].map(({ key, label, icon: Icon, color }) => (
-                                <label key={key} className="flex items-center gap-3 cursor-pointer group p-2 hover:bg-gray-50 rounded-lg transition -mx-2">
-                                  <div className={`w-5 h-5 rounded border flex items-center justify-center transition ${filters[key as keyof typeof filters] ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300 group-hover:border-leaf-400'}`}>
-                                    {filters[key as keyof typeof filters] && <Check size={12} className="text-white" />}
-                                  </div>
-                                  <input 
-                                    type="checkbox" 
-                                    className="hidden"
-                                    checked={filters[key as keyof typeof filters] as boolean}
-                                    onChange={() => toggleFilter(key as keyof typeof filters)}
-                                  />
-                                  <span className="text-sm text-gray-600 group-hover:text-gray-900 flex items-center gap-2 font-medium">
-                                    <Icon size={14} className={color} fill={key === 'rating4Plus' ? 'currentColor' : 'none'} /> {label}
-                                  </span>
+                      <FilterSection title="Quick Filter" icon={Star}>
+                        <div className="space-y-1">
+                          {[
+                            { key: 'organic', label: 'Organic Certified', icon: Leaf, color: 'text-green-600' },
+                            { key: 'local', label: 'Locally Sourced', icon: MapPin, color: 'text-blue-600' },
+                            { key: 'rating4Plus', label: 'Top Rated (4+)', icon: Star, color: 'text-yellow-600' },
+                            { key: 'onSale', label: 'On Sale', icon: Zap, color: 'text-orange-600' },
+                            { key: 'inStock', label: 'In Stock', icon: Check, color: 'text-gray-600' }
+                          ].map(({ key, label, icon: Icon, color }) => {
+                             const isActive = filters[key as keyof typeof filters] as boolean;
+                             return (
+                                <label key={key} className="flex items-center gap-3 cursor-pointer group hover:bg-gray-50 p-2 rounded-lg transition -mx-2">
+                                    <div className={`w-4 h-4 rounded border flex items-center justify-center transition flex-shrink-0 ${isActive ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300'}`}>
+                                        {isActive && <Check size={10} className="text-white" />}
+                                    </div>
+                                    <input 
+                                        type="checkbox" 
+                                        className="hidden" 
+                                        checked={isActive}
+                                        onChange={() => toggleFilter(key as keyof typeof filters)} 
+                                    />
+                                    <span className={`text-sm group-hover:text-gray-900 font-medium flex items-center gap-2 ${isActive ? 'text-gray-900' : 'text-gray-600'}`}>
+                                        <Icon size={14} className={color} fill={key === 'rating4Plus' ? 'currentColor' : 'none'}/> {label}
+                                    </span>
                                 </label>
-                              ))}
-                            </div>
-                          </div>
-                      </div>
+                             );
+                          })}
+                        </div>
+                      </FilterSection>
+
                     </aside>
 
                     {/* MAIN GRID CONTENT */}
@@ -704,9 +775,9 @@ export const Shop: React.FC = () => {
                                 {selectedCategory} <X size={12} />
                               </button>
                             )}
-                            {priceRange < maxProductPrice && (
-                              <button onClick={() => setPriceRange(maxProductPrice)} className="bg-white border border-leaf-200 text-leaf-700 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 hover:bg-leaf-50 transition shadow-sm">
-                                Max: ₹{priceRange} <X size={12} />
+                            {(minPrice > 0 || (maxPrice < maxProductPrice && maxPrice !== 10000)) && (
+                              <button onClick={() => { setMinPrice(0); setMaxPrice(maxProductPrice); }} className="bg-white border border-leaf-200 text-leaf-700 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 hover:bg-leaf-50 transition shadow-sm">
+                                Price: ₹{minPrice} - ₹{maxPrice} <X size={12} />
                               </button>
                             )}
                             {Object.entries(filters).map(([key, isActive]) => {
@@ -877,8 +948,8 @@ export const Shop: React.FC = () => {
                {/* Mobile Price */}
                <div>
                   <h4 className="font-bold text-gray-800 mb-3 text-sm uppercase tracking-wide">Price Range</h4>
-                  <input type="range" min="0" max={maxProductPrice} value={priceRange} onChange={(e) => setPriceRange(Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none accent-leaf-600" />
-                  <div className="flex justify-between mt-2 font-bold text-sm"><span>₹0</span><span>₹{priceRange}</span></div>
+                  <input type="range" min="0" max={maxProductPrice} value={maxPrice} onChange={(e) => setMaxPrice(Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none accent-leaf-600" />
+                  <div className="flex justify-between mt-2 font-bold text-sm"><span>₹{minPrice}</span><span>₹{maxPrice}</span></div>
                </div>
 
                {/* Mobile Status */}

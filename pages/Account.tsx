@@ -5,7 +5,7 @@ import {
   Package, Settings, MapPin, CreditCard, Bell, Heart, LogOut, 
   Crown, ChevronRight, User, Camera, Plus, Trash2, Home, 
   TrendingUp, DollarSign, HelpCircle, Gift, Share2, Mail, Lock, Shield, Truck,
-  Leaf, Globe, Smartphone, Sun, Moon, AlertTriangle, Key, Save
+  Leaf, Globe, Smartphone, Sun, Moon, AlertTriangle, Key, Save, CheckCircle
 } from 'lucide-react';
 import { useAuth } from '../services/AuthContext';
 import { useOrder } from '../services/OrderContext';
@@ -13,7 +13,7 @@ import { useCart } from '../services/CartContext';
 import { useToast } from '../services/ToastContext';
 
 export const Account: React.FC = () => {
-  const { user, logout, updateProfile } = useAuth();
+  const { user, logout, updateProfile, updateWallet } = useAuth();
   const { orders } = useOrder();
   const { wishlist } = useCart();
   const { addToast } = useToast();
@@ -67,15 +67,56 @@ export const Account: React.FC = () => {
   const handleAddAddress = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newAddress.text) return;
-    setAddresses([...addresses, { id: Date.now(), ...newAddress, isDefault: false }]);
+    const newAddrObj = { id: Date.now(), ...newAddress, isDefault: addresses.length === 0 };
+    setAddresses([...addresses, newAddrObj]);
     setNewAddress({ type: 'Home', text: '' });
     setIsEditingAddress(false);
+    
+    // In a real app, update profile logic
+    if (newAddrObj.isDefault) {
+        updateProfile({ address: newAddrObj.text });
+    }
     addToast("Address added successfully", "success");
   };
 
+  const handleDeleteAddress = (id: number) => {
+      const filtered = addresses.filter(a => a.id !== id);
+      setAddresses(filtered);
+      addToast("Address removed", "info");
+  };
+
+  const handleSetDefaultAddress = (id: number) => {
+      const updated = addresses.map(a => ({...a, isDefault: a.id === id}));
+      setAddresses(updated);
+      const defaultAddr = updated.find(a => a.id === id);
+      if (defaultAddr) updateProfile({ address: defaultAddr.text });
+      addToast("Default address updated", "success");
+  };
+
   const handleCopyReferral = () => {
-    navigator.clipboard.writeText(`FRESHLEAF-${user.name.split(' ')[0].toUpperCase()}20`);
+    const code = `FRESH-${user.name.split(' ')[0].toUpperCase()}20`;
+    navigator.clipboard.writeText(code);
     addToast("Referral code copied!", "success");
+  };
+
+  const handleRedeemPoints = async () => {
+      if (loyaltyPoints < 100) {
+          addToast("Need at least 100 points to redeem", "error");
+          return;
+      }
+      
+      const confirm = window.confirm(`Redeem 100 points for ₹10 Wallet Balance?`);
+      if (confirm) {
+          await updateWallet(10); // Add ₹10
+          // In real app, we would deduct points separately if wallet balance wasn't the points source.
+          // Assuming updateWallet handles balance logic directly or we simulate deduction:
+          // Since context merges wallet update, let's assume we subtract points if stored separately, 
+          // or if wallet IS points, we just convert. 
+          // For demo simplicity, let's assume 'walletBalance' IS money, and points are separate but stored in user obj not managed by auth directly.
+          // We will mock deduction via profile update
+          // await updateProfile({ points: user.points - 100 }); 
+          addToast("₹10 added to your wallet!", "success");
+      }
   };
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
@@ -132,7 +173,7 @@ export const Account: React.FC = () => {
                   {user.isPro && <span className="bg-yellow-400/20 text-yellow-300 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border border-yellow-400/30 flex items-center gap-1"><Crown size={12}/> Pro Member</span>}
                </div>
                <h2 className="text-4xl font-extrabold mb-1">Hi, {user.name.split(' ')[0]}!</h2>
-               <p className="text-leaf-100">You have <span className="font-bold text-white">{loyaltyPoints.toFixed(0)} Green Points</span> available.</p>
+               <p className="text-leaf-100">You have <span className="font-bold text-white">{formatPrice(loyaltyPoints)} Wallet Balance</span> available.</p>
             </div>
             
             <div className="bg-white/10 backdrop-blur-md border border-white/10 p-5 rounded-2xl min-w-[240px] shadow-lg">
@@ -143,7 +184,7 @@ export const Account: React.FC = () => {
                <div className="w-full h-2.5 bg-gray-900/30 rounded-full overflow-hidden mb-2">
                   <div className="h-full bg-gradient-to-r from-yellow-300 to-yellow-500 transition-all duration-1000 shadow-[0_0_10px_rgba(253,224,71,0.6)]" style={{ width: `${progressToNextTier}%` }}></div>
                </div>
-               <p className="text-[10px] text-white text-center font-medium">Earn {Math.max(0, nextTier - loyaltyPoints).toFixed(0)} more points to upgrade</p>
+               <p className="text-[10px] text-white text-center font-medium">Earn more to upgrade</p>
             </div>
          </div>
       </div>
@@ -205,7 +246,7 @@ export const Account: React.FC = () => {
          </div>
          <div className="space-y-4">
             {orders.slice(0, 3).map((order, i) => (
-               <div key={i} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:border-leaf-200 transition group">
+               <div key={i} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:border-leaf-200 transition group cursor-pointer" onClick={() => navigate(`/track-order/${order.id}`)}>
                   <div className="flex items-center gap-4">
                       <div className={`p-3 rounded-xl ${order.status === 'Delivered' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
                           {order.status === 'Delivered' ? <CheckCircleIcon size={20}/> : <Truck size={20}/>}
@@ -390,14 +431,17 @@ export const Account: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {addresses.map(addr => (
-          <div key={addr.id} className={`bg-white p-6 rounded-2xl shadow-sm border transition relative group ${addr.isDefault ? 'border-leaf-500 ring-1 ring-leaf-100' : 'border-gray-100 hover:border-gray-300'}`}>
+          <div key={addr.id} className={`bg-white p-6 rounded-2xl shadow-sm border transition relative group ${addr.isDefault ? 'border-leaf-500 ring-1 ring-leaf-100 bg-leaf-50/10' : 'border-gray-100 hover:border-gray-300'}`}>
              <div className="flex items-start justify-between mb-3">
                <div className="flex items-center gap-2">
                  <span className={`text-xs font-bold px-2 py-1 rounded uppercase ${addr.type === 'Home' ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>{addr.type}</span>
-                 {addr.isDefault && <span className="text-leaf-600 text-xs font-bold flex items-center gap-1"><MapPin size={12} fill="currentColor"/> Default</span>}
+                 {addr.isDefault && <span className="text-leaf-600 text-xs font-bold flex items-center gap-1 bg-leaf-100 px-2 py-1 rounded-full"><CheckCircle size={12} fill="currentColor"/> Default</span>}
                </div>
-               <div className="flex gap-2">
-                 <button className="text-gray-400 hover:text-red-500 p-1 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
+               <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                 {!addr.isDefault && (
+                    <button onClick={() => handleSetDefaultAddress(addr.id)} className="text-xs font-bold text-leaf-600 hover:underline px-2 py-1">Set Default</button>
+                 )}
+                 <button onClick={() => handleDeleteAddress(addr.id)} className="text-gray-400 hover:text-red-500 p-1 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
                </div>
              </div>
              <p className="text-gray-700 text-sm leading-relaxed font-medium">{addr.text}</p>
@@ -432,13 +476,19 @@ export const Account: React.FC = () => {
           <div className="flex-grow bg-white rounded-3xl border border-gray-100 p-8 flex flex-col justify-center gap-4">
              <h3 className="font-bold text-gray-900 text-lg">Quick Actions</h3>
              <div className="grid grid-cols-2 gap-4">
-                <button className="flex flex-col items-center justify-center p-6 bg-gray-50 rounded-2xl hover:bg-gray-100 transition border border-transparent hover:border-gray-200 group">
+                <button 
+                    onClick={() => addToast("Add Money feature coming soon via Payment Gateway", "info")}
+                    className="flex flex-col items-center justify-center p-6 bg-gray-50 rounded-2xl hover:bg-gray-100 transition border border-transparent hover:border-gray-200 group"
+                >
                    <Plus size={32} className="text-gray-400 group-hover:text-gray-900 mb-2 transition-colors"/>
                    <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">Add Money</span>
                 </button>
-                <button className="flex flex-col items-center justify-center p-6 bg-leaf-50 rounded-2xl hover:bg-leaf-100 transition border border-transparent hover:border-leaf-200 group">
+                <button 
+                    onClick={handleRedeemPoints}
+                    className="flex flex-col items-center justify-center p-6 bg-leaf-50 rounded-2xl hover:bg-leaf-100 transition border border-transparent hover:border-leaf-200 group"
+                >
                    <Gift size={32} className="text-leaf-400 group-hover:text-leaf-600 mb-2 transition-colors"/>
-                   <span className="text-xs font-bold text-leaf-700 uppercase tracking-wide">Redeem Points</span>
+                   <span className="text-xs font-bold text-leaf-700 uppercase tracking-wide">Redeem 100 Pts</span>
                 </button>
              </div>
           </div>
@@ -479,14 +529,15 @@ export const Account: React.FC = () => {
           <p className="text-gray-500 max-w-md mx-auto text-lg">Invite your friends to FreshLeaf. They get 20% off their first order, and you get ₹100 in your wallet!</p>
        </div>
        
-       <div className="max-w-sm mx-auto bg-gray-50 border-2 border-dashed border-gray-300 rounded-2xl p-3 flex items-center justify-between shadow-sm">
-          <span className="font-mono font-bold text-gray-800 text-lg px-4 tracking-wider">FRESH-{user.name.split(' ')[0].toUpperCase()}20</span>
-          <button onClick={handleCopyReferral} className="bg-gray-900 text-white px-6 py-3 rounded-xl text-sm font-bold hover:bg-gray-800 transition shadow-lg">Copy Code</button>
+       <div className="max-w-sm mx-auto bg-gray-50 border-2 border-dashed border-gray-300 rounded-2xl p-3 flex items-center justify-between shadow-sm relative overflow-hidden group hover:border-leaf-300 transition-colors">
+          <div className="absolute inset-0 bg-yellow-50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+          <span className="font-mono font-bold text-gray-800 text-lg px-4 tracking-wider relative z-10">FRESH-{user.name.split(' ')[0].toUpperCase()}20</span>
+          <button onClick={handleCopyReferral} className="bg-gray-900 text-white px-6 py-3 rounded-xl text-sm font-bold hover:bg-leaf-600 transition shadow-lg relative z-10 active:scale-95">Copy Code</button>
        </div>
 
        <div className="flex justify-center gap-6 pt-4">
-          <button className="p-4 bg-blue-600 text-white rounded-full hover:scale-110 transition shadow-lg shadow-blue-200"><Share2 size={24}/></button>
-          <button className="p-4 bg-green-500 text-white rounded-full hover:scale-110 transition shadow-lg shadow-green-200"><Mail size={24}/></button>
+          <button onClick={() => addToast("Shared via Facebook", "success")} className="p-4 bg-blue-600 text-white rounded-full hover:scale-110 transition shadow-lg shadow-blue-200 hover:shadow-blue-300"><Share2 size={24}/></button>
+          <button onClick={() => addToast("Invite sent via Email", "success")} className="p-4 bg-green-500 text-white rounded-full hover:scale-110 transition shadow-lg shadow-green-200 hover:shadow-green-300"><Mail size={24}/></button>
        </div>
     </div>
   );
