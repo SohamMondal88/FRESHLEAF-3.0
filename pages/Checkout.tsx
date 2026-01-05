@@ -5,8 +5,14 @@ import { useCart } from '../services/CartContext';
 import { useAuth } from '../services/AuthContext';
 import { useOrder } from '../services/OrderContext';
 import { useToast } from '../services/ToastContext';
-import { ShieldCheck, CreditCard, Banknote, MapPin, BellOff, PhoneOff, Package, Plus } from 'lucide-react';
+import { ShieldCheck, CreditCard, Banknote, MapPin, BellOff, PhoneOff, Package, Plus, Loader2 } from 'lucide-react';
 import { DeliverySlotPicker } from '../components/DeliverySlotPicker';
+
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 export const Checkout: React.FC = () => {
   const { cartItems, bill, clearCart } = useCart();
@@ -28,7 +34,7 @@ export const Checkout: React.FC = () => {
     address: user?.address || '',
     city: user?.city || 'Kolkata', 
     zip: user?.pincode || '',
-    paymentMethod: 'razorpay'
+    paymentMethod: 'razorpay' // Default to online
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,8 +53,6 @@ export const Checkout: React.FC = () => {
     setGeoLocating(true);
     navigator.geolocation.getCurrentPosition(
         (position) => {
-            // In a real app, use Reverse Geocoding API (Google/Mapbox) here.
-            // For Free Tier safe, we set lat/lng and a placeholder address.
             const lat = position.coords.latitude.toFixed(4);
             const lng = position.coords.longitude.toFixed(4);
             setFormData(prev => ({
@@ -65,25 +69,92 @@ export const Checkout: React.FC = () => {
     );
   };
 
+  const processOrder = async (paymentId?: string) => {
+    // Create Order with all details
+    try {
+        const orderId = await createOrder(
+            cartItems, 
+            bill.finalTotal, 
+            `${formData.address}, ${formData.city} - ${formData.zip}`, 
+            formData.paymentMethod === 'cod' ? 'Cash on Delivery' : `Online (Rzp: ${paymentId})`, 
+            formData.phone, 
+            `${formData.firstName} ${formData.lastName}`,
+            deliveryInstruction
+        );
+
+        clearCart();
+        addToast('Order placed successfully!', 'success');
+        navigate(`/order-confirmation?id=${orderId}`);
+    } catch (error) {
+        console.error("Order creation failed", error);
+        addToast("Failed to create order. Please contact support if payment was deducted.", "error");
+    } finally {
+        setLoading(false);
+    }
+  };
+
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     
-    // Create Order with all details
-    const orderId = await createOrder(
-        cartItems, 
-        bill.finalTotal, 
-        `${formData.address}, ${formData.city} - ${formData.zip}`, 
-        formData.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online', 
-        formData.phone, 
-        `${formData.firstName} ${formData.lastName}`,
-        deliveryInstruction
-    );
+    if (!formData.address || !formData.phone) {
+        addToast("Please fill in all details", "error");
+        return;
+    }
 
-    clearCart();
-    setLoading(false);
-    addToast('Order placed successfully!', 'success');
-    navigate(`/order-confirmation?id=${orderId}`);
+    setLoading(true);
+
+    if (formData.paymentMethod === 'cod') {
+        await processOrder();
+    } else {
+        // Razorpay Flow
+        if (!window.Razorpay) {
+            addToast("Razorpay SDK failed to load. Please refresh.", "error");
+            setLoading(false);
+            return;
+        }
+
+        const options = {
+            key: process.env.RAZORPAY_KEY_ID || "rzp_test_YourKeyHere", // Fallback for dev
+            amount: bill.finalTotal * 100, // Amount in paise
+            currency: "INR",
+            name: "FreshLeaf",
+            description: "Fresh Vegetables & Fruits Order",
+            image: "https://cdn-icons-png.flaticon.com/512/2909/2909808.png",
+            handler: function (response: any) {
+                if (response.razorpay_payment_id) {
+                    addToast("Payment Successful!", "success");
+                    processOrder(response.razorpay_payment_id);
+                }
+            },
+            prefill: {
+                name: `${formData.firstName} ${formData.lastName}`,
+                email: user?.email || "",
+                contact: formData.phone
+            },
+            theme: {
+                color: "#4CAF50"
+            },
+            modal: {
+                ondismiss: function() {
+                    setLoading(false);
+                    addToast("Payment cancelled", "info");
+                }
+            }
+        };
+
+        try {
+            const rzp1 = new window.Razorpay(options);
+            rzp1.on('payment.failed', function (response: any){
+                addToast(response.error.description || "Payment Failed", "error");
+                setLoading(false);
+            });
+            rzp1.open();
+        } catch (err) {
+            console.error("Razorpay Error:", err);
+            addToast("Payment Gateway Error", "error");
+            setLoading(false);
+        }
+    }
   };
 
   const instructions = [
@@ -130,6 +201,11 @@ export const Checkout: React.FC = () => {
                     </button>
                 </div>
                 <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                        <input required name="firstName" value={formData.firstName} onChange={handleInputChange} placeholder="First Name" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-green-500" />
+                        <input required name="lastName" value={formData.lastName} onChange={handleInputChange} placeholder="Last Name" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-green-500" />
+                    </div>
+                    <input required name="phone" value={formData.phone} onChange={handleInputChange} placeholder="Mobile Number" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-green-500" />
                     <input required name="address" value={formData.address} onChange={handleInputChange} placeholder="House / Flat / Block No." className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-green-500" />
                     <div className="grid grid-cols-2 gap-3">
                         <input required name="city" value={formData.city} onChange={handleInputChange} placeholder="City" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-green-500" />
@@ -138,12 +214,33 @@ export const Checkout: React.FC = () => {
                 </div>
             </div>
 
+            {/* Payment Method */}
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                <h3 className="font-bold text-sm text-gray-900 mb-3">Payment Method</h3>
+                <div className="space-y-3">
+                    <label className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all ${formData.paymentMethod === 'razorpay' ? 'border-leaf-500 bg-leaf-50 ring-1 ring-leaf-200' : 'border-gray-200 hover:border-gray-300'}`}>
+                        <input type="radio" name="paymentMethod" value="razorpay" checked={formData.paymentMethod === 'razorpay'} onChange={() => setFormData({...formData, paymentMethod: 'razorpay'})} className="accent-leaf-600 w-5 h-5" />
+                        <div className="flex items-center justify-between w-full">
+                            <span className="font-bold text-gray-800 flex items-center gap-2"><CreditCard size={18} className="text-leaf-600"/> Pay Online (Razorpay)</span>
+                            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-bold">Fast</span>
+                        </div>
+                    </label>
+                    <label className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all ${formData.paymentMethod === 'cod' ? 'border-leaf-500 bg-leaf-50 ring-1 ring-leaf-200' : 'border-gray-200 hover:border-gray-300'}`}>
+                        <input type="radio" name="paymentMethod" value="cod" checked={formData.paymentMethod === 'cod'} onChange={() => setFormData({...formData, paymentMethod: 'cod'})} className="accent-leaf-600 w-5 h-5" />
+                        <div className="flex items-center justify-between w-full">
+                            <span className="font-bold text-gray-800 flex items-center gap-2"><Banknote size={18} className="text-gray-600"/> Cash on Delivery</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
             {/* Pay Button */}
             <button 
                 type="submit" 
                 disabled={loading}
-                className="w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-xl font-bold shadow-lg shadow-green-200 flex items-center justify-center gap-2"
+                className="w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-xl font-bold shadow-lg shadow-green-200 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
             >
+                {loading ? <Loader2 className="animate-spin" size={24}/> : <ShieldCheck size={20}/>}
                 {loading ? 'Processing...' : `Pay ₹${bill.finalTotal}`}
             </button>
         </form>
@@ -151,3 +248,4 @@ export const Checkout: React.FC = () => {
     </div>
   );
 };
+    

@@ -40,7 +40,7 @@ export const Settings: React.FC = () => {
     emailPromo: false,
     smsOrder: true,
     whatsapp: true,
-    push: true
+    push: false
   });
 
   const [preferences, setPreferences] = useState({
@@ -95,6 +95,37 @@ export const Settings: React.FC = () => {
         addToast("Profile picture updated", "success");
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleNotificationChange = async (key: string) => {
+    if (key === 'push' && !notifications.push) {
+        if (!('Notification' in window)) {
+            addToast("This browser does not support push notifications", "error");
+            return;
+        }
+        
+        try {
+            const permission = await Notification.requestPermission();
+            if (permission === 'granted') {
+                setNotifications({ ...notifications, push: true });
+                addToast("Push notifications enabled!", "success");
+                // In a real app, subscribe to push manager here
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.ready.then(reg => {
+                        // reg.pushManager.subscribe(...)
+                    });
+                }
+            } else {
+                setNotifications({ ...notifications, push: false });
+                addToast("Permission denied for notifications", "error");
+            }
+        } catch (error) {
+            console.error("Error requesting notification permission:", error);
+            addToast("Failed to enable notifications", "error");
+        }
+    } else {
+        setNotifications(prev => ({ ...prev, [key]: !(prev as any)[key] }));
     }
   };
 
@@ -356,7 +387,7 @@ export const Settings: React.FC = () => {
                           <input 
                             type="checkbox" 
                             checked={(notifications as any)[item.key]} 
-                            onChange={() => setNotifications({...notifications, [item.key]: !(notifications as any)[item.key]})}
+                            onChange={() => handleNotificationChange(item.key)}
                             className="sr-only peer" 
                           />
                           <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-leaf-600"></div>
@@ -382,7 +413,7 @@ export const Settings: React.FC = () => {
                           <input 
                             type="checkbox" 
                             checked={(notifications as any)[item.key]} 
-                            onChange={() => setNotifications({...notifications, [item.key]: !(notifications as any)[item.key]})}
+                            onChange={() => handleNotificationChange(item.key)}
                             className="sr-only peer" 
                           />
                           <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-leaf-600"></div>

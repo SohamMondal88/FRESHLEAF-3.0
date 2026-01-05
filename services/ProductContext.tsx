@@ -12,16 +12,19 @@ interface ProductContextType {
   updateProduct: (id: string, updates: Partial<Product>) => Promise<void>;
   bulkUpdateProducts: (ids: string[], updates: Partial<Product>) => Promise<void>;
   addProduct: (product: Omit<Product, 'id' | 'rating' | 'reviews'>) => Promise<void>;
+  loading: boolean;
 }
 
 const ProductContext = createContext<ProductContextType | undefined>(undefined);
 
 export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const { addToast } = useToast();
 
   const fetchProducts = async () => {
     try {
+      setLoading(true);
       const q = query(collection(db, 'products'));
       const snapshot = await getDocs(q);
       
@@ -30,17 +33,34 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         setProducts(fetchedProducts);
       } else {
         // Automatically seed if empty
-        seedDatabase();
+        console.log("Database empty, seeding...");
+        await seedDatabase();
       }
     } catch (error) {
-      console.error("Error fetching products:", error);
+      console.error("Error fetching products, using fallback:", error);
       // Fallback for offline/error
       setProducts(INITIAL_PRODUCTS);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchProducts();
+    
+    // Safety fallback: If products are still empty after 2 seconds, force load initial data
+    const timer = setTimeout(() => {
+        setProducts(prev => {
+            if (prev.length === 0) {
+                console.warn("Force loading initial products due to timeout");
+                setLoading(false);
+                return INITIAL_PRODUCTS;
+            }
+            return prev;
+        });
+    }, 2000);
+    
+    return () => clearTimeout(timer);
   }, []);
 
   const seedDatabase = async () => {
@@ -55,6 +75,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       console.log("Database seeded successfully!");
     } catch (e) {
       console.error("Error seeding database:", e);
+      setProducts(INITIAL_PRODUCTS); // Ensure data exists even if seed fails
     }
   };
 
@@ -108,7 +129,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   return (
-    <ProductContext.Provider value={{ products, seedDatabase, updateProduct, bulkUpdateProducts, addProduct }}>
+    <ProductContext.Provider value={{ products, seedDatabase, updateProduct, bulkUpdateProducts, addProduct, loading }}>
       {children}
     </ProductContext.Provider>
   );
@@ -119,4 +140,3 @@ export const useProduct = () => {
   if (!context) throw new Error('useProduct must be used within a ProductProvider');
   return context;
 };
-    

@@ -11,6 +11,7 @@ import { useProduct } from '../services/ProductContext';
 import { useCart } from '../services/CartContext';
 import { useImage } from '../services/ImageContext';
 import { ProductCard } from '../components/ui/ProductCard';
+import { ProductCardSkeleton } from '../components/ui/Skeleton';
 import { Product } from '../types';
 import { FARMERS } from '../constants';
 
@@ -24,11 +25,58 @@ const Mobile3DCarousel: React.FC<{
 }> = ({ title, subtitle, products, onSeeAll, bgColor = 'bg-white' }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // 3D Scroll Effect Logic
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const containerCenter = container.scrollLeft + container.clientWidth / 2;
+      
+      Array.from(container.children).forEach((child) => {
+        const element = child as HTMLElement;
+        const innerWrapper = element.querySelector('.card-wrapper') as HTMLElement;
+        
+        if (innerWrapper) {
+            const childCenter = element.offsetLeft + element.offsetWidth / 2;
+            const distance = Math.abs(containerCenter - childCenter);
+            const maxDistance = container.clientWidth / 1.5; // Sensitivity
+            
+            // Calculate normalized distance (0 = center, 1 = edge)
+            let normalized = 0;
+            if (maxDistance > 0) {
+               normalized = Math.min(distance / maxDistance, 1);
+            }
+            
+            // 3D Transforms
+            const scale = 1 - (normalized * 0.15); // Scale down to 0.85 at edges
+            const opacity = 1 - (normalized * 0.4); // Fade out to 0.6
+            const rotateY = (childCenter - containerCenter) / 25; // Gentler rotation
+            
+            innerWrapper.style.transform = `perspective(1000px) rotateY(${rotateY}deg) scale(${scale})`;
+            innerWrapper.style.opacity = `${opacity}`;
+            innerWrapper.style.zIndex = `${Math.round((1 - normalized) * 10)}`;
+        }
+      });
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    container.addEventListener('touchmove', handleScroll); // Ensure touch updates
+    
+    // Initial calculation after a short delay to ensure layout is ready
+    setTimeout(handleScroll, 100);
+    
+    return () => {
+        container.removeEventListener('scroll', handleScroll);
+        container.removeEventListener('touchmove', handleScroll);
+    };
+  }, [products]);
+
   const displayProducts = products.slice(0, 8); 
   if (displayProducts.length === 0) return null;
 
   return (
-    <div className={`py-8 border-b border-gray-50 last:border-0 ${bgColor} md:hidden`}>
+    <div className={`py-8 border-b border-gray-50 last:border-0 ${bgColor} md:hidden overflow-hidden min-h-[380px]`}>
       <div className="flex justify-between items-end px-6 mb-4">
         <div>
             <h3 className="text-xl font-extrabold text-gray-900 leading-tight">{title}</h3>
@@ -42,16 +90,25 @@ const Mobile3DCarousel: React.FC<{
       <div className="relative group">
         <div 
             ref={scrollRef}
-            className="flex overflow-x-auto gap-4 px-6 pb-8 pt-4 scrollbar-hide snap-x snap-mandatory scroll-smooth"
+            className="flex overflow-x-auto gap-0 px-[10vw] pb-10 pt-4 scrollbar-hide snap-x snap-mandatory scroll-smooth"
+            style={{ paddingLeft: '12.5vw', paddingRight: '12.5vw' }}
         >
             {displayProducts.map((product, idx) => {
                 return (
                     <div 
                         key={product.id} 
-                        className="min-w-[85vw] snap-center transition-all duration-500 ease-out"
+                        className="min-w-[75vw] snap-center flex justify-center py-2"
                     >
-                        {/* 3D Card Container Effect */}
-                        <div className="h-full transform transition-all duration-300">
+                        {/* 3D Card Wrapper with initial styles to prevent invisibility before JS runs */}
+                        <div 
+                            className="card-wrapper w-full bg-white rounded-3xl shadow-xl h-auto" 
+                            style={{ 
+                                transformStyle: 'preserve-3d',
+                                transition: 'transform 0.1s ease-out, opacity 0.1s ease-out',
+                                opacity: 1, // Ensure visible by default
+                                transform: 'scale(1)' 
+                            }}
+                        >
                              <ProductCard product={product} /> 
                         </div>
                     </div>
@@ -66,7 +123,7 @@ const Mobile3DCarousel: React.FC<{
 export const Shop: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { products } = useProduct();
+  const { products, loading } = useProduct();
   const { getProductImage } = useImage();
   const { addToCart } = useCart();
   
@@ -75,9 +132,10 @@ export const Shop: React.FC = () => {
   const categoryParam = searchParams.get('category') || 'All';
 
   // --- LOCAL STATE ---
-  const maxProductPrice = useMemo(() => Math.max(...products.map(p => p.price), 1000), [products]);
+  const maxProductPrice = useMemo(() => products.length > 0 ? Math.max(...products.map(p => p.price), 1000) : 1000, [products]);
   
-  const [priceRange, setPriceRange] = useState<number>(1000); 
+  // Initialize with a high value to prevent initial filtering of expensive items
+  const [priceRange, setPriceRange] = useState<number>(10000); 
   const [selectedCategory, setSelectedCategory] = useState(categoryParam);
   const [sortOption, setSortOption] = useState('featured');
   const [viewMode, setViewMode] = useState<'grid' | 'journal'>('grid'); 
@@ -136,7 +194,11 @@ export const Shop: React.FC = () => {
   }, [categoryParam]);
 
   useEffect(() => {
-    setPriceRange(maxProductPrice);
+    // Only set price range if it hasn't been interacted with (or is default high)
+    // and we have a valid max price from products
+    if (maxProductPrice > 0 && priceRange === 10000) {
+        setPriceRange(maxProductPrice);
+    }
   }, [maxProductPrice]);
 
   // --- MOCK DATA FOR JOURNAL VIEW ---
@@ -192,7 +254,7 @@ export const Shop: React.FC = () => {
   const isDefaultView = useMemo(() => {
     return selectedCategory === 'All' && 
            !query && 
-           priceRange === maxProductPrice && 
+           (priceRange === maxProductPrice || maxProductPrice === 0 || priceRange === 10000) && 
            !Object.values(filters).some(val => val === true || (val instanceof Set && val.size > 0));
   }, [selectedCategory, query, priceRange, filters, maxProductPrice]);
 
@@ -325,7 +387,7 @@ export const Shop: React.FC = () => {
 
   const activeFilterCount = [
     selectedCategory !== 'All',
-    priceRange < maxProductPrice,
+    priceRange < maxProductPrice && priceRange !== 10000,
     filters.organic, filters.local, filters.onSale, filters.inStock, filters.rating4Plus,
     filters.farmers.size > 0, filters.subCategories.size > 0
   ].filter(Boolean).length;
@@ -379,404 +441,412 @@ export const Shop: React.FC = () => {
       {/* MAIN LAYOUT */}
       <div className="container mx-auto px-0 md:px-4 py-8">
         
-        {/* MOBILE VIEW: CAROUSELS */}
-        {!isLargeScreen && isDefaultView ? (
-          <div className="space-y-2 pb-20">
-             
-             {/* Search Bar */}
-             <div className="px-4 mb-6 relative z-20">
-               <div className="relative">
-                 <input 
-                   type="text" 
-                   value={query}
-                   onChange={(e) => { 
-                       setSearchParams({ ...Object.fromEntries(searchParams), q: e.target.value });
-                       setShowSuggestions(true);
-                   }}
-                   onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                   placeholder="Search items..." 
-                   className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-leaf-500 shadow-sm"
-                 />
-                 <Search className="absolute left-3 top-3 text-gray-400" size={18}/>
-               </div>
-             </div>
-
-             {/* Seasonal Best Sellers (Mobile) */}
-             {seasonalBestSellers.products.length > 0 && (
-                <Mobile3DCarousel 
-                    title={seasonalBestSellers.name} 
-                    subtitle="In Season Now • Top Rated" 
-                    products={seasonalBestSellers.products} 
-                    onSeeAll={() => handleCategoryChange('All')} 
-                    bgColor="bg-gradient-to-r from-yellow-50 to-orange-50"
-                />
-             )}
-
-             <Mobile3DCarousel 
-                title="Orchard Fresh Fruits" 
-                subtitle="Sweetness from the trees" 
-                products={curatedCollections.fruits} 
-                onSeeAll={() => handleCategoryChange('Fruits')} 
-             />
-
-             <Mobile3DCarousel 
-                title="Daily Farm Veggies" 
-                subtitle="Harvested at dawn" 
-                products={curatedCollections.vegetables} 
-                onSeeAll={() => handleCategoryChange('Vegetables')} 
-             />
-
-             <Mobile3DCarousel 
-                title="Leafy Greens" 
-                subtitle="Iron-packed foliage" 
-                products={curatedCollections.leafy} 
-                onSeeAll={() => handleCategoryChange('Leafy')} 
-                bgColor="bg-green-50/50"
-             />
-
-             <Mobile3DCarousel 
-                title="Exotic & Imported" 
-                subtitle="Rare finds globally" 
-                products={curatedCollections.exotic} 
-                onSeeAll={() => handleCategoryChange('Exotic')} 
-             />
-
-             <Mobile3DCarousel 
-                title="⚡ Deals of the Day" 
-                subtitle="Limited time offers" 
-                products={curatedCollections.deals} 
-                onSeeAll={() => setFilters(f => ({...f, onSale: true}))} 
-                bgColor="bg-orange-50/50"
-             />
-          </div>
+        {/* LOADER STATE */}
+        {loading && products.length === 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 px-4 md:px-0">
+               {[1,2,3,4,5,6,7,8].map(i => <ProductCardSkeleton key={i} />)}
+            </div>
         ) : (
-          /* TABLET/DESKTOP VIEW */
-          <div className="flex flex-col lg:flex-row gap-10 px-4 md:px-0">
-            
-            {/* SIDEBAR FILTER */}
-            <aside className="hidden lg:block w-72 flex-shrink-0 space-y-8 sticky top-32 h-fit z-20">
-              {/* Desktop Search */}
-              <div className="relative">
-                 <Search className="absolute left-4 top-3.5 text-gray-400" size={18}/>
-                 <input 
-                   type="text" 
-                   value={query}
-                   onChange={(e) => { 
-                       setSearchParams({ ...Object.fromEntries(searchParams), q: e.target.value });
-                       setShowSuggestions(true);
-                   }}
-                   onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                   placeholder="Search catalogue..." 
-                   className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-leaf-500 focus:ring-4 focus:ring-leaf-500/10 transition shadow-sm"
-                 />
-              </div>
+            <>
+                {/* MOBILE VIEW: CAROUSELS */}
+                {!isLargeScreen && isDefaultView ? (
+                  <div className="space-y-2 pb-20">
+                     
+                     {/* Search Bar */}
+                     <div className="px-4 mb-6 relative z-20">
+                       <div className="relative">
+                         <input 
+                           type="text" 
+                           value={query}
+                           onChange={(e) => { 
+                               setSearchParams({ ...Object.fromEntries(searchParams), q: e.target.value });
+                               setShowSuggestions(true);
+                           }}
+                           onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                           placeholder="Search items..." 
+                           className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-leaf-500 shadow-sm"
+                         />
+                         <Search className="absolute left-3 top-3 text-gray-400" size={18}/>
+                       </div>
+                     </div>
 
-              {/* View Mode Toggle */}
-              <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-                 <h3 className="font-bold text-gray-900 mb-3 text-xs uppercase tracking-wide">Display Mode</h3>
-                 <div className="grid grid-cols-2 gap-2 bg-gray-100 p-1 rounded-xl">
-                    <button 
-                      onClick={() => setViewMode('grid')}
-                      className={`flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition ${viewMode === 'grid' ? 'bg-white shadow-sm text-leaf-700' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                      <Grid size={16}/> Grid
-                    </button>
-                    <button 
-                      onClick={() => setViewMode('journal')}
-                      className={`flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition ${viewMode === 'journal' ? 'bg-white shadow-sm text-leaf-700' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                      <BookOpen size={16}/> Journal
-                    </button>
-                 </div>
-              </div>
+                     {/* Seasonal Best Sellers (Mobile) */}
+                     {seasonalBestSellers.products.length > 0 && (
+                        <Mobile3DCarousel 
+                            title={seasonalBestSellers.name} 
+                            subtitle="In Season Now • Top Rated" 
+                            products={seasonalBestSellers.products} 
+                            onSeeAll={() => handleCategoryChange('All')} 
+                            bgColor="bg-gradient-to-r from-yellow-50 to-orange-50"
+                        />
+                     )}
 
-              {/* Advanced Filters Container */}
-              <div className="space-y-6">
-                  {/* Vegetable/Fruit Types */}
-                  {availableSubCategories.length > 0 && (
-                      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                        <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide">Types</h3>
-                        <div className="space-y-2">
-                            {availableSubCategories.map(sub => (
-                                <label key={sub} className="flex items-center gap-3 cursor-pointer group">
-                                    <div className={`w-4 h-4 rounded border flex items-center justify-center transition ${filters.subCategories.has(sub) ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300'}`}>
-                                        {filters.subCategories.has(sub) && <Check size={10} className="text-white" />}
-                                    </div>
-                                    <input 
-                                        type="checkbox" 
-                                        className="hidden" 
-                                        checked={filters.subCategories.has(sub)}
-                                        onChange={() => toggleSetFilter('subCategories', sub)}
-                                    />
-                                    <span className="text-sm text-gray-600 group-hover:text-gray-900">{sub}</span>
-                                </label>
-                            ))}
-                        </div>
-                      </div>
-                  )}
+                     <Mobile3DCarousel 
+                        title="Orchard Fresh Fruits" 
+                        subtitle="Sweetness from the trees" 
+                        products={curatedCollections.fruits} 
+                        onSeeAll={() => handleCategoryChange('Fruits')} 
+                     />
 
-                  {/* Farmers Filter */}
-                  {availableFarmers.length > 0 && (
-                      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 max-h-64 overflow-y-auto">
-                        <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide flex items-center gap-2"><Tractor size={14}/> Sourced From</h3>
-                        <div className="space-y-3">
-                            {availableFarmers.map(farmer => (
-                                <label key={farmer.id} className="flex items-center gap-3 cursor-pointer group">
-                                    <div className={`w-4 h-4 rounded border flex items-center justify-center transition ${filters.farmers.has(farmer.id) ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300'}`}>
-                                        {filters.farmers.has(farmer.id) && <Check size={10} className="text-white" />}
-                                    </div>
-                                    <input 
-                                        type="checkbox" 
-                                        className="hidden" 
-                                        checked={filters.farmers.has(farmer.id)}
-                                        onChange={() => toggleSetFilter('farmers', farmer.id)}
-                                    />
-                                    <span className="text-sm text-gray-600 group-hover:text-gray-900 truncate">{farmer.farmName}</span>
-                                </label>
-                            ))}
-                        </div>
-                      </div>
-                  )}
+                     <Mobile3DCarousel 
+                        title="Daily Farm Veggies" 
+                        subtitle="Harvested at dawn" 
+                        products={curatedCollections.vegetables} 
+                        onSeeAll={() => handleCategoryChange('Vegetables')} 
+                     />
 
-                  {/* Checkbox Filters */}
-                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                    <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide">Refine By</h3>
-                    <div className="space-y-3">
-                      {[
-                        { key: 'organic', label: 'Organic Certified', icon: Leaf, color: 'text-green-500' },
-                        { key: 'local', label: 'Locally Sourced', icon: MapPin, color: 'text-blue-500' },
-                        { key: 'rating4Plus', label: '4★ & Above', icon: Star, color: 'text-yellow-500' },
-                        { key: 'onSale', label: 'On Sale', icon: Zap, color: 'text-orange-500' },
-                        { key: 'inStock', label: 'In Stock', icon: Check, color: 'text-gray-400' }
-                      ].map(({ key, label, icon: Icon, color }) => (
-                        <label key={key} className="flex items-center gap-3 cursor-pointer group p-2 hover:bg-gray-50 rounded-lg transition -mx-2">
-                          <div className={`w-5 h-5 rounded border flex items-center justify-center transition ${filters[key as keyof typeof filters] ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300 group-hover:border-leaf-400'}`}>
-                            {filters[key as keyof typeof filters] && <Check size={12} className="text-white" />}
-                          </div>
-                          <input 
-                            type="checkbox" 
-                            className="hidden"
-                            checked={filters[key as keyof typeof filters] as boolean}
-                            onChange={() => toggleFilter(key as keyof typeof filters)}
-                          />
-                          <span className="text-sm text-gray-600 group-hover:text-gray-900 flex items-center gap-2 font-medium">
-                            <Icon size={14} className={color} fill={key === 'rating4Plus' ? 'currentColor' : 'none'} /> {label}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
+                     <Mobile3DCarousel 
+                        title="Leafy Greens" 
+                        subtitle="Iron-packed foliage" 
+                        products={curatedCollections.leafy} 
+                        onSeeAll={() => handleCategoryChange('Leafy')} 
+                        bgColor="bg-green-50/50"
+                     />
+
+                     <Mobile3DCarousel 
+                        title="Exotic & Imported" 
+                        subtitle="Rare finds globally" 
+                        products={curatedCollections.exotic} 
+                        onSeeAll={() => handleCategoryChange('Exotic')} 
+                     />
+
+                     <Mobile3DCarousel 
+                        title="⚡ Deals of the Day" 
+                        subtitle="Limited time offers" 
+                        products={curatedCollections.deals} 
+                        onSeeAll={() => setFilters(f => ({...f, onSale: true}))} 
+                        bgColor="bg-orange-50/50"
+                     />
                   </div>
-              </div>
-            </aside>
+                ) : (
+                  /* TABLET/DESKTOP VIEW */
+                  <div className="flex flex-col lg:flex-row gap-10 px-4 md:px-0">
+                    {/* SIDEBAR FILTER & MAIN GRID CONTENT - Kept same as previous */}
+                    <aside className="hidden lg:block w-72 flex-shrink-0 space-y-8 sticky top-32 h-fit z-20">
+                      {/* ... same as previous sidebar ... */}
+                      <div className="relative">
+                         <Search className="absolute left-4 top-3.5 text-gray-400" size={18}/>
+                         <input 
+                           type="text" 
+                           value={query}
+                           onChange={(e) => { 
+                               setSearchParams({ ...Object.fromEntries(searchParams), q: e.target.value });
+                               setShowSuggestions(true);
+                           }}
+                           onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                           placeholder="Search catalogue..." 
+                           className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-leaf-500 focus:ring-4 focus:ring-leaf-500/10 transition shadow-sm"
+                         />
+                      </div>
 
-            {/* MAIN GRID CONTENT */}
-            <main className="flex-1">
-               {/* Header Bar */}
-               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                     <span className="font-bold text-gray-900 text-lg">{selectedCategory === 'All' ? 'All Products' : selectedCategory}</span>
-                     <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs font-bold">{filteredProducts.length} items</span>
-                  </div>
+                      {/* View Mode Toggle */}
+                      <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+                         <h3 className="font-bold text-gray-900 mb-3 text-xs uppercase tracking-wide">Display Mode</h3>
+                         <div className="grid grid-cols-2 gap-2 bg-gray-100 p-1 rounded-xl">
+                            <button 
+                              onClick={() => setViewMode('grid')}
+                              className={`flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition ${viewMode === 'grid' ? 'bg-white shadow-sm text-leaf-700' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                              <Grid size={16}/> Grid
+                            </button>
+                            <button 
+                              onClick={() => setViewMode('journal')}
+                              className={`flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition ${viewMode === 'journal' ? 'bg-white shadow-sm text-leaf-700' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                              <BookOpen size={16}/> Journal
+                            </button>
+                         </div>
+                      </div>
 
-                  <div className="flex items-center gap-3">
-                     <button 
-                        onClick={() => setIsMobileFilterOpen(true)}
-                        className="lg:hidden flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-lg font-bold text-sm transition"
-                     >
-                        <Filter size={16} /> Filters
-                     </button>
+                      {/* Advanced Filters Container */}
+                      <div className="space-y-6">
+                          {/* Vegetable/Fruit Types */}
+                          {availableSubCategories.length > 0 && (
+                              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                                <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide">Types</h3>
+                                <div className="space-y-2">
+                                    {availableSubCategories.map(sub => (
+                                        <label key={sub} className="flex items-center gap-3 cursor-pointer group">
+                                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition ${filters.subCategories.has(sub) ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300'}`}>
+                                                {filters.subCategories.has(sub) && <Check size={10} className="text-white" />}
+                                            </div>
+                                            <input 
+                                                type="checkbox" 
+                                                className="hidden" 
+                                                checked={filters.subCategories.has(sub)}
+                                                onChange={() => toggleSetFilter('subCategories', sub)}
+                                            />
+                                            <span className="text-sm text-gray-600 group-hover:text-gray-900">{sub}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                              </div>
+                          )}
 
-                     <div className="relative">
-                        <button 
-                          onClick={() => setIsSortOpen(!isSortOpen)}
-                          className="flex items-center gap-2 bg-white border border-gray-200 hover:border-leaf-500 text-gray-700 px-4 py-2 rounded-lg font-bold text-sm transition min-w-[180px] justify-between"
-                        >
-                          <span className="flex items-center gap-2"><ArrowUpDown size={14} /> 
-                            {sortOption === 'featured' ? 'Sort: Featured' : 
-                             sortOption === 'price-low' ? 'Price: Low to High' : 
-                             sortOption === 'price-high' ? 'Price: High to Low' : 
-                             sortOption === 'rating' ? 'Highest Rated' : 'Name (A-Z)'}
-                          </span>
-                          <ChevronDown size={14} className={`transition-transform ${isSortOpen ? 'rotate-180' : ''}`} />
-                        </button>
-                        
-                        {isSortOpen && (
-                          <>
-                            <div className="fixed inset-0 z-10" onClick={() => setIsSortOpen(false)}></div>
-                            <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-100 rounded-xl shadow-xl z-20 py-2 animate-in fade-in zoom-in-95 duration-100">
+                          {/* Farmers Filter */}
+                          {availableFarmers.length > 0 && (
+                              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 max-h-64 overflow-y-auto">
+                                <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide flex items-center gap-2"><Tractor size={14}/> Sourced From</h3>
+                                <div className="space-y-3">
+                                    {availableFarmers.map(farmer => (
+                                        <label key={farmer.id} className="flex items-center gap-3 cursor-pointer group">
+                                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition ${filters.farmers.has(farmer.id) ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300'}`}>
+                                                {filters.farmers.has(farmer.id) && <Check size={10} className="text-white" />}
+                                            </div>
+                                            <input 
+                                                type="checkbox" 
+                                                className="hidden" 
+                                                checked={filters.farmers.has(farmer.id)}
+                                                onChange={() => toggleSetFilter('farmers', farmer.id)}
+                                            />
+                                            <span className="text-sm text-gray-600 group-hover:text-gray-900 truncate">{farmer.farmName}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                              </div>
+                          )}
+
+                          {/* Checkbox Filters */}
+                          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                            <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide">Refine By</h3>
+                            <div className="space-y-3">
                               {[
-                                { label: 'Featured', value: 'featured' },
-                                { label: 'Price: Low to High', value: 'price-low' },
-                                { label: 'Price: High to Low', value: 'price-high' },
-                                { label: 'Highest Rated', value: 'rating' },
-                                { label: 'Name (A-Z)', value: 'name' }
-                              ].map(opt => (
-                                <button
-                                  key={opt.value}
-                                  onClick={() => { setSortOption(opt.value); setIsSortOpen(false); }}
-                                  className={`w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-gray-50 transition ${sortOption === opt.value ? 'text-leaf-600 bg-leaf-50' : 'text-gray-700'}`}
-                                >
-                                  {opt.label}
-                                </button>
+                                { key: 'organic', label: 'Organic Certified', icon: Leaf, color: 'text-green-500' },
+                                { key: 'local', label: 'Locally Sourced', icon: MapPin, color: 'text-blue-500' },
+                                { key: 'rating4Plus', label: '4★ & Above', icon: Star, color: 'text-yellow-500' },
+                                { key: 'onSale', label: 'On Sale', icon: Zap, color: 'text-orange-500' },
+                                { key: 'inStock', label: 'In Stock', icon: Check, color: 'text-gray-400' }
+                              ].map(({ key, label, icon: Icon, color }) => (
+                                <label key={key} className="flex items-center gap-3 cursor-pointer group p-2 hover:bg-gray-50 rounded-lg transition -mx-2">
+                                  <div className={`w-5 h-5 rounded border flex items-center justify-center transition ${filters[key as keyof typeof filters] ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300 group-hover:border-leaf-400'}`}>
+                                    {filters[key as keyof typeof filters] && <Check size={12} className="text-white" />}
+                                  </div>
+                                  <input 
+                                    type="checkbox" 
+                                    className="hidden"
+                                    checked={filters[key as keyof typeof filters] as boolean}
+                                    onChange={() => toggleFilter(key as keyof typeof filters)}
+                                  />
+                                  <span className="text-sm text-gray-600 group-hover:text-gray-900 flex items-center gap-2 font-medium">
+                                    <Icon size={14} className={color} fill={key === 'rating4Plus' ? 'currentColor' : 'none'} /> {label}
+                                  </span>
+                                </label>
                               ))}
                             </div>
-                          </>
-                        )}
-                     </div>
-                  </div>
-               </div>
+                          </div>
+                      </div>
+                    </aside>
 
-               {/* Active Filters */}
-               {activeFilterCount > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-6">
-                    <span className="text-xs font-bold text-gray-400 mr-2 uppercase tracking-wide self-center">Active:</span>
-                    
-                    {selectedCategory !== 'All' && (
-                      <button onClick={() => handleCategoryChange('All')} className="bg-white border border-leaf-200 text-leaf-700 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 hover:bg-leaf-50 transition shadow-sm">
-                        {selectedCategory} <X size={12} />
-                      </button>
-                    )}
-                    {priceRange < maxProductPrice && (
-                      <button onClick={() => setPriceRange(maxProductPrice)} className="bg-white border border-leaf-200 text-leaf-700 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 hover:bg-leaf-50 transition shadow-sm">
-                        Max: ₹{priceRange} <X size={12} />
-                      </button>
-                    )}
-                    {Object.entries(filters).map(([key, isActive]) => {
-                        if (isActive === true) {
-                            return (
-                                <button key={key} onClick={() => toggleFilter(key as keyof typeof filters)} className="bg-white border border-leaf-200 text-leaf-700 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 hover:bg-leaf-50 transition shadow-sm capitalize">
-                                    {key.replace(/([A-Z])/g, ' $1').replace('4 Plus', '+').trim()} <X size={12} />
+                    {/* MAIN GRID CONTENT */}
+                    <main className="flex-1">
+                       {/* Header Bar */}
+                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+                          <div className="flex items-center gap-2 text-sm text-gray-500">
+                             <span className="font-bold text-gray-900 text-lg">{selectedCategory === 'All' ? 'All Products' : selectedCategory}</span>
+                             <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs font-bold">{filteredProducts.length} items</span>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                             <button 
+                                onClick={() => setIsMobileFilterOpen(true)}
+                                className="lg:hidden flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-lg font-bold text-sm transition"
+                             >
+                                <Filter size={16} /> Filters
+                             </button>
+
+                             <div className="relative">
+                                <button 
+                                  onClick={() => setIsSortOpen(!isSortOpen)}
+                                  className="flex items-center gap-2 bg-white border border-gray-200 hover:border-leaf-500 text-gray-700 px-4 py-2 rounded-lg font-bold text-sm transition min-w-[180px] justify-between"
+                                >
+                                  <span className="flex items-center gap-2"><ArrowUpDown size={14} /> 
+                                    {sortOption === 'featured' ? 'Sort: Featured' : 
+                                     sortOption === 'price-low' ? 'Price: Low to High' : 
+                                     sortOption === 'price-high' ? 'Price: High to Low' : 
+                                     sortOption === 'rating' ? 'Highest Rated' : 'Name (A-Z)'}
+                                  </span>
+                                  <ChevronDown size={14} className={`transition-transform ${isSortOpen ? 'rotate-180' : ''}`} />
                                 </button>
-                            );
-                        }
-                        if (key === 'farmers' && (isActive as Set<string>).size > 0) {
-                            return (
-                                <button key={key} onClick={() => setFilters(prev => ({...prev, farmers: new Set()}))} className="bg-white border border-leaf-200 text-leaf-700 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 hover:bg-leaf-50 transition shadow-sm">
-                                    Farmers: {(isActive as Set<string>).size} <X size={12} />
-                                </button>
-                            );
-                        }
-                        if (key === 'subCategories' && (isActive as Set<string>).size > 0) {
-                            return (
-                                <button key={key} onClick={() => setFilters(prev => ({...prev, subCategories: new Set()}))} className="bg-white border border-leaf-200 text-leaf-700 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 hover:bg-leaf-50 transition shadow-sm">
-                                    Types: {(isActive as Set<string>).size} <X size={12} />
-                                </button>
-                            );
-                        }
-                        return null;
-                    })}
-                    
-                    <button onClick={clearFilters} className="text-xs font-bold text-red-500 hover:text-red-700 ml-auto hover:underline px-2">
-                      Clear All
-                    </button>
-                  </div>
-               )}
+                                
+                                {isSortOpen && (
+                                  <>
+                                    <div className="fixed inset-0 z-10" onClick={() => setIsSortOpen(false)}></div>
+                                    <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-100 rounded-xl shadow-xl z-20 py-2 animate-in fade-in zoom-in-95 duration-100">
+                                      {[
+                                        { label: 'Featured', value: 'featured' },
+                                        { label: 'Price: Low to High', value: 'price-low' },
+                                        { label: 'Price: High to Low', value: 'price-high' },
+                                        { label: 'Highest Rated', value: 'rating' },
+                                        { label: 'Name (A-Z)', value: 'name' }
+                                      ].map(opt => (
+                                        <button
+                                          key={opt.value}
+                                          onClick={() => { setSortOption(opt.value); setIsSortOpen(false); }}
+                                          className={`w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-gray-50 transition ${sortOption === opt.value ? 'text-leaf-600 bg-leaf-50' : 'text-gray-700'}`}
+                                        >
+                                          {opt.label}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </>
+                                )}
+                             </div>
+                          </div>
+                       </div>
 
-               {/* Products Grid or Journal */}
-               {filteredProducts.length > 0 ? (
-                 <>
-                   {viewMode === 'grid' ? (
-                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
-                        {currentProducts.map(product => (
-                          <ProductCard key={product.id} product={product} highlightTerm={query} />
-                        ))}
-                     </div>
-                   ) : (
-                     <div className="space-y-6">
-                        {currentProducts.map(product => {
-                          const details = getProductDetails(product);
-                          return (
-                            <div key={product.id} className="group bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-xl transition-all duration-300 flex flex-col md:flex-row gap-8 items-center">
-                               {/* Image */}
-                               <div className="w-full md:w-48 h-48 shrink-0 bg-gray-50 rounded-2xl overflow-hidden relative cursor-pointer" onClick={() => navigate(`/product/${product.id}`)}>
-                                  <img src={getProductImage(product.id, product.image)} alt={product.name.en} className="w-full h-full object-cover mix-blend-multiply p-4 transition-transform duration-500 group-hover:scale-110" />
-                                  {product.isOrganic && (
-                                    <div className="absolute top-3 left-3 bg-green-100 text-green-800 text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider">Organic</div>
-                                  )}
-                               </div>
+                       {/* Active Filters */}
+                       {activeFilterCount > 0 && (
+                          <div className="flex flex-wrap gap-2 mb-6">
+                            <span className="text-xs font-bold text-gray-400 mr-2 uppercase tracking-wide self-center">Active:</span>
+                            
+                            {selectedCategory !== 'All' && (
+                              <button onClick={() => handleCategoryChange('All')} className="bg-white border border-leaf-200 text-leaf-700 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 hover:bg-leaf-50 transition shadow-sm">
+                                {selectedCategory} <X size={12} />
+                              </button>
+                            )}
+                            {priceRange < maxProductPrice && (
+                              <button onClick={() => setPriceRange(maxProductPrice)} className="bg-white border border-leaf-200 text-leaf-700 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 hover:bg-leaf-50 transition shadow-sm">
+                                Max: ₹{priceRange} <X size={12} />
+                              </button>
+                            )}
+                            {Object.entries(filters).map(([key, isActive]) => {
+                                if (isActive === true) {
+                                    return (
+                                        <button key={key} onClick={() => toggleFilter(key as keyof typeof filters)} className="bg-white border border-leaf-200 text-leaf-700 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 hover:bg-leaf-50 transition shadow-sm capitalize">
+                                            {key.replace(/([A-Z])/g, ' $1').replace('4 Plus', '+').trim()} <X size={12} />
+                                        </button>
+                                    );
+                                }
+                                if (key === 'farmers' && (isActive as Set<string>).size > 0) {
+                                    return (
+                                        <button key={key} onClick={() => setFilters(prev => ({...prev, farmers: new Set()}))} className="bg-white border border-leaf-200 text-leaf-700 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 hover:bg-leaf-50 transition shadow-sm">
+                                            Farmers: {(isActive as Set<string>).size} <X size={12} />
+                                        </button>
+                                    );
+                                }
+                                if (key === 'subCategories' && (isActive as Set<string>).size > 0) {
+                                    return (
+                                        <button key={key} onClick={() => setFilters(prev => ({...prev, subCategories: new Set()}))} className="bg-white border border-leaf-200 text-leaf-700 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 hover:bg-leaf-50 transition shadow-sm">
+                                            Types: {(isActive as Set<string>).size} <X size={12} />
+                                        </button>
+                                    );
+                                }
+                                return null;
+                            })}
+                            
+                            <button onClick={clearFilters} className="text-xs font-bold text-red-500 hover:text-red-700 ml-auto hover:underline px-2">
+                              Clear All
+                            </button>
+                          </div>
+                       )}
 
-                               {/* Content */}
-                               <div className="flex-grow space-y-4 text-center md:text-left w-full">
-                                  <div>
-                                     <div className="flex flex-col md:flex-row md:items-center gap-2 mb-1">
-                                        <h3 className="text-2xl font-bold text-gray-900 font-serif cursor-pointer hover:text-leaf-700 transition-colors" onClick={() => navigate(`/product/${product.id}`)}>{product.name.en}</h3>
-                                        <div className="flex justify-center md:justify-start gap-2 text-xs text-gray-500">
-                                           <span className="bg-gray-100 px-2 py-0.5 rounded border border-gray-200">{product.name.hi}</span>
-                                           <span className="bg-gray-100 px-2 py-0.5 rounded border border-gray-200">{product.name.bn}</span>
-                                        </div>
-                                     </div>
-                                     <p className="text-gray-600 leading-relaxed line-clamp-2">{product.description}</p>
-                                  </div>
+                       {/* Products Grid or Journal */}
+                       {filteredProducts.length > 0 ? (
+                         <>
+                           {viewMode === 'grid' ? (
+                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
+                                {currentProducts.map(product => (
+                                  <ProductCard key={product.id} product={product} highlightTerm={query} />
+                                ))}
+                             </div>
+                           ) : (
+                             <div className="space-y-6">
+                                {currentProducts.map(product => {
+                                  const details = getProductDetails(product);
+                                  return (
+                                    <div key={product.id} className="group bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-xl transition-all duration-300 flex flex-col md:flex-row gap-8 items-center">
+                                       {/* Image */}
+                                       <div className="w-full md:w-48 h-48 shrink-0 bg-gray-50 rounded-2xl overflow-hidden relative cursor-pointer" onClick={() => navigate(`/product/${product.id}`)}>
+                                          <img src={getProductImage(product.id, product.image)} alt={product.name.en} className="w-full h-full object-cover mix-blend-multiply p-4 transition-transform duration-500 group-hover:scale-110" />
+                                          {product.isOrganic && (
+                                            <div className="absolute top-3 left-3 bg-green-100 text-green-800 text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider">Organic</div>
+                                          )}
+                                       </div>
 
-                                  {/* Details Grid */}
-                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-4 border-y border-gray-100">
-                                     <div className="text-center md:text-left">
-                                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1 flex items-center justify-center md:justify-start gap-1"><MapPin size={10}/> Origin</p>
-                                        <p className="text-sm font-bold text-gray-700 truncate">{details.origin}</p>
-                                     </div>
-                                     <div className="text-center md:text-left">
-                                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1 flex items-center justify-center md:justify-start gap-1"><Sun size={10}/> Harvest</p>
-                                        <p className="text-sm font-bold text-gray-700">{details.harvestTime}</p>
-                                     </div>
-                                     <div className="text-center md:text-left hidden sm:block">
-                                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1 flex items-center justify-center md:justify-start gap-1"><Zap size={10}/> Nutrition</p>
-                                        <p className="text-sm font-bold text-gray-700">{details.benefits[0]}</p>
-                                     </div>
-                                     <div className="text-center md:text-left hidden sm:block">
-                                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1 flex items-center justify-center md:justify-start gap-1"><Star size={10}/> Rating</p>
-                                        <p className="text-sm font-bold text-gray-700 flex items-center justify-center md:justify-start gap-1">4.8 <span className="text-yellow-400">★</span></p>
-                                     </div>
-                                  </div>
-                               </div>
+                                       {/* Content */}
+                                       <div className="flex-grow space-y-4 text-center md:text-left w-full">
+                                          <div>
+                                             <div className="flex flex-col md:flex-row md:items-center gap-2 mb-1">
+                                                <h3 className="text-2xl font-bold text-gray-900 font-serif cursor-pointer hover:text-leaf-700 transition-colors" onClick={() => navigate(`/product/${product.id}`)}>{product.name.en}</h3>
+                                                <div className="flex justify-center md:justify-start gap-2 text-xs text-gray-500">
+                                                   <span className="bg-gray-100 px-2 py-0.5 rounded border border-gray-200">{product.name.hi}</span>
+                                                   <span className="bg-gray-100 px-2 py-0.5 rounded border border-gray-200">{product.name.bn}</span>
+                                                </div>
+                                             </div>
+                                             <p className="text-gray-600 leading-relaxed line-clamp-2">{product.description}</p>
+                                          </div>
 
-                               {/* Action */}
-                               <div className="flex flex-row md:flex-col items-center gap-4 w-full md:w-auto justify-between border-t md:border-t-0 md:border-l border-gray-100 pt-4 md:pt-0 md:pl-8">
-                                  <div className="text-left md:text-right">
-                                     <p className="text-xs text-gray-400 font-medium">Price per {product.baseUnit}</p>
-                                     <p className="text-3xl font-extrabold text-gray-900">₹{product.price}</p>
-                                  </div>
-                                  <button 
-                                    onClick={() => addToCart(product)}
-                                    className="bg-gray-900 text-white w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center shadow-lg hover:bg-leaf-600 hover:scale-110 transition-all active:scale-95"
-                                    title="Add to Cart"
-                                  >
-                                     <ShoppingCart size={20} />
-                                  </button>
-                               </div>
+                                          {/* Details Grid */}
+                                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-4 border-y border-gray-100">
+                                             <div className="text-center md:text-left">
+                                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1 flex items-center justify-center md:justify-start gap-1"><MapPin size={10}/> Origin</p>
+                                                <p className="text-sm font-bold text-gray-700 truncate">{details.origin}</p>
+                                             </div>
+                                             <div className="text-center md:text-left">
+                                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1 flex items-center justify-center md:justify-start gap-1"><Sun size={10}/> Harvest</p>
+                                                <p className="text-sm font-bold text-gray-700">{details.harvestTime}</p>
+                                             </div>
+                                             <div className="text-center md:text-left hidden sm:block">
+                                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1 flex items-center justify-center md:justify-start gap-1"><Zap size={10}/> Nutrition</p>
+                                                <p className="text-sm font-bold text-gray-700">{details.benefits[0]}</p>
+                                             </div>
+                                             <div className="text-center md:text-left hidden sm:block">
+                                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1 flex items-center justify-center md:justify-start gap-1"><Star size={10}/> Rating</p>
+                                                <p className="text-sm font-bold text-gray-700 flex items-center justify-center md:justify-start gap-1">4.8 <span className="text-yellow-400">★</span></p>
+                                             </div>
+                                          </div>
+                                       </div>
+
+                                       {/* Action */}
+                                       <div className="flex flex-row md:flex-col items-center gap-4 w-full md:w-auto justify-between border-t md:border-t-0 md:border-l border-gray-100 pt-4 md:pt-0 md:pl-8">
+                                          <div className="text-left md:text-right">
+                                             <p className="text-xs text-gray-400 font-medium">Price per {product.baseUnit}</p>
+                                             <p className="text-3xl font-extrabold text-gray-900">₹{product.price}</p>
+                                          </div>
+                                          <button 
+                                            onClick={() => addToCart(product)}
+                                            className="bg-gray-900 text-white w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center shadow-lg hover:bg-leaf-600 hover:scale-110 transition-all active:scale-95"
+                                            title="Add to Cart"
+                                          >
+                                             <ShoppingCart size={20} />
+                                          </button>
+                                       </div>
+                                    </div>
+                                  );
+                                })}
+                             </div>
+                           )}
+
+                           {/* Pagination */}
+                           {totalPages > 1 && (
+                            <div className="flex justify-center items-center gap-3 mt-16 bg-white p-4 rounded-full shadow-sm border border-gray-100 w-fit mx-auto">
+                              <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1} className="text-sm font-bold text-gray-600 px-2 disabled:opacity-50 hover:text-leaf-600">Prev</button>
+                              <span className="text-sm font-bold text-leaf-600 px-2">Page {currentPage} of {totalPages}</span>
+                              <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages} className="text-sm font-bold text-gray-600 px-2 disabled:opacity-50 hover:text-leaf-600">Next</button>
                             </div>
-                          );
-                        })}
-                     </div>
-                   )}
-
-                   {/* Pagination */}
-                   {totalPages > 1 && (
-                    <div className="flex justify-center items-center gap-3 mt-16 bg-white p-4 rounded-full shadow-sm border border-gray-100 w-fit mx-auto">
-                      <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1} className="text-sm font-bold text-gray-600 px-2 disabled:opacity-50 hover:text-leaf-600">Prev</button>
-                      <span className="text-sm font-bold text-leaf-600 px-2">Page {currentPage} of {totalPages}</span>
-                      <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages} className="text-sm font-bold text-gray-600 px-2 disabled:opacity-50 hover:text-leaf-600">Next</button>
-                    </div>
-                  )}
-                 </>
-               ) : (
-                 <div className="bg-white rounded-[2rem] p-16 text-center border border-gray-100 shadow-sm flex flex-col items-center">
-                   <div className="bg-gray-50 w-32 h-32 rounded-full flex items-center justify-center mb-6 relative">
-                     <Search size={48} className="text-leaf-300" />
-                   </div>
-                   <h3 className="text-2xl font-extrabold text-gray-900 mb-3">No harvests found</h3>
-                   <p className="text-gray-500 mb-8 max-w-md mx-auto leading-relaxed">
-                     We couldn't find any items matching your current filters. Try adjusting the price range or clearing some filters to see more results.
-                   </p>
-                   <button 
-                    onClick={clearFilters}
-                    className="bg-gray-900 hover:bg-gray-800 text-white px-8 py-3.5 rounded-xl font-bold transition shadow-lg hover:shadow-xl flex items-center gap-2"
-                   >
-                     <RefreshCw size={18} /> Clear Filters & Show All
-                   </button>
-                 </div>
-               )}
-            </main>
-          </div>
+                          )}
+                         </>
+                       ) : (
+                         <div className="bg-white rounded-[2rem] p-16 text-center border border-gray-100 shadow-sm flex flex-col items-center">
+                           <div className="bg-gray-50 w-32 h-32 rounded-full flex items-center justify-center mb-6 relative">
+                             <Search size={48} className="text-leaf-300" />
+                           </div>
+                           <h3 className="text-2xl font-extrabold text-gray-900 mb-3">No harvests found</h3>
+                           <p className="text-gray-500 mb-8 max-w-md mx-auto leading-relaxed">
+                             We couldn't find any items matching your current filters. Try adjusting the price range or clearing some filters to see more results.
+                           </p>
+                           <button 
+                            onClick={clearFilters}
+                            className="bg-gray-900 hover:bg-gray-800 text-white px-8 py-3.5 rounded-xl font-bold transition shadow-lg hover:shadow-xl flex items-center gap-2"
+                           >
+                             <RefreshCw size={18} /> Clear Filters & Show All
+                           </button>
+                         </div>
+                       )}
+                    </main>
+                  </div>
+                )}
+            </>
         )}
       </div>
 
