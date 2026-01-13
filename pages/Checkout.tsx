@@ -137,7 +137,7 @@ export const Checkout: React.FC = () => {
         }
 
         const options = {
-            key: process.env.RAZORPAY_KEY_ID || "rzp_test_1234567890", // Replace with your actual Test Key
+            key: process.env.RAZORPAY_KEY_ID || "rzp_test_S3LyDLZ5MWuKR7", // Replace with your actual Test Key
             amount: Math.round(finalPayable * 100), // Amount in paise
             currency: "INR",
             name: "FreshLeaf",

@@ -34,7 +34,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  // Start loading as true, but check cache immediately
   const [loading, setLoading] = useState(true);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const { addToast } = useToast();
@@ -46,7 +45,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       try {
         const parsedUser = JSON.parse(cachedUser);
         setUser(parsedUser);
-        setLoading(false); // Immediate UI render
+        setLoading(false); 
       } catch (e) {
         console.error("Failed to parse cached user", e);
       }
@@ -57,7 +56,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
-        // Fetch latest profile from Firestore in background
         try {
             const userDocRef = doc(db, 'users', fbUser.uid);
             let userDoc;
@@ -100,8 +98,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               }
             }
 
-            // Update State & Cache
-            // Only update state if data changed to prevent re-renders
             if (currentUserData) {
                 setUser(prev => {
                     if (JSON.stringify(prev) !== JSON.stringify(currentUserData)) {
@@ -113,10 +109,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
         } catch (error) {
             console.error("Profile sync error:", error);
-            // Even if sync fails completely, we rely on the state set by initial localStorage load or fbUser presence
         }
       } else {
-        // User logged out
         setUser(null);
         localStorage.removeItem('freshleaf_user');
       }
@@ -131,8 +125,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const element = document.getElementById(elementId);
         if (!element) return;
 
+        // Clear existing verifier if any
         if ((window as any).recaptchaVerifier) {
-            (window as any).recaptchaVerifier.clear();
+            try {
+              (window as any).recaptchaVerifier.clear();
+            } catch (e) { console.warn("Recaptcha clear error", e); }
             (window as any).recaptchaVerifier = null;
         }
 
@@ -151,7 +148,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (!(window as any).recaptchaVerifier) setupRecaptcha('recaptcha-container');
       
       const appVerifier = (window as any).recaptchaVerifier;
-      if (!appVerifier) return true; // Mock flow fallthrough
+      if (!appVerifier) return true; // Mock flow if recaptcha fails init
 
       const digitsOnly = phone.replace(/\D/g, '');
       const formattedPhone = digitsOnly.startsWith('91') && digitsOnly.length > 10 
@@ -163,6 +160,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return true;
     } catch (error: any) {
       console.error("Error sending OTP:", error);
+      // Fallback for demo/development if firebase phone auth isn't configured
       addToast("Demo Mode: OTP sent (Use 123456)", "info");
       return true;
     }
@@ -215,12 +213,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const updateProfile = async (data: Partial<User>) => {
     if (!user) return;
     
-    // 1. Optimistic Update (Immediate UI change)
     const updatedUser = { ...user, ...data };
     setUser(updatedUser);
     localStorage.setItem('freshleaf_user', JSON.stringify(updatedUser));
 
-    // 2. Background Sync
     try {
         const userDocRef = doc(db, 'users', user.id);
         const safeData = JSON.parse(JSON.stringify(data)); 
@@ -258,16 +254,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const fbUser = userCredential.user;
 
-        // Construct User Object Optimistically
-        // We might miss custom fields like 'address' or 'role' initially, 
-        // but getting the UI to "Logged In" state is priority. 
-        // The background sync in useEffect will fill in the gaps shortly.
         const optimisticUser: User = {
             id: fbUser.uid,
             name: fbUser.displayName || email.split('@')[0],
             email: fbUser.email || email,
             phone: fbUser.phoneNumber || '',
-            role: 'customer', // Default, will update when DB loads
+            role: 'customer', 
             walletBalance: 0,
             avatar: fbUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${fbUser.uid}`,
             isPro: false,
@@ -276,36 +268,39 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         setUser(optimisticUser);
         localStorage.setItem('freshleaf_user', JSON.stringify(optimisticUser));
-        setLoading(false); // Stop spinner immediately
+        setLoading(false);
         
         return true;
     } catch (error: any) {
         console.error("Login Error:", error);
+        setLoading(false);
         
-        // Demo Mode Fallback
-        if (error.code === 'auth/user-not-found' || error.message?.includes('user-not-found') || error.code === 'auth/invalid-credential') {
-             // Let real error pass for wrong password
-             setLoading(false);
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
              addToast("Invalid email or password", "error");
              return false;
         }
 
-        // Network/Config error fallback for demo
-        const mockUser: User = {
-            id: 'mock-user-' + Date.now(),
-            name: email.split('@')[0],
-            email: email,
-            phone: '',
-            role: 'customer',
-            walletBalance: 500,
-            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
-            isPro: false,
-            address: '123 Demo Street',
-        };
-        setUser(mockUser);
-        localStorage.setItem('freshleaf_user', JSON.stringify(mockUser));
-        setLoading(false);
-        return true;
+        // Demo fallback for config errors
+        if (error.code === 'auth/configuration-not-found' || error.code === 'auth/internal-error') {
+             const mockUser: User = {
+                id: 'mock-user-' + Date.now(),
+                name: email.split('@')[0],
+                email: email,
+                phone: '',
+                role: 'customer',
+                walletBalance: 500,
+                avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
+                isPro: false,
+                address: '123 Demo Street',
+            };
+            setUser(mockUser);
+            localStorage.setItem('freshleaf_user', JSON.stringify(mockUser));
+            addToast("Demo Login Active", "success");
+            return true;
+        }
+
+        addToast("Login failed. Please try again.", "error");
+        return false;
     }
   };
 
@@ -322,19 +317,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             email,
             phone: '',
             role: role as 'customer' | 'seller',
-            walletBalance: 100, // Welcome bonus
+            walletBalance: 100, 
             avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userCredential.user.uid}`,
             isPro: false,
             address: '',
-            farmName: farmName || null 
+            farmName: farmName || null // FIX: Use null instead of undefined for Firestore
         };
 
-        // Instant State Update
         setUser(newUser);
         localStorage.setItem('freshleaf_user', JSON.stringify(newUser));
         setLoading(false);
 
-        // Background work
         setDoc(doc(db, 'users', userCredential.user.uid), JSON.parse(JSON.stringify(newUser))).catch(e => console.error("Signup profile save bg error", e));
         firebaseUpdateProfile(userCredential.user, { displayName: name, photoURL: newUser.avatar }).catch(e => console.error("Profile update bg error", e));
 
@@ -344,21 +337,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.error("Signup Error:", error);
         
         // Demo Fallback
-        const mockUser: User = {
-            id: 'mock-user-' + Date.now(),
-            name,
-            email,
-            phone: '',
-            role: role as 'customer' | 'seller',
-            walletBalance: 100,
-            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
-            isPro: false,
-            address: '',
-            farmName: farmName || undefined
-        };
-        setUser(mockUser);
-        localStorage.setItem('freshleaf_user', JSON.stringify(mockUser));
-        return true;
+        if (error.code === 'auth/configuration-not-found' || error.code === 'auth/internal-error' || error.code === 'auth/admin-restricted-operation') {
+             const mockUser: User = {
+                id: 'mock-user-' + Date.now(),
+                name,
+                email,
+                phone: '',
+                role: role as 'customer' | 'seller',
+                walletBalance: 100,
+                avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
+                isPro: false,
+                address: '',
+                farmName: farmName || null
+            };
+            setUser(mockUser);
+            localStorage.setItem('freshleaf_user', JSON.stringify(mockUser));
+            addToast("Demo Signup Active", "success");
+            return true;
+        }
+
+        if (error.code === 'auth/email-already-in-use') {
+            addToast("Email already registered", "error");
+        } else {
+            addToast("Signup failed", "error");
+        }
+        return false;
     }
   };
 

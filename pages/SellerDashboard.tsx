@@ -6,7 +6,7 @@ import {
   Settings, LogOut, ChevronRight, Search, Sprout, ShoppingCart, Truck, 
   CheckCircle, AlertCircle, Printer, Calendar, Banknote, User, MapPin,
   Upload, Trash2, MoreVertical, Filter, Save, X, ChevronDown, ChevronUp, Menu,
-  Sparkles, Loader2
+  Sparkles, Loader2, ArrowUpRight
 } from 'lucide-react';
 import { useAuth } from '../services/AuthContext';
 import { useProduct } from '../services/ProductContext';
@@ -52,8 +52,6 @@ export const SellerDashboard: React.FC = () => {
   });
 
   // --- DERIVED DATA ---
-  
-  // 1. Inventory Logic
   const myProducts = useMemo(() => {
     let filtered = products.filter(p => p.sellerId === user?.id);
     
@@ -74,7 +72,6 @@ export const SellerDashboard: React.FC = () => {
     return filtered;
   }, [products, user?.id, inventorySearch, sortConfig]);
   
-  // 2. Sales & Orders
   const mySalesData = useMemo(() => {
     let totalRevenue = 0;
     let pendingCount = 0;
@@ -154,7 +151,6 @@ export const SellerDashboard: React.FC = () => {
     if (!user) return;
 
     const finalMainImage = imagePreview || 'https://via.placeholder.com/150';
-    // Strict Single Image Policy
     const finalGallery = [finalMainImage]; 
 
     addProduct({
@@ -166,6 +162,7 @@ export const SellerDashboard: React.FC = () => {
         description: newProduct.description,
         baseUnit: newProduct.baseUnit,
         inStock: newProduct.stock > 0,
+        stock: newProduct.stock,
         sellerId: user.id,
         isLocal: true 
     });
@@ -177,80 +174,9 @@ export const SellerDashboard: React.FC = () => {
     setImagePreview(null);
   };
 
-  const handleOrderAction = (orderId: string, currentStatus: string) => {
-    let nextStatus = '';
-    if (currentStatus === 'Processing') nextStatus = 'Packed';
-    else if (currentStatus === 'Packed') nextStatus = 'Out for Delivery';
-    else if (currentStatus === 'Out for Delivery') nextStatus = 'Delivered';
-    
-    if (nextStatus) {
-      updateOrderStatus(orderId, nextStatus as any);
-      addToast(`Order updated to ${nextStatus}`, 'success');
-    }
-  };
-
-  const handleSettingsSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateProfile({ 
-        farmName: farmSettings.farmName, 
-        address: farmSettings.address,
-        phone: farmSettings.phone,
-        email: farmSettings.email
-    });
-    addToast("Farm settings saved successfully", "success");
-  };
-
-  // Inventory Table Handlers
-  const toggleInventorySelection = (id: string) => {
-    const newSet = new Set(selectedInventoryIds);
-    if (newSet.has(id)) newSet.delete(id);
-    else newSet.add(id);
-    setSelectedInventoryIds(newSet);
-  };
-
-  const selectAllInventory = () => {
-    if (selectedInventoryIds.size === myProducts.length) setSelectedInventoryIds(new Set());
-    else setSelectedInventoryIds(new Set(myProducts.map(p => p.id)));
-  };
-
-  const handleSort = (key: string) => {
-    setSortConfig(current => ({
-      key,
-      direction: current?.key === key && current.direction === 'asc' ? 'desc' : 'asc'
-    }));
-  };
-
-  const handleInlineUpdate = (id: string, field: 'price' | 'stock', value: string) => {
-    const numValue = parseFloat(value);
-    if (field === 'price' && !isNaN(numValue)) {
-      updateProduct(id, { price: numValue });
-    } else if (field === 'stock') {
-      updateProduct(id, { inStock: numValue > 0 }); 
-    }
-  };
-
-  const executeBulkAction = (action: 'price_increase' | 'in_stock' | 'out_of_stock') => {
-    const ids = Array.from(selectedInventoryIds);
-    if (ids.length === 0) return;
-
-    if (action === 'in_stock') {
-      bulkUpdateProducts(ids, { inStock: true });
-      addToast(`${ids.length} items marked In Stock`, 'success');
-    } else if (action === 'out_of_stock') {
-      bulkUpdateProducts(ids, { inStock: false });
-      addToast(`${ids.length} items marked Out of Stock`, 'success');
-    } else if (action === 'price_increase') {
-      addToast(`Bulk price update feature coming soon`, 'info');
-    }
-    setBulkActionOpen(false);
-    setSelectedInventoryIds(new Set());
-  };
-
-  const formatCurrency = (val: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
-
   const Chart = () => (
     <div className="relative h-64 w-full bg-white rounded-2xl p-4 flex items-end gap-2 overflow-hidden border border-gray-100">
-        <div className="absolute top-4 left-4 text-xs font-bold text-gray-400">Revenue (Last 7 Days)</div>
+        <div className="absolute top-4 left-4 text-xs font-bold text-gray-400">Revenue Trend (7 Days)</div>
         {[45, 60, 35, 70, 55, 80, 65].map((h, i) => (
             <div key={i} className="flex-1 flex flex-col justify-end group cursor-pointer relative">
                 <div 
@@ -352,6 +278,71 @@ export const SellerDashboard: React.FC = () => {
            <button onClick={logout} className="p-2 bg-gray-100 rounded-full"><LogOut size={18}/></button>
         </div>
 
+        {/* --- OVERVIEW TAB --- */}
+        {activeTab === 'overview' && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                <div className="flex justify-between items-center">
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">Dashboard Overview</h1>
+                        <p className="text-gray-500 text-sm">Welcome back, {user.name}!</p>
+                    </div>
+                    <button onClick={() => setActiveTab('add_product')} className="bg-gray-900 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-leaf-600 transition shadow-lg">
+                        <Plus size={16}/> Add Harvest
+                    </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {[
+                        { label: 'Total Sales', value: `₹${mySalesData.totalRevenue}`, icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-50' },
+                        { label: 'Pending Orders', value: mySalesData.pendingCount, icon: ShoppingCart, color: 'text-orange-600', bg: 'bg-orange-50' },
+                        { label: 'Active Products', value: myProducts.length, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50' },
+                        { label: 'Today\'s Revenue', value: '₹2,450', icon: DollarSign, color: 'text-purple-600', bg: 'bg-purple-50' },
+                    ].map((stat, i) => (
+                        <div key={i} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition">
+                            <div className="flex justify-between items-start mb-4">
+                                <div className={`${stat.bg} ${stat.color} p-3 rounded-xl`}><stat.icon size={24}/></div>
+                                <span className="text-xs font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-full">+12%</span>
+                            </div>
+                            <h3 className="text-3xl font-extrabold text-gray-900 mb-1">{stat.value}</h3>
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">{stat.label}</p>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="font-bold text-gray-900">Sales Analytics</h3>
+                            <select className="bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold px-2 py-1 text-gray-600">
+                                <option>Last 7 Days</option>
+                                <option>Last Month</option>
+                            </select>
+                        </div>
+                        <Chart />
+                    </div>
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                        <h3 className="font-bold text-gray-900 mb-6">Top Products</h3>
+                        <div className="space-y-4">
+                            {myProducts.slice(0, 4).map((p, i) => (
+                                <div key={i} className="flex items-center gap-3 pb-3 border-b border-gray-50 last:border-0 last:pb-0">
+                                    <img src={p.image} className="w-10 h-10 rounded-lg object-cover bg-gray-100" alt="" />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-bold text-gray-900 truncate">{p.name.en}</p>
+                                        <p className="text-xs text-gray-500">{p.stock || 100} units left</p>
+                                    </div>
+                                    <span className="text-sm font-bold text-leaf-600">₹{p.price}</span>
+                                </div>
+                            ))}
+                            {myProducts.length === 0 && <p className="text-sm text-gray-400 italic text-center py-4">No products listed yet.</p>}
+                        </div>
+                        <button onClick={() => setActiveTab('inventory')} className="w-full mt-6 py-2 text-xs font-bold text-gray-600 bg-gray-50 rounded-lg hover:bg-gray-100 transition flex items-center justify-center gap-1 group">
+                            View Inventory <ArrowUpRight size={14} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"/>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
         {/* --- ADD PRODUCT TAB --- */}
         {activeTab === 'add_product' && (
           <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4">
@@ -439,14 +430,73 @@ export const SellerDashboard: React.FC = () => {
           </div>
         )}
 
-        {/* Other Tabs Rendering... */}
-        {activeTab !== 'add_product' && (
-            // Render other tabs like Overview, Inventory, etc. (Keeping existing structure simplified for brevity)
-            <div className="text-center py-20 text-gray-400">
-               {activeTab === 'overview' && <h2 className="text-2xl font-bold">Dashboard Overview Loaded</h2>}
-               {activeTab === 'orders' && <h2 className="text-2xl font-bold">Order Manager Loaded</h2>}
-               {activeTab === 'inventory' && <h2 className="text-2xl font-bold">Inventory Loaded</h2>}
-               {/* Logic from original file to be preserved here for full implementation */}
+        {/* --- INVENTORY TAB --- */}
+        {activeTab === 'inventory' && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">Inventory</h1>
+                        <p className="text-gray-500 text-sm">Manage your listed produce.</p>
+                    </div>
+                    <div className="flex gap-2">
+                        <div className="relative">
+                            <input 
+                                type="text" 
+                                placeholder="Search..." 
+                                value={inventorySearch}
+                                onChange={e => setInventorySearch(e.target.value)}
+                                className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-leaf-500"
+                            />
+                            <Search size={16} className="absolute left-3 top-2.5 text-gray-400"/>
+                        </div>
+                        <button onClick={() => setActiveTab('add_product')} className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-leaf-600 transition">
+                            <Plus size={16}/> Add New
+                        </button>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <table className="w-full text-left">
+                        <thead className="bg-gray-50 text-xs uppercase font-bold text-gray-500">
+                            <tr>
+                                <th className="px-6 py-4">Product</th>
+                                <th className="px-6 py-4">Category</th>
+                                <th className="px-6 py-4">Price</th>
+                                <th className="px-6 py-4">Stock</th>
+                                <th className="px-6 py-4">Status</th>
+                                <th className="px-6 py-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {myProducts.map(p => (
+                                <tr key={p.id} className="hover:bg-gray-50/50 transition">
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center gap-3">
+                                            <img src={p.image} className="w-10 h-10 rounded-lg object-cover bg-gray-100" alt="" />
+                                            <span className="font-bold text-gray-900">{p.name.en}</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-600">{p.category}</td>
+                                    <td className="px-6 py-4 text-sm font-bold text-gray-900">₹{p.price}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-600">{p.stock || 100} units</td>
+                                    <td className="px-6 py-4">
+                                        <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase ${p.inStock ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                            {p.inStock ? 'In Stock' : 'Out of Stock'}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-right">
+                                        <button className="text-gray-400 hover:text-gray-900 p-1"><MoreVertical size={16}/></button>
+                                    </td>
+                                </tr>
+                            ))}
+                            {myProducts.length === 0 && (
+                                <tr>
+                                    <td colSpan={6} className="px-6 py-12 text-center text-gray-400 italic">No products found. Start listing!</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         )}
 

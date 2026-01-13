@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { CheckCircle, Truck, Package, Calendar, Download, MessageCircle, ArrowRight, Gift, MapPin, Phone, CreditCard, ShoppingBag } from 'lucide-react';
+import { CheckCircle, Truck, Package, Calendar, Download, MessageCircle, ArrowRight, Gift, MapPin, Phone, CreditCard, ShoppingBag, Loader2 } from 'lucide-react';
 import { useOrder } from '../services/OrderContext';
 import { useImage } from '../services/ImageContext';
 import { doc, getDoc } from 'firebase/firestore';
@@ -31,6 +31,7 @@ export const OrderConfirmation: React.FC = () => {
         setFetchedOrder(contextOrder);
         setIsLoading(false);
     } else {
+        // Fallback: Fetch from DB directly if context hasn't updated yet or on page refresh
         const fetchOrder = async () => {
             try {
                 const docRef = doc(db, 'orders', orderId);
@@ -39,7 +40,7 @@ export const OrderConfirmation: React.FC = () => {
                     setFetchedOrder({ id: snap.id, ...snap.data() } as Order);
                 }
             } catch (e) {
-                console.error("Failed to fetch order", e);
+                console.error("Failed to fetch order fallback", e);
             } finally {
                 setIsLoading(false);
             }
@@ -50,16 +51,28 @@ export const OrderConfirmation: React.FC = () => {
 
   const order = fetchedOrder;
 
-  if (isLoading || !order) {
+  if (isLoading) {
       return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-leaf-600 mb-4"></div>
-            <p className="text-gray-500 font-medium">Loading your order details...</p>
+            <Loader2 className="animate-spin text-leaf-600 mb-4" size={48} />
+            <p className="text-gray-500 font-medium">Retrieving order details...</p>
         </div>
       );
   }
 
-  // Pre-fill WhatsApp message for the user to send to the owner
+  if (!order) {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4 text-center">
+            <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4">
+                <ShoppingBag size={32} className="text-gray-400" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Order Not Found</h2>
+            <p className="text-gray-500 mb-6">We couldn't find the order details. It might have been a temporary issue.</p>
+            <Link to="/orders" className="bg-leaf-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-leaf-700 transition">Go to My Orders</Link>
+        </div>
+      );
+  }
+
   const handleWhatsAppShare = () => {
     // Owner phone number (replace with real one)
     const ownerPhone = "916297179823"; 
