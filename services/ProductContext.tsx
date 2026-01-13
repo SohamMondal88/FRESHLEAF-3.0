@@ -26,10 +26,13 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     try {
       setLoading(true);
       const q = query(collection(db, 'products'));
-      const snapshot = await getDocs(q);
+      
+      // Race against a timeout to ensure app loads even if Firestore is offline/unreachable
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 3000));
+      const snapshot: any = await Promise.race([getDocs(q), timeoutPromise]);
       
       if (!snapshot.empty) {
-        const fetchedProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        const fetchedProducts = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Product));
         setProducts(fetchedProducts);
       } else {
         // Automatically seed if empty
@@ -37,7 +40,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         await seedDatabase();
       }
     } catch (error) {
-      console.error("Error fetching products, using fallback:", error);
+      console.warn("Error fetching products (using fallback):", error);
       // Fallback for offline/error
       setProducts(INITIAL_PRODUCTS);
     } finally {

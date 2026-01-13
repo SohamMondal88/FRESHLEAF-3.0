@@ -61,7 +61,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             let userDoc;
             
             try {
-                userDoc = await getDoc(userDocRef);
+                // Timeout request after 2s to avoid hanging if offline/slow
+                const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 2000));
+                userDoc = await Promise.race([getDoc(userDocRef), timeout]) as any;
             } catch (networkErr) {
                 console.warn("Offline: Could not fetch latest profile, using cache/fallback.");
             }

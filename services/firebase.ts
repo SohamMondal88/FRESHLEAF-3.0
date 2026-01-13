@@ -1,7 +1,7 @@
 
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { initializeFirestore, memoryLocalCache } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
@@ -18,9 +18,11 @@ const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 
-// Initialize Firestore with memory cache to avoid persistence issues (fixes [code=unavailable])
+// Initialize Firestore with persistent cache to support offline mode and prevent "code=unavailable" errors
 export const db = initializeFirestore(app, {
-  localCache: memoryLocalCache()
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  })
 });
 
 export const storage = getStorage(app);
