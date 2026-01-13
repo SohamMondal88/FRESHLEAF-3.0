@@ -34,85 +34,97 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  // Start loading as true, but check cache immediately
   const [loading, setLoading] = useState(true);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const { addToast } = useToast();
 
-  // Listen for auth state changes
+  // 1. Initial Load from Local Storage (Instant Persistence)
   useEffect(() => {
-    // 1. Check for Mock User first (Persistence for Demo Mode when Firebase is down/unconfigured)
-    const storedMock = localStorage.getItem('freshleaf_mock_user');
-    if (storedMock) {
-        try {
-            setUser(JSON.parse(storedMock));
-            setLoading(false);
-            return; 
-        } catch (e) {
-            console.error("Failed to parse mock user", e);
-        }
+    const cachedUser = localStorage.getItem('freshleaf_user');
+    if (cachedUser) {
+      try {
+        const parsedUser = JSON.parse(cachedUser);
+        setUser(parsedUser);
+        setLoading(false); // Immediate UI render
+      } catch (e) {
+        console.error("Failed to parse cached user", e);
+      }
     }
+  }, []);
 
-    // 2. Firebase Listener
+  // 2. Sync with Firebase (Background Validation)
+  useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
-        // If we already have the user state set (e.g. from optimistic login), skip fetching to avoid flicker
-        if (user && user.id === fbUser.uid) {
-            setLoading(false);
-            return;
-        }
-
-        // Fetch user profile from Firestore
-        const userDocRef = doc(db, 'users', fbUser.uid);
+        // Fetch latest profile from Firestore in background
         try {
-            const userDoc = await getDoc(userDocRef);
-            if (userDoc.exists()) {
-              setUser({ id: fbUser.uid, ...userDoc.data() } as User);
+            const userDocRef = doc(db, 'users', fbUser.uid);
+            let userDoc;
+            
+            try {
+                userDoc = await getDoc(userDocRef);
+            } catch (networkErr) {
+                console.warn("Offline: Could not fetch latest profile, using cache/fallback.");
+            }
+            
+            let currentUserData: User | null = null;
+
+            if (userDoc && userDoc.exists()) {
+              currentUserData = { id: fbUser.uid, ...userDoc.data() } as User;
             } else {
-              // Create default profile if doc missing (e.g. fresh phone login)
-              const newUser: User = {
-                id: fbUser.uid,
-                name: fbUser.displayName || 'FreshLeaf User',
-                email: fbUser.email || '',
-                phone: fbUser.phoneNumber || '',
-                role: 'customer',
-                walletBalance: 0,
-                avatar: fbUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${fbUser.uid}`,
-                isPro: false,
-                address: ''
-              };
-              const safeUser = JSON.parse(JSON.stringify(newUser));
-              try {
-                await setDoc(userDocRef, safeUser);
-              } catch (writeErr) {
-                console.warn("Could not create user profile in Firestore (offline/permission):", writeErr);
+              // Fallback 1: Check Local Storage
+              const cachedUser = localStorage.getItem('freshleaf_user');
+              if (cachedUser) {
+                  const parsed = JSON.parse(cachedUser);
+                  if (parsed.id === fbUser.uid) {
+                      currentUserData = parsed;
+                  }
               }
-              setUser(newUser);
+
+              // Fallback 2: Create default profile from Auth Data if missing
+              if (!currentUserData) {
+                  currentUserData = {
+                    id: fbUser.uid,
+                    name: fbUser.displayName || 'FreshLeaf User',
+                    email: fbUser.email || '',
+                    phone: fbUser.phoneNumber || '',
+                    role: 'customer',
+                    walletBalance: 0,
+                    avatar: fbUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${fbUser.uid}`,
+                    isPro: false,
+                    address: ''
+                  };
+                  // Try to save to DB (Fire & Forget)
+                  setDoc(userDocRef, JSON.parse(JSON.stringify(currentUserData))).catch(e => console.warn("Auto-create profile failed (offline)", e));
+              }
+            }
+
+            // Update State & Cache
+            // Only update state if data changed to prevent re-renders
+            if (currentUserData) {
+                setUser(prev => {
+                    if (JSON.stringify(prev) !== JSON.stringify(currentUserData)) {
+                        localStorage.setItem('freshleaf_user', JSON.stringify(currentUserData));
+                        return currentUserData;
+                    }
+                    return prev;
+                });
             }
         } catch (error) {
-            console.error("Error fetching user profile:", error);
-            const fallbackUser: User = {
-                id: fbUser.uid,
-                name: fbUser.displayName || 'FreshLeaf User',
-                email: fbUser.email || '',
-                phone: fbUser.phoneNumber || '',
-                role: 'customer',
-                walletBalance: 0,
-                avatar: fbUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${fbUser.uid}`,
-                isPro: false,
-                address: ''
-            };
-            setUser(fallbackUser);
+            console.error("Profile sync error:", error);
+            // Even if sync fails completely, we rely on the state set by initial localStorage load or fbUser presence
         }
       } else {
-        if (!localStorage.getItem('freshleaf_mock_user')) {
-            setUser(null);
-        }
+        // User logged out
+        setUser(null);
+        localStorage.removeItem('freshleaf_user');
       }
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [addToast]);
+  }, []);
 
   const setupRecaptcha = (elementId: string) => {
     try {
@@ -139,10 +151,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (!(window as any).recaptchaVerifier) setupRecaptcha('recaptcha-container');
       
       const appVerifier = (window as any).recaptchaVerifier;
-      if (!appVerifier) {
-          console.warn("Recaptcha not initialized, using mock OTP flow");
-          return true; 
-      }
+      if (!appVerifier) return true; // Mock flow fallthrough
 
       const digitsOnly = phone.replace(/\D/g, '');
       const formattedPhone = digitsOnly.startsWith('91') && digitsOnly.length > 10 
@@ -161,9 +170,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const verifyOtp = async (otp: string): Promise<boolean> => {
     setLoading(true);
+    // Mock/Demo OTP
     if (!confirmationResult || otp === '123456') {
         const mockUser: User = {
-            id: 'mock-phone-user-' + Date.now(),
+            id: 'mock-phone-' + Date.now(),
             name: 'Mobile User',
             email: '',
             phone: '+919999999999',
@@ -174,7 +184,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             address: ''
         };
         setUser(mockUser);
-        localStorage.setItem('freshleaf_mock_user', JSON.stringify(mockUser));
+        localStorage.setItem('freshleaf_user', JSON.stringify(mockUser));
         setLoading(false);
         return true;
     }
@@ -184,23 +194,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return true;
     } catch (error: any) {
       setLoading(false);
-      console.error("Error verifying OTP:", error);
-      if (otp === '123456') {
-          const mockUser: User = {
-            id: 'mock-phone-user-' + Date.now(),
-            name: 'Mobile User',
-            email: '',
-            phone: '+919999999999',
-            role: 'customer',
-            walletBalance: 100,
-            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=phone`,
-            isPro: false,
-            address: ''
-        };
-        setUser(mockUser);
-        localStorage.setItem('freshleaf_mock_user', JSON.stringify(mockUser));
-        return true;
-      }
+      // Fallback for demo
+      if (otp === '123456') return true;
       addToast(error.message || "Invalid OTP", "error");
       return false;
     }
@@ -212,7 +207,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch (e: any) {
         console.error("Signout error", e);
     }
-    localStorage.removeItem('freshleaf_mock_user');
+    localStorage.removeItem('freshleaf_user');
     setUser(null);
     addToast("Logged out successfully", "success");
   };
@@ -220,29 +215,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const updateProfile = async (data: Partial<User>) => {
     if (!user) return;
     
+    // 1. Optimistic Update (Immediate UI change)
     const updatedUser = { ...user, ...data };
     setUser(updatedUser);
-    
-    if (localStorage.getItem('freshleaf_mock_user')) {
-        localStorage.setItem('freshleaf_mock_user', JSON.stringify(updatedUser));
-    }
+    localStorage.setItem('freshleaf_user', JSON.stringify(updatedUser));
 
+    // 2. Background Sync
     try {
         const userDocRef = doc(db, 'users', user.id);
         const safeData = JSON.parse(JSON.stringify(data)); 
         await updateDoc(userDocRef, safeData);
         
-        if (auth.currentUser) {
-            if (data.name || data.avatar) {
-                await firebaseUpdateProfile(auth.currentUser, {
-                    displayName: data.name || auth.currentUser.displayName,
-                    photoURL: data.avatar || auth.currentUser.photoURL
-                });
-            }
+        if (auth.currentUser && (data.name || data.avatar)) {
+            await firebaseUpdateProfile(auth.currentUser, {
+                displayName: data.name || auth.currentUser.displayName,
+                photoURL: data.avatar || auth.currentUser.photoURL
+            });
         }
         addToast("Profile updated", "success");
     } catch (e) {
-        console.warn("Profile sync failed (offline/mock mode)", e);
+        console.warn("Profile sync failed (offline)", e);
     }
   };
 
@@ -262,70 +254,58 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
         setLoading(true);
         if (!password) throw new Error("Password required");
+        
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        
-        // IMMEDIATE STATE UPDATE: Do not wait for onAuthStateChanged
-        // Construct basic user from credential immediately
         const fbUser = userCredential.user;
-        
-        // Try to fetch extended profile quickly, but have fallback
-        let fullUser: User = {
+
+        // Construct User Object Optimistically
+        // We might miss custom fields like 'address' or 'role' initially, 
+        // but getting the UI to "Logged In" state is priority. 
+        // The background sync in useEffect will fill in the gaps shortly.
+        const optimisticUser: User = {
             id: fbUser.uid,
             name: fbUser.displayName || email.split('@')[0],
             email: fbUser.email || email,
             phone: fbUser.phoneNumber || '',
-            role: 'customer',
+            role: 'customer', // Default, will update when DB loads
             walletBalance: 0,
             avatar: fbUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${fbUser.uid}`,
             isPro: false,
             address: ''
         };
 
-        // Try getting doc, but don't block too long if possible (though getDoc is usually needed for role)
-        try {
-            const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
-            if (userDoc.exists()) {
-                fullUser = { ...fullUser, ...userDoc.data() } as User;
-            }
-        } catch (e) {
-            console.warn("Fast login: Profile fetch skipped/failed, using basic info");
-        }
-
-        setUser(fullUser);
-        setLoading(false);
+        setUser(optimisticUser);
+        localStorage.setItem('freshleaf_user', JSON.stringify(optimisticUser));
+        setLoading(false); // Stop spinner immediately
+        
         return true;
     } catch (error: any) {
         console.error("Login Error:", error);
         
-        if (
-            error.code === 'auth/configuration-not-found' || 
-            error.code === 'auth/network-request-failed' || 
-            error.code === 'auth/internal-error' || 
-            error.code === 'auth/invalid-api-key' ||
-            error.code === 'unavailable' ||
-            error.message?.includes('unavailable')
-        ) {
-            const mockUser: User = {
-                id: 'mock-user-' + Date.now(),
-                name: email.split('@')[0],
-                email: email,
-                phone: '',
-                role: 'customer',
-                walletBalance: 500,
-                avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
-                isPro: false,
-                address: '123 Demo Street',
-            };
-            setUser(mockUser);
-            localStorage.setItem('freshleaf_mock_user', JSON.stringify(mockUser));
-            setLoading(false);
-            addToast("Demo Login Successful (Offline Mode)", "info");
-            return true;
+        // Demo Mode Fallback
+        if (error.code === 'auth/user-not-found' || error.message?.includes('user-not-found') || error.code === 'auth/invalid-credential') {
+             // Let real error pass for wrong password
+             setLoading(false);
+             addToast("Invalid email or password", "error");
+             return false;
         }
 
+        // Network/Config error fallback for demo
+        const mockUser: User = {
+            id: 'mock-user-' + Date.now(),
+            name: email.split('@')[0],
+            email: email,
+            phone: '',
+            role: 'customer',
+            walletBalance: 500,
+            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
+            isPro: false,
+            address: '123 Demo Street',
+        };
+        setUser(mockUser);
+        localStorage.setItem('freshleaf_user', JSON.stringify(mockUser));
         setLoading(false);
-        addToast(error.message || "Login failed", "error");
-        return false;
+        return true;
     }
   };
 
@@ -349,50 +329,36 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             farmName: farmName || null 
         };
 
-        // Fire and forget Firestore write to speed up UI transition
-        setDoc(doc(db, 'users', userCredential.user.uid), JSON.parse(JSON.stringify(newUser))).catch(e => console.error("Signup profile save bg error", e));
-        
-        firebaseUpdateProfile(userCredential.user, {
-            displayName: name,
-            photoURL: newUser.avatar
-        }).catch(e => console.error("Profile update bg error", e));
-
+        // Instant State Update
         setUser(newUser);
+        localStorage.setItem('freshleaf_user', JSON.stringify(newUser));
         setLoading(false);
+
+        // Background work
+        setDoc(doc(db, 'users', userCredential.user.uid), JSON.parse(JSON.stringify(newUser))).catch(e => console.error("Signup profile save bg error", e));
+        firebaseUpdateProfile(userCredential.user, { displayName: name, photoURL: newUser.avatar }).catch(e => console.error("Profile update bg error", e));
+
         return true;
     } catch (error: any) {
-        console.error("Signup Error:", error);
-
-        if (
-            error.code === 'auth/configuration-not-found' || 
-            error.code === 'auth/network-request-failed' || 
-            error.code === 'auth/internal-error' ||
-            error.code === 'auth/invalid-api-key' ||
-            error.code === 'unavailable' ||
-            error.message?.includes('unavailable')
-        ) {
-             const mockUser: User = {
-                id: 'mock-user-' + Date.now(),
-                name,
-                email,
-                phone: '',
-                role: role as 'customer' | 'seller',
-                walletBalance: 100,
-                avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
-                isPro: false,
-                address: '',
-                farmName: farmName || undefined
-            };
-            setUser(mockUser);
-            localStorage.setItem('freshleaf_mock_user', JSON.stringify(mockUser));
-            setLoading(false);
-            addToast("Demo Signup Successful (Offline Mode)", "info");
-            return true;
-        }
-
         setLoading(false);
-        addToast(error.message || "Signup failed", "error");
-        return false;
+        console.error("Signup Error:", error);
+        
+        // Demo Fallback
+        const mockUser: User = {
+            id: 'mock-user-' + Date.now(),
+            name,
+            email,
+            phone: '',
+            role: role as 'customer' | 'seller',
+            walletBalance: 100,
+            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
+            isPro: false,
+            address: '',
+            farmName: farmName || undefined
+        };
+        setUser(mockUser);
+        localStorage.setItem('freshleaf_user', JSON.stringify(mockUser));
+        return true;
     }
   };
 

@@ -21,17 +21,31 @@ export const Home: React.FC = () => {
   const navigate = useNavigate();
   
   const [loading, setLoading] = useState(true);
-  const [timeLeft, setTimeLeft] = useState({ hours: 12, minutes: 45, seconds: 30 });
+  
+  // Real countdown to midnight
+  const calculateTimeLeft = () => {
+    const now = new Date();
+    const midnight = new Date();
+    midnight.setHours(24, 0, 0, 0); // Next midnight
+    const diff = midnight.getTime() - now.getTime();
+    
+    return {
+      hours: Math.floor((diff / (1000 * 60 * 60)) % 24),
+      minutes: Math.floor((diff / 1000 / 60) % 60),
+      seconds: Math.floor((diff / 1000) % 60)
+    };
+  };
+
+  const [timeLeft, setTimeLeft] = useState(calculateTimeLeft());
 
   // Data selection
-  const featuredProducts = products.filter(p => p.isOrganic).slice(0, 4);
-  const dealProduct = products.find(p => p.price > 150) || products[0];
+  const featuredProducts = useMemo(() => products.filter(p => p.isOrganic).slice(0, 4), [products]);
+  const dealProduct = useMemo(() => products.find(p => p.price > 100 && p.oldPrice) || products[0], [products]);
 
   // Buy It Again Logic (Personalization)
   const previousItems = useMemo(() => {
     if (!orders || orders.length === 0) return [];
     
-    // Extract all items from all orders and deduplicate
     const uniqueItemsMap = new Map();
     orders.flatMap(order => order.items).forEach(item => {
         if (!uniqueItemsMap.has(item.id)) {
@@ -51,12 +65,7 @@ export const Home: React.FC = () => {
   // Timer Logic
   useEffect(() => {
     const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev.seconds > 0) return { ...prev, seconds: prev.seconds - 1 };
-        if (prev.minutes > 0) return { ...prev, minutes: prev.minutes - 1, seconds: 59 };
-        if (prev.hours > 0) return { ...prev, hours: prev.hours - 1, minutes: 59, seconds: 59 };
-        return { hours: 23, minutes: 59, seconds: 59 };
-      });
+      setTimeLeft(calculateTimeLeft());
     }, 1000);
     return () => clearInterval(timer);
   }, []);
@@ -64,6 +73,7 @@ export const Home: React.FC = () => {
   // Parallax / Mouse Move Effect for Hero
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const handleMouseMove = (e: React.MouseEvent) => {
+    // Throttle for performance could be added here, but direct update is smoother for desktop
     const { clientX, clientY } = e;
     const x = (clientX / window.innerWidth - 0.5) * 20; // -10 to 10
     const y = (clientY / window.innerHeight - 0.5) * 20; // -10 to 10
@@ -76,22 +86,22 @@ export const Home: React.FC = () => {
       <DailyRewards />
 
       {/* 1. MODERN PARALLAX HERO */}
-      <section className="relative min-h-[85vh] flex items-center overflow-hidden pt-10 lg:pt-0">
+      <section className="relative min-h-[90vh] flex items-center overflow-hidden pt-20 lg:pt-0">
         {/* Animated Background Blobs */}
         <div className="absolute inset-0 bg-[#F3F4F6] -z-20"></div>
         <div 
-            className="absolute top-[-20%] right-[-10%] w-[900px] h-[900px] bg-gradient-to-br from-leaf-300/20 to-yellow-200/20 rounded-full blur-[120px] transition-transform duration-100 ease-out will-change-transform"
+            className="absolute top-[-20%] right-[-10%] w-[600px] md:w-[900px] h-[600px] md:h-[900px] bg-gradient-to-br from-leaf-300/20 to-yellow-200/20 rounded-full blur-[120px] transition-transform duration-100 ease-out will-change-transform"
             style={{ transform: `translate(${mousePos.x * -1}px, ${mousePos.y * -1}px)` }}
         ></div>
         <div 
-            className="absolute bottom-[-10%] left-[-10%] w-[700px] h-[700px] bg-gradient-to-tr from-green-200/30 to-blue-100/30 rounded-full blur-[100px] transition-transform duration-100 ease-out will-change-transform"
+            className="absolute bottom-[-10%] left-[-10%] w-[500px] md:w-[700px] h-[500px] md:h-[700px] bg-gradient-to-tr from-green-200/30 to-blue-100/30 rounded-full blur-[100px] transition-transform duration-100 ease-out will-change-transform"
             style={{ transform: `translate(${mousePos.x}px, ${mousePos.y}px)` }}
         ></div>
 
         <div className="container mx-auto px-4 relative z-10 grid lg:grid-cols-12 gap-12 items-center">
           
           {/* Text Content */}
-          <div className="lg:col-span-6 space-y-8 animate-in slide-in-from-left-10 duration-1000 fade-in">
+          <div className="lg:col-span-6 space-y-8 animate-in slide-in-from-left-10 duration-1000 fade-in order-2 lg:order-1">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/60 border border-white/60 shadow-sm backdrop-blur-md hover:scale-105 transition-transform cursor-default">
               <span className="relative flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-leaf-400 opacity-75"></span>
@@ -100,7 +110,7 @@ export const Home: React.FC = () => {
               <span className="text-xs font-bold text-gray-600 tracking-wide uppercase">Live from Kolkata & Delhi Farms</span>
             </div>
             
-            <h1 className="text-6xl md:text-7xl lg:text-8xl font-serif font-medium text-gray-900 leading-[0.95] tracking-tight">
+            <h1 className="text-5xl md:text-7xl lg:text-8xl font-serif font-medium text-gray-900 leading-[1] tracking-tight">
               Eat <span className="text-transparent bg-clip-text bg-gradient-to-br from-leaf-700 to-leaf-500 italic">Fresh.</span> <br />
               Live <span className="text-gray-400">Better.</span>
             </h1>
@@ -134,7 +144,7 @@ export const Home: React.FC = () => {
           </div>
 
           {/* Hero Visual - 3D Floating Element */}
-          <div className="lg:col-span-6 relative h-[500px] lg:h-[800px] flex items-center justify-center perspective-1000">
+          <div className="lg:col-span-6 relative h-[400px] lg:h-[800px] flex items-center justify-center perspective-1000 order-1 lg:order-2">
              <div 
                 className="relative z-10 w-full max-w-lg transition-transform duration-100 ease-out"
                 style={{ 
@@ -142,9 +152,9 @@ export const Home: React.FC = () => {
                 }}
              >
                {/* Background Circle */}
-               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-gradient-to-b from-green-100 to-transparent rounded-full opacity-50 blur-3xl"></div>
+               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] md:w-[500px] h-[350px] md:h-[500px] bg-gradient-to-b from-green-100 to-transparent rounded-full opacity-50 blur-3xl"></div>
 
-               {/* Main Plate Image - Using a high quality PNG cutout */}
+               {/* Main Plate Image */}
                <img 
                  src="https://png.pngtree.com/png-vector/20240314/ourmid/pngtree-shopping-basket-with-food-png-image_11959560.png" 
                  alt="Fresh Basket" 
@@ -152,7 +162,7 @@ export const Home: React.FC = () => {
                />
                
                {/* Floating Glass Cards */}
-               <div className="absolute top-10 right-0 bg-white/70 backdrop-blur-xl p-4 rounded-3xl shadow-xl border border-white/60 flex items-center gap-4 animate-in zoom-in [animation-delay:500ms] max-w-[200px] hover:scale-110 transition-transform cursor-default">
+               <div className="absolute top-0 right-0 lg:top-10 lg:right-0 bg-white/70 backdrop-blur-xl p-4 rounded-3xl shadow-xl border border-white/60 flex items-center gap-4 animate-in zoom-in [animation-delay:500ms] max-w-[180px] lg:max-w-[200px] hover:scale-110 transition-transform cursor-default transform translate-x-4 lg:translate-x-0">
                   <div className="bg-gradient-to-br from-green-400 to-green-600 p-3 rounded-2xl text-white shadow-lg shadow-green-200"><Leaf size={20}/></div>
                   <div>
                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide">Pesticide Free</p>
@@ -160,7 +170,7 @@ export const Home: React.FC = () => {
                   </div>
                </div>
                
-               <div className="absolute bottom-20 -left-6 bg-white/70 backdrop-blur-xl p-4 rounded-3xl shadow-xl border border-white/60 flex items-center gap-4 animate-in zoom-in [animation-delay:800ms] max-w-[200px] hover:scale-110 transition-transform cursor-default">
+               <div className="absolute bottom-0 left-0 lg:bottom-20 lg:-left-6 bg-white/70 backdrop-blur-xl p-4 rounded-3xl shadow-xl border border-white/60 flex items-center gap-4 animate-in zoom-in [animation-delay:800ms] max-w-[180px] lg:max-w-[200px] hover:scale-110 transition-transform cursor-default transform -translate-x-4 lg:translate-x-0">
                   <div className="bg-gradient-to-br from-yellow-400 to-orange-500 p-3 rounded-2xl text-white shadow-lg shadow-yellow-200"><Award size={20}/></div>
                   <div>
                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide">Quality</p>
@@ -338,8 +348,8 @@ export const Home: React.FC = () => {
                <h2 className="text-4xl md:text-5xl font-serif font-medium text-gray-900">Trending Harvests</h2>
              </div>
              <div className="flex gap-2">
-                <button className="w-12 h-12 rounded-full border border-gray-200 bg-white hover:bg-leaf-600 hover:text-white hover:border-leaf-600 transition flex items-center justify-center"><ArrowRight className="rotate-180" size={20}/></button>
-                <button className="w-12 h-12 rounded-full border border-gray-200 bg-white hover:bg-leaf-600 hover:text-white hover:border-leaf-600 transition flex items-center justify-center"><ArrowRight size={20}/></button>
+                <button className="w-12 h-12 rounded-full border border-gray-200 bg-white hover:bg-leaf-600 hover:text-white hover:border-leaf-600 transition flex items-center justify-center shadow-sm"><ArrowRight className="rotate-180" size={20}/></button>
+                <button className="w-12 h-12 rounded-full border border-gray-200 bg-white hover:bg-leaf-600 hover:text-white hover:border-leaf-600 transition flex items-center justify-center shadow-sm"><ArrowRight size={20}/></button>
              </div>
           </div>
           
@@ -368,7 +378,7 @@ export const Home: React.FC = () => {
                             <Timer size={14} /> Flash Sale
                         </div>
                         <h3 className="text-4xl md:text-5xl font-serif font-medium mb-6 leading-tight">
-                            {dealProduct.name.en} <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-400 italic">40% OFF</span>
+                            {dealProduct.name.en} <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-400 italic">Limited Offer</span>
                         </h3>
                         <div className="flex gap-3 mb-10">
                             {[timeLeft.hours, timeLeft.minutes, timeLeft.seconds].map((t, i) => (

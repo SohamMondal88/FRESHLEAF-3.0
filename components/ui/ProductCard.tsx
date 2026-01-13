@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Star, Heart, Eye, Zap as BuyIcon, Sprout } from 'lucide-react';
+import { ShoppingCart, Star, Heart, Eye, Zap as BuyIcon, Sprout, ChevronDown, Plus, Minus } from 'lucide-react';
 import { Product } from '../../types';
 import { useCart } from '../../services/CartContext';
 import { useImage } from '../../services/ImageContext';
@@ -40,9 +40,14 @@ export const ProductCard: React.FC<Props> = ({ product, highlightTerm, onWishlis
   const { user } = useAuth();
   const { addToast } = useToast();
   const navigate = useNavigate();
+  
   const [showQuickView, setShowQuickView] = useState(false);
+  const [quantity, setQuantity] = useState(1);
+  const [isUnitOpen, setIsUnitOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   
   const unitOptions = getUnitOptions(product.baseUnit);
+  // Default to 1kg (index 2) for mass, else 0
   const defaultUnitIndex = product.baseUnit === 'kg' ? 2 : 0;
   const [selectedUnitIdx, setSelectedUnitIdx] = useState(defaultUnitIndex);
 
@@ -52,6 +57,17 @@ export const ProductCard: React.FC<Props> = ({ product, highlightTerm, onWishlis
   const oldDisplayPrice = product.oldPrice ? Math.ceil(product.oldPrice * currentMultiplier) : null;
 
   const displayImage = getProductImage(product.id, product.image);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsUnitOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault(); 
@@ -63,7 +79,8 @@ export const ProductCard: React.FC<Props> = ({ product, highlightTerm, onWishlis
         return;
     }
 
-    addToCart({ ...product, image: displayImage }, 1, unitLabel, displayPrice);
+    addToCart({ ...product, image: displayImage }, quantity, unitLabel, displayPrice);
+    setQuantity(1); // Reset quantity after adding
   };
 
   const handleBuyNow = (e: React.MouseEvent) => {
@@ -76,7 +93,7 @@ export const ProductCard: React.FC<Props> = ({ product, highlightTerm, onWishlis
         return;
     }
 
-    addToCart({ ...product, image: displayImage }, 1, unitLabel, displayPrice);
+    addToCart({ ...product, image: displayImage }, quantity, unitLabel, displayPrice);
     navigate('/checkout');
   };
 
@@ -106,11 +123,23 @@ export const ProductCard: React.FC<Props> = ({ product, highlightTerm, onWishlis
     );
   };
 
+  const incrementQty = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setQuantity(prev => prev + 1);
+  };
+
+  const decrementQty = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setQuantity(prev => (prev > 1 ? prev - 1 : 1));
+  };
+
   return (
     <>
-      <div className="group relative bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl hover:border-leaf-200 transition-all duration-300 flex flex-col h-full overflow-hidden">
+      <div className="group relative bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl hover:border-leaf-200 transition-all duration-300 flex flex-col h-full overflow-visible z-0 hover:z-10">
         {/* 1. Image Area (Top) */}
-        <div className="relative aspect-[4/3] bg-gray-50 overflow-hidden">
+        <div className="relative aspect-[4/3] bg-gray-50 rounded-t-3xl overflow-hidden">
           <Link to={`/product/${product.id}`} className="block w-full h-full">
             <img 
               src={displayImage} 
@@ -169,34 +198,68 @@ export const ProductCard: React.FC<Props> = ({ product, highlightTerm, onWishlis
             </Link>
           </div>
 
-          {/* Unit Selector */}
-          <div className="mt-auto mb-3">
-            <div className="flex gap-1 bg-gray-50 p-1 rounded-lg overflow-x-auto scrollbar-hide">
-              {unitOptions.map((opt, idx) => (
-                <button 
-                  key={opt.label} 
-                  onClick={(e) => { e.preventDefault(); setSelectedUnitIdx(idx); }} 
-                  className={`flex-1 min-w-[40px] text-[10px] font-bold py-1.5 rounded-md transition-all whitespace-nowrap ${selectedUnitIdx === idx ? 'bg-white text-leaf-700 shadow-sm border border-gray-100' : 'text-gray-400 hover:text-gray-600'}`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Unit Selector & Price Row */}
+          <div className="mt-auto mb-4 flex items-end justify-between gap-2">
+             <div className="flex flex-col">
+                <div className="flex items-baseline gap-1">
+                    <span className="font-extrabold text-lg text-gray-900">₹{displayPrice}</span>
+                    {oldDisplayPrice && <span className="text-xs text-gray-400 line-through">₹{oldDisplayPrice}</span>}
+                </div>
+                
+                {/* Custom Unit Dropdown */}
+                <div className="relative mt-1" ref={dropdownRef}>
+                    <button 
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsUnitOpen(!isUnitOpen); }}
+                        className="flex items-center gap-1 text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded-md transition-colors"
+                    >
+                        {unitLabel} <ChevronDown size={12} className={`transition-transform ${isUnitOpen ? 'rotate-180' : ''}`}/>
+                    </button>
+                    
+                    {isUnitOpen && (
+                        <div className="absolute top-full left-0 mt-1 w-24 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-30 animate-in fade-in zoom-in-95 duration-200">
+                            {unitOptions.map((opt, idx) => (
+                                <button
+                                    key={opt.label}
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setSelectedUnitIdx(idx);
+                                        setIsUnitOpen(false);
+                                    }}
+                                    className={`w-full text-left px-3 py-1.5 text-xs font-bold hover:bg-gray-50 transition-colors ${selectedUnitIdx === idx ? 'text-leaf-600 bg-leaf-50' : 'text-gray-600'}`}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+             </div>
 
-          {/* Price */}
-          <div className="flex items-baseline gap-1 mb-3">
-             <span className="font-extrabold text-lg text-gray-900">₹{displayPrice}</span>
-             {oldDisplayPrice && <span className="text-xs text-gray-400 line-through">₹{oldDisplayPrice}</span>}
-             <span className="text-[10px] text-gray-400 font-medium ml-auto">per {unitLabel}</span>
+             {/* Quantity Controls */}
+             <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg h-9 shadow-sm">
+                <button 
+                    onClick={decrementQty} 
+                    className={`w-8 h-full flex items-center justify-center rounded-l-lg transition-colors ${quantity === 1 ? 'text-gray-300 cursor-default' : 'text-gray-600 hover:bg-gray-100 hover:text-red-500'}`}
+                >
+                    <Minus size={14}/>
+                </button>
+                <span className="w-6 text-center text-sm font-bold text-gray-900">{quantity}</span>
+                <button 
+                    onClick={incrementQty} 
+                    className="w-8 h-full flex items-center justify-center text-gray-600 hover:bg-gray-100 hover:text-leaf-600 rounded-r-lg transition-colors"
+                >
+                    <Plus size={14}/>
+                </button>
+             </div>
           </div>
 
           {/* 3. Action Area (Bottom) - Split Buttons */}
           <div className="grid grid-cols-4 gap-2">
             <button 
               onClick={handleAddToCart}
-              className="col-span-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl flex items-center justify-center transition-all active:scale-95 border border-gray-200"
-              title="Add to Cart"
+              className="col-span-1 bg-leaf-50 hover:bg-leaf-100 text-leaf-700 rounded-xl flex items-center justify-center transition-all active:scale-95 border border-leaf-200"
+              title={`Add ${quantity} to Cart`}
             >
               <ShoppingCart size={18} />
             </button>

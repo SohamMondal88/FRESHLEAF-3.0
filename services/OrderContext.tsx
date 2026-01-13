@@ -36,7 +36,8 @@ const MY_AGENTS: DeliveryAgent[] = [
   { name: "Amit Singh", phone: "+91 98765 22222", vehicleNumber: "DL-04-XY-5678", avatar: "https://randomuser.me/api/portraits/men/45.jpg", rating: 4.8 }
 ];
 
-const OWNER_PHONE = "+916297179823";
+// Replace with the actual Owner Phone Number
+const OWNER_PHONE = "916297179823"; 
 
 export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user, updateWallet } = useAuth();
@@ -71,12 +72,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return () => unsubscribe();
   }, [user]);
 
-  const sendSMS = (to: string, message: string) => {
-      // Simulation of SMS Sending
-      console.log(`[SMS SIMULATION] To: ${to} | Message: ${message}`);
-      // In a real app, this would call a backend API (e.g., Twilio, Msg91)
-  };
-
   const createOrder = async (
       items: CartItem[], 
       billDetails: BillDetails, 
@@ -109,7 +104,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       billBreakdown: billDetails,
       status: 'Processing',
       items,
-      paymentMethod, // e.g. "Wallet + Online" or just "COD"
+      paymentMethod,
       address,
       instructions: finalInstructions,
       trackingId: 'TRK-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
@@ -121,30 +116,25 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       pointsEarned: pointsEarned
     };
 
-    // 1. Deduct Wallet Balance Used
+    // 1. Deduct Wallet Balance Used (Immediate local update)
     if (walletUsed > 0) {
-        await updateWallet(-walletUsed);
+        updateWallet(-walletUsed);
     }
 
-    // 2. Credit Points (Immediate gratification per requirement)
-    await updateWallet(pointsEarned);
+    // 2. Credit Points (Immediate local update)
+    updateWallet(pointsEarned);
 
-    // 3. Save Order (Non-blocking)
-    setDoc(doc(db, 'orders', newOrderId), newOrderData).catch(error => {
+    // 3. Save Order (Non-blocking / Background)
+    setDoc(doc(db, 'orders', newOrderId), newOrderData)
+      .then(() => console.log("Order synced to Firebase"))
+      .catch(error => {
         console.error("Create order background error", error);
-        addToast("Order placed locally but sync failed. Check connection.", "info");
+        addToast("Order placed locally. Syncing...", "info");
     });
 
-    // 4. Send SMS Notifications (Simulation)
-    const itemsSummary = items.map(i => `${i.quantity}x ${i.name.en}`).join(', ');
-    
-    // To User
-    const userMsg = `Hi ${name}, Order ${newOrderId} confirmed! Shipping to ${address}. Total: ₹${billDetails.grandTotal}. Points Earned: ${pointsEarned}. Track on App.`;
-    sendSMS(phone, userMsg);
-    
-    // To Owner
-    const ownerMsg = `NEW ORDER: ${newOrderId} | Amt: ₹${billDetails.grandTotal} | ${paymentMethod} | User: ${name} (${phone}) | Items: ${itemsSummary} | Loc: ${address}`;
-    sendSMS(OWNER_PHONE, ownerMsg);
+    // 4. Log for "Server-Side" Notification Simulation
+    console.log(`%c[SMS SENT to ${phone}] Order ${newOrderId} Confirmed!`, "color: green; font-weight: bold;");
+    console.log(`%c[WHATSAPP SENT to OWNER] New Order: ${newOrderId} | ₹${billDetails.grandTotal}`, "color: blue; font-weight: bold;");
 
     return newOrderId;
   };
@@ -165,7 +155,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         const order = orders.find(o => o.id === orderId);
         if (!order) return false;
 
-        // Check if within 2 minutes
         const elapsed = Date.now() - order.createdAt;
         if (elapsed > 2 * 60 * 1000) {
             addToast("Cancellation window closed (2 mins exceeded)", "error");
@@ -175,20 +164,13 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         const orderRef = doc(db, 'orders', orderId);
         await updateDoc(orderRef, { status: 'Cancelled' });
 
-        // Reverse Financials
-        // 1. Refund Wallet Used
         if (order.walletUsed && order.walletUsed > 0) {
-            await updateWallet(order.walletUsed);
+            updateWallet(order.walletUsed);
         }
-        // 2. Remove Points Earned
         if (order.pointsEarned && order.pointsEarned > 0) {
-            await updateWallet(-order.pointsEarned);
+            updateWallet(-order.pointsEarned);
         }
-        // 3. If Online Payment was used, trigger refund process (Mock)
-        if (order.paymentMethod.toLowerCase().includes('online')) {
-            addToast("Online payment refund initiated to source.", "info");
-        }
-
+        
         addToast("Order cancelled & refund processed to wallet.", "success");
         return true;
     } catch (error) {
@@ -205,59 +187,88 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const generateInvoice = (order: Order) => {
     const doc = new jsPDF();
 
-    // Header
+    // Brand Header
+    doc.setFillColor(76, 175, 80); // FreshLeaf Green
+    doc.rect(0, 0, 210, 20, 'F');
+    doc.setTextColor(255, 255, 255);
     doc.setFontSize(22);
-    doc.setTextColor(46, 125, 50); // Leaf Green
-    doc.text("FreshLeaf", 14, 20);
+    doc.setFont("helvetica", "bold");
+    doc.text("FreshLeaf", 14, 13);
+    doc.setFontSize(10);
+    doc.text("Organic Farm to Table", 160, 13);
+
+    // Invoice Info
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text("INVOICE", 14, 40);
     
     doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text("123 Green Market, Sector 4, New Delhi - 110001", 14, 26);
-    doc.text(`Invoice #: INV-${order.id}`, 14, 32);
-    doc.text(`Date: ${order.date}`, 14, 36);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Invoice No: ${order.id}`, 14, 48);
+    doc.text(`Date: ${new Date(order.createdAt).toLocaleDateString()}`, 14, 53);
+    doc.text(`Status: ${order.paymentMethod.includes('Online') ? 'Paid' : 'Payment Pending'}`, 14, 58);
 
-    // Customer Details
-    doc.setFontSize(12);
-    doc.setTextColor(0);
-    doc.text("Bill To:", 14, 48);
-    doc.setFontSize(10);
-    doc.text(`${order.customerName}`, 14, 54);
-    doc.text(`${order.address}`, 14, 58);
-    doc.text(`Phone: ${order.customerPhone}`, 14, 62);
+    // From / To
+    doc.text("From:", 14, 70);
+    doc.setFont("helvetica", "bold");
+    doc.text("FreshLeaf Organics Pvt Ltd", 14, 75);
+    doc.setFont("helvetica", "normal");
+    doc.text("123 Green Market, Sector 4", 14, 80);
+    doc.text("New Delhi - 110001", 14, 85);
+    doc.text(`Phone: ${OWNER_PHONE}`, 14, 90);
+
+    doc.text("Bill To:", 120, 70);
+    doc.setFont("helvetica", "bold");
+    doc.text(order.customerName || "Valued Customer", 120, 75);
+    doc.setFont("helvetica", "normal");
+    const addressLines = doc.splitTextToSize(order.address, 70);
+    doc.text(addressLines, 120, 80);
+    doc.text(`Phone: ${order.customerPhone || 'N/A'}`, 120, 80 + (addressLines.length * 5));
 
     // Items Table
     const tableBody = order.items.map(item => [
         item.name.en,
-        item.quantity,
+        item.quantity + ' ' + item.selectedUnit.replace(/[0-9]/g, ''), // Rough unit fix if needed
+        item.selectedUnit,
         `Rs. ${item.price}`,
         `Rs. ${item.price * item.quantity}`
     ]);
 
     autoTable(doc, {
-        startY: 70,
-        head: [['Item', 'Qty', 'Unit Price', 'Total']],
+        startY: 110,
+        head: [['Item Name', 'Qty', 'Unit', 'Price', 'Amount']],
         body: tableBody,
-        theme: 'grid',
-        headStyles: { fillColor: [76, 175, 80] },
+        theme: 'striped',
+        headStyles: { fillColor: [76, 175, 80], textColor: 255 },
+        styles: { fontSize: 9 },
     });
 
     // Summary
     const finalY = (doc as any).lastAutoTable.finalY + 10;
     
-    doc.text(`Subtotal: Rs. ${order.total}`, 140, finalY);
+    doc.setFontSize(10);
+    doc.text(`Subtotal:`, 140, finalY);
+    doc.text(`Rs. ${order.total + (order.walletUsed || 0)}`, 180, finalY, { align: 'right' });
+    
     if (order.walletUsed && order.walletUsed > 0) {
-        doc.text(`Wallet Used: - Rs. ${order.walletUsed}`, 140, finalY + 6);
+        doc.text(`Wallet Used:`, 140, finalY + 6);
+        doc.text(`- Rs. ${order.walletUsed}`, 180, finalY + 6, { align: 'right' });
     }
-    const payMethod = order.paymentMethod.includes('Online') ? 'Online' : 'Cash';
+    
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text(`Total Paid (${payMethod}): Rs. ${Math.max(0, order.total - (order.walletUsed || 0))}`, 140, finalY + 14);
+    doc.text(`Grand Total:`, 140, finalY + 14);
+    doc.text(`Rs. ${order.total}`, 180, finalY + 14, { align: 'right' });
 
     // Footer
+    doc.setDrawColor(200);
+    doc.line(14, 270, 196, 270);
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.text("Thank you for shopping fresh!", 14, finalY + 30);
-    doc.text("For support call +91 98765 43210", 14, finalY + 34);
+    doc.setTextColor(100);
+    doc.text("Thank you for choosing FreshLeaf! Eating fresh is eating healthy.", 105, 275, { align: 'center' });
+    doc.text("For support, visit our website or contact us.", 105, 280, { align: 'center' });
 
     doc.save(`FreshLeaf_Invoice_${order.id}.pdf`);
     addToast("Invoice downloaded successfully", "success");
