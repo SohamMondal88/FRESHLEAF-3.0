@@ -1,22 +1,10 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
-import { CartItem, Product } from '../types';
+import { BillDetails, CartItem, Product } from '../types';
 import { useAuth } from './AuthContext';
 import { db } from './firebase';
 import { doc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { useToast } from './ToastContext';
-
-export interface BillDetails {
-  mrpTotal: number;
-  itemTotal: number;
-  discount: number;
-  handlingFee: number;
-  platformFee: number;
-  deliveryFee: number;
-  smallCartFee: number;
-  tip: number;
-  grandTotal: number;
-}
 
 interface CartContextType {
   cartItems: CartItem[];
