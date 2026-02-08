@@ -10,11 +10,26 @@ View your app in AI Studio: https://ai.studio/apps/drive/165D9YvGQYBu7jjGWQMLMDx
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
+**Prerequisites:** Node.js, Firebase project + Firestore enabled
 
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+2. Create a `.env.local` (or `.env`) file with:
+   - `VITE_FIREBASE_API_KEY`
+   - `VITE_FIREBASE_AUTH_DOMAIN`
+   - `VITE_FIREBASE_PROJECT_ID`
+   - `VITE_FIREBASE_STORAGE_BUCKET`
+   - `VITE_FIREBASE_MESSAGING_SENDER_ID`
+   - `VITE_FIREBASE_APP_ID`
+   - `VITE_RAZORPAY_KEY_ID`
+   - `VITE_GEMINI_API_KEY`
+   - `VITE_SUPPORT_PHONE`
 3. Run the app:
    `npm run dev`
+
+## Production follow-ups
+
+- Add a server-side payment verification endpoint (Razorpay webhook + signature verification).
+- Build admin tooling for managing catalog content and service areas.
+- Implement automated migration scripts to seed Firestore from a CSV upload.

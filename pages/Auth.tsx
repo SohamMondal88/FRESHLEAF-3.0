@@ -140,7 +140,9 @@ export const Login: React.FC = () => {
 
   useEffect(() => {
     if (authMethod === 'phone') {
-      const t = setTimeout(() => setupRecaptcha('recaptcha-container'), 500);
+      const t = setTimeout(() => {
+        void setupRecaptcha('recaptcha-container');
+      }, 500);
       return () => clearTimeout(t);
     }
   }, [authMethod]);
@@ -380,12 +382,20 @@ export const Signup: React.FC = () => {
     }
 
     setIsLoading(true);
-    const success = await signup(formData.name, formData.email, formData.password, 'customer');
+    const success = await signup(
+      formData.name,
+      formData.email,
+      formData.password,
+      'customer',
+      undefined,
+      formData.phone,
+      formData.gender === 'Select' ? undefined : formData.gender
+    );
     setIsLoading(false);
     
     if (success) {
       addToast("Account created successfully!", "success");
-      navigate('/login');
+      navigate('/account', { replace: true });
     }
   };
 
