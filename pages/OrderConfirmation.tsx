@@ -17,10 +17,12 @@ export const OrderConfirmation: React.FC = () => {
 
   const [fetchedOrder, setFetchedOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [redirectCountdown, setRedirectCountdown] = useState(8);
 
   // Try context first, then fetch if missing (for deep links/refresh)
   const contextOrder = getOrderById(orderId || '');
 
+  const order = fetchedOrder;
   useEffect(() => {
     if (!orderId) {
        navigate('/'); 
@@ -49,7 +51,21 @@ export const OrderConfirmation: React.FC = () => {
     }
   }, [orderId, contextOrder, navigate]);
 
-  const order = fetchedOrder;
+  useEffect(() => {
+    if (!order) return;
+    const interval = setInterval(() => {
+      setRedirectCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          navigate(`/track-order/${order.id}`);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [navigate, order]);
 
   if (isLoading) {
       return (
@@ -104,6 +120,15 @@ export const OrderConfirmation: React.FC = () => {
             <div className="mt-4 inline-block bg-white px-4 py-2 rounded-full border border-gray-200 shadow-sm text-sm font-bold text-gray-700">
                 Order ID: {order.id}
             </div>
+            <div className="mt-4 text-xs text-gray-500 font-semibold">
+                Redirecting to live tracking in <span className="text-leaf-600 font-bold">{redirectCountdown}s</span>…
+            </div>
+            <button
+                onClick={() => navigate(`/track-order/${order.id}`)}
+                className="mt-3 inline-flex items-center justify-center gap-2 rounded-full bg-gray-900 text-white px-4 py-2 text-xs font-bold shadow-md hover:bg-leaf-600 transition"
+            >
+                Track Now <ArrowRight size={14} />
+            </button>
         </div>
 
         {/* Two Column Layout for Desktop */}

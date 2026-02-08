@@ -19,6 +19,42 @@ export const OrderTracking: React.FC = () => {
   const [canCancel, setCanCancel] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
   const [dynamicEta, setDynamicEta] = useState(25);
+  const routeStops = [
+    { label: 'Store', progress: 0 },
+    { label: 'Sorting Hub', progress: 25 },
+    { label: 'Micro Hub', progress: 55 },
+    { label: 'Near You', progress: 80 },
+    { label: 'Home', progress: 100 }
+  ];
+
+  useEffect(() => {
+    if (!id) {
+      setIsLoading(false);
+      return;
+    }
+
+    if (contextOrder) {
+      setOrder(contextOrder);
+      setIsLoading(false);
+      return;
+    }
+
+    const fetchOrder = async () => {
+      try {
+        const docRef = doc(db, 'orders', id);
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          setOrder({ id: snap.id, ...snap.data() } as Order);
+        }
+      } catch (error) {
+        console.error("Failed to fetch order fallback", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchOrder();
+  }, [contextOrder, id]);
 
   useEffect(() => {
     if (!id) {
@@ -212,6 +248,29 @@ export const OrderTracking: React.FC = () => {
                             style={{ width: `${progress}%` }}
                         ></div>
                     </div>
+
+                    {/* Drop Points */}
+                    {routeStops.map((stop, index) => {
+                        const nextStop = routeStops[index + 1];
+                        const isReached = progress >= stop.progress;
+                        const isCurrent = isReached && (!nextStop || progress < nextStop.progress);
+                        return (
+                            <div
+                                key={stop.label}
+                                className="absolute top-1/2 z-20 -translate-y-1/2"
+                                style={{ left: `calc(10% + ${stop.progress * 0.8}%)` }}
+                            >
+                                <div className={`w-3.5 h-3.5 rounded-full border-2 ${isReached ? 'bg-leaf-600 border-leaf-700' : 'bg-white border-gray-300'} ${stop.progress === 100 ? 'shadow-[0_0_10px_rgba(76,175,80,0.8)]' : ''}`}>
+                                    {isCurrent && (
+                                        <span className="absolute inset-0 rounded-full animate-ping bg-leaf-500/50"></span>
+                                    )}
+                                </div>
+                                <span className="absolute top-4 left-1/2 -translate-x-1/2 text-[9px] font-bold text-gray-600 bg-white/80 px-1.5 py-0.5 rounded">
+                                    {stop.label}
+                                </span>
+                            </div>
+                        );
+                    })}
 
                     {/* Bike Icon (Moving) */}
                     <div 
