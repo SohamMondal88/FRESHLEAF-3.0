@@ -45,7 +45,7 @@ export const Layout: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen font-sans text-gray-800 bg-[#FAFAF9]">
+    <div className="site-shell flex flex-col min-h-screen font-sans text-gray-800">
       
       {/* Pincode Modal - Global Level */}
       {showModal && (
@@ -111,7 +111,7 @@ export const Layout: React.FC = () => {
       {/* New Modern Navbar */}
       <Navbar onOpenChef={() => setShowChef(true)} />
 
-      <main className="flex-grow pt-24 lg:pt-32">
+      <main className="page-shell flex-grow pt-24 lg:pt-32">
         <Outlet />
       </main>
 
