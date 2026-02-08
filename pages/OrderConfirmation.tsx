@@ -4,6 +4,7 @@ import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { CheckCircle, Truck, Package, Calendar, Download, MessageCircle, ArrowRight, Gift, MapPin, Phone, CreditCard, ShoppingBag, Loader2 } from 'lucide-react';
 import { useOrder } from '../services/OrderContext';
 import { useImage } from '../services/ImageContext';
+import { useToast } from '../services/ToastContext';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { Order } from '../types';
@@ -13,14 +14,17 @@ export const OrderConfirmation: React.FC = () => {
   const orderId = searchParams.get('id');
   const { getOrderById, generateInvoice } = useOrder();
   const { getProductImage } = useImage();
+  const { addToast } = useToast();
   const navigate = useNavigate();
 
   const [fetchedOrder, setFetchedOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [redirectCountdown, setRedirectCountdown] = useState(8);
 
   // Try context first, then fetch if missing (for deep links/refresh)
   const contextOrder = getOrderById(orderId || '');
 
+  const order = fetchedOrder;
   useEffect(() => {
     if (!orderId) {
        navigate('/'); 
@@ -49,7 +53,21 @@ export const OrderConfirmation: React.FC = () => {
     }
   }, [orderId, contextOrder, navigate]);
 
-  const order = fetchedOrder;
+  useEffect(() => {
+    if (!order) return;
+    const interval = setInterval(() => {
+      setRedirectCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          navigate(`/track-order/${order.id}`);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [navigate, order]);
 
   if (isLoading) {
       return (
@@ -74,8 +92,11 @@ export const OrderConfirmation: React.FC = () => {
   }
 
   const handleWhatsAppShare = () => {
-    // Owner phone number (replace with real one)
-    const ownerPhone = "916297179823"; 
+    const ownerPhone = import.meta.env.VITE_SUPPORT_PHONE as string | undefined;
+    if (!ownerPhone) {
+        addToast("Support contact is not configured.", "info");
+        return;
+    }
     const message = `Hi FreshLeaf, I just placed an order! \n\nOrder ID: ${order.id} \nName: ${order.customerName} \nAmount: ₹${order.total} \n\nPlease confirm delivery time.`;
     const url = `https://wa.me/${ownerPhone}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
@@ -83,6 +104,12 @@ export const OrderConfirmation: React.FC = () => {
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(price);
+
+  const billBreakdown = order.billBreakdown;
+  const payableTotal = billBreakdown
+    ? billBreakdown.grandTotal - (order.walletUsed || 0)
+    : order.total - (order.walletUsed || 0);
+  const isCod = order.paymentMethod.toLowerCase().includes('cod') || order.paymentMethod.toLowerCase().includes('cash');
 
   return (
     <div className="py-12 bg-gray-50 min-h-screen font-sans">
@@ -98,6 +125,15 @@ export const OrderConfirmation: React.FC = () => {
             <div className="mt-4 inline-block bg-white px-4 py-2 rounded-full border border-gray-200 shadow-sm text-sm font-bold text-gray-700">
                 Order ID: {order.id}
             </div>
+            <div className="mt-4 text-xs text-gray-500 font-semibold">
+                Redirecting to live tracking in <span className="text-leaf-600 font-bold">{redirectCountdown}s</span>…
+            </div>
+            <button
+                onClick={() => navigate(`/track-order/${order.id}`)}
+                className="mt-3 inline-flex items-center justify-center gap-2 rounded-full bg-gray-900 text-white px-4 py-2 text-xs font-bold shadow-md hover:bg-leaf-600 transition"
+            >
+                Track Now <ArrowRight size={14} />
+            </button>
         </div>
 
         {/* Two Column Layout for Desktop */}
@@ -143,13 +179,28 @@ export const OrderConfirmation: React.FC = () => {
                         <p className="text-gray-800 font-bold text-sm leading-relaxed">{order.customerName}</p>
                         <p className="text-gray-600 text-sm leading-relaxed">{order.address}</p>
                         <p className="text-gray-600 text-sm mt-1 flex items-center gap-1"><Phone size={12}/> {order.customerPhone}</p>
+                        {order.deliverySlot && (
+                            <div className="mt-3 text-xs font-semibold text-leaf-700 bg-leaf-50 border border-leaf-100 inline-flex items-center gap-2 px-3 py-2 rounded-full">
+                                Delivery Slot: {order.deliverySlot.date} • {order.deliverySlot.time}
+                            </div>
+                        )}
                     </div>
                     <div>
                         <h3 className="font-bold text-gray-900 text-sm mb-3 flex items-center gap-2 text-gray-500 uppercase tracking-wide">
                             <CreditCard size={14}/> Payment Info
                         </h3>
                         <p className="text-gray-800 font-bold text-sm">{order.paymentMethod}</p>
-                        <p className="text-gray-600 text-sm mt-1">Status: <span className="text-green-600 font-bold">Paid / Confirmed</span></p>
+                        <p className="text-gray-600 text-sm mt-1">Status: <span className={`font-bold ${isCod ? 'text-orange-600' : 'text-green-600'}`}>{isCod ? 'Pay on Delivery' : 'Paid / Confirmed'}</span></p>
+                        {order.instructions && order.instructions.length > 0 && (
+                            <div className="mt-3">
+                                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Delivery Notes</p>
+                                <ul className="mt-2 space-y-1 text-xs text-gray-600 list-disc list-inside">
+                                    {order.instructions.map((note, index) => (
+                                        <li key={index}>{note}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -193,12 +244,38 @@ export const OrderConfirmation: React.FC = () => {
                     <div className="space-y-3 text-sm pb-4 border-b border-dashed border-gray-200">
                         <div className="flex justify-between text-gray-600">
                             <span>Item Total</span>
-                            <span>{formatPrice(order.total)}</span>
+                            <span>{formatPrice(billBreakdown ? billBreakdown.itemTotal : order.total)}</span>
                         </div>
-                        <div className="flex justify-between text-green-600 font-medium">
-                            <span>Delivery Fee</span>
-                            <span>FREE</span>
-                        </div>
+                        {billBreakdown && billBreakdown.discount > 0 && (
+                            <div className="flex justify-between text-green-600 font-medium">
+                                <span>Discounts</span>
+                                <span>- {formatPrice(billBreakdown.discount)}</span>
+                            </div>
+                        )}
+                        {billBreakdown && (
+                            <>
+                                <div className="flex justify-between text-gray-600">
+                                    <span>Handling + Platform</span>
+                                    <span>{formatPrice(billBreakdown.handlingFee + billBreakdown.platformFee)}</span>
+                                </div>
+                                <div className="flex justify-between text-gray-600">
+                                    <span>Delivery Fee</span>
+                                    <span>{billBreakdown.deliveryFee === 0 ? 'FREE' : formatPrice(billBreakdown.deliveryFee)}</span>
+                                </div>
+                                {billBreakdown.smallCartFee > 0 && (
+                                    <div className="flex justify-between text-gray-600">
+                                        <span>Small Cart Fee</span>
+                                        <span>{formatPrice(billBreakdown.smallCartFee)}</span>
+                                    </div>
+                                )}
+                                {billBreakdown.tip > 0 && (
+                                    <div className="flex justify-between text-gray-600">
+                                        <span>Delivery Tip</span>
+                                        <span>{formatPrice(billBreakdown.tip)}</span>
+                                    </div>
+                                )}
+                            </>
+                        )}
                         {order.walletUsed && order.walletUsed > 0 && (
                             <div className="flex justify-between text-leaf-600">
                                 <span>Wallet Used</span>
@@ -209,7 +286,7 @@ export const OrderConfirmation: React.FC = () => {
                     
                     <div className="flex justify-between items-center pt-4 mb-6">
                         <span className="font-bold text-gray-900 text-lg">Grand Total</span>
-                        <span className="font-extrabold text-leaf-700 text-2xl">{formatPrice(order.total - (order.walletUsed || 0))}</span>
+                        <span className="font-extrabold text-leaf-700 text-2xl">{formatPrice(payableTotal)}</span>
                     </div>
 
                     {order.pointsEarned && order.pointsEarned > 0 && (

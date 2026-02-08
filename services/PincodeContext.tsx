@@ -1,9 +1,12 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from './firebase';
 
 interface PincodeContextType {
   pincode: string | null;
   isServiceable: boolean;
+  serviceablePincodes: string[];
   setPincode: (code: string) => Promise<boolean>;
   detectLocation: () => Promise<{ success: boolean; message?: string }>;
   resetPincode: () => void;
@@ -17,6 +20,21 @@ export const PincodeProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [pincode, setPincodeState] = useState<string | null>(null);
   const [isServiceable, setIsServiceable] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [serviceablePincodes, setServiceablePincodes] = useState<string[]>([]);
+
+  useEffect(() => {
+    const loadServiceAreas = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, 'serviceAreas'));
+        const pincodes = snapshot.docs.map(docItem => String(docItem.data().pincode)).filter(Boolean);
+        setServiceablePincodes(pincodes);
+      } catch (error) {
+        console.error("Failed to load service areas:", error);
+      }
+    };
+
+    loadServiceAreas();
+  }, []);
 
   useEffect(() => {
     const stored = localStorage.getItem('freshleaf_pincode');
@@ -31,8 +49,7 @@ export const PincodeProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, []);
 
   const validatePincode = (code: string) => {
-    // Strictly match 743372
-    return code === '743372';
+    return serviceablePincodes.includes(code);
   };
 
   const setPincode = async (code: string) => {
@@ -78,7 +95,7 @@ export const PincodeProvider: React.FC<{ children: ReactNode }> = ({ children })
               setShowModal(false);
               resolve({ success: true });
             } else {
-              resolve({ success: false, message: `We do not deliver to ${detectedPincode} yet. Only 743372.` });
+              resolve({ success: false, message: `We do not deliver to ${detectedPincode} yet.` });
             }
           } else {
             resolve({ success: false, message: "Could not detect pincode from location." });
@@ -103,7 +120,7 @@ export const PincodeProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   return (
-    <PincodeContext.Provider value={{ pincode, isServiceable, setPincode, detectLocation, resetPincode, showModal, setShowModal }}>
+    <PincodeContext.Provider value={{ pincode, isServiceable, serviceablePincodes, setPincode, detectLocation, resetPincode, showModal, setShowModal }}>
       {children}
     </PincodeContext.Provider>
   );

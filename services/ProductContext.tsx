@@ -1,14 +1,12 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Product } from '../types';
-import { PRODUCTS as INITIAL_PRODUCTS } from '../constants';
 import { db } from './firebase';
-import { collection, getDocs, doc, setDoc, updateDoc, writeBatch, query } from 'firebase/firestore';
+import { collection, doc, setDoc, updateDoc, writeBatch, query, onSnapshot } from 'firebase/firestore';
 import { useToast } from './ToastContext';
 
 interface ProductContextType {
   products: Product[];
-  seedDatabase: () => Promise<void>;
   updateProduct: (id: string, updates: Partial<Product>) => Promise<void>;
   bulkUpdateProducts: (ids: string[], updates: Partial<Product>) => Promise<void>;
   addProduct: (product: Omit<Product, 'id' | 'rating' | 'reviews'>) => Promise<void>;
@@ -22,65 +20,25 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [loading, setLoading] = useState(true);
   const { addToast } = useToast();
 
-  const fetchProducts = async () => {
-    try {
-      setLoading(true);
-      const q = query(collection(db, 'products'));
-      
-      // Race against a timeout to ensure app loads even if Firestore is offline/unreachable
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 3000));
-      const snapshot: any = await Promise.race([getDocs(q), timeoutPromise]);
-      
-      if (!snapshot.empty) {
-        const fetchedProducts = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Product));
-        setProducts(fetchedProducts);
-      } else {
-        // Automatically seed if empty
-        console.log("Database empty, seeding...");
-        await seedDatabase();
-      }
-    } catch (error) {
-      console.warn("Error fetching products (using fallback):", error);
-      // Fallback for offline/error
-      setProducts(INITIAL_PRODUCTS);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchProducts();
-    
-    // Safety fallback: If products are still empty after 2 seconds, force load initial data
-    const timer = setTimeout(() => {
-        setProducts(prev => {
-            if (prev.length === 0) {
-                console.warn("Force loading initial products due to timeout");
-                setLoading(false);
-                return INITIAL_PRODUCTS;
-            }
-            return prev;
-        });
-    }, 2000);
-    
-    return () => clearTimeout(timer);
-  }, []);
+    setLoading(true);
+    const q = query(collection(db, 'products'));
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const fetchedProducts = snapshot.docs.map((docItem) => ({ id: docItem.id, ...docItem.data() } as Product));
+        setProducts(fetchedProducts);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Error fetching products:", error);
+        addToast("Unable to load products. Please try again later.", "error");
+        setLoading(false);
+      }
+    );
 
-  const seedDatabase = async () => {
-    try {
-      const batch = writeBatch(db);
-      INITIAL_PRODUCTS.forEach(p => {
-          const ref = doc(db, 'products', p.id);
-          batch.set(ref, p);
-      });
-      await batch.commit();
-      setProducts(INITIAL_PRODUCTS);
-      console.log("Database seeded successfully!");
-    } catch (e) {
-      console.error("Error seeding database:", e);
-      setProducts(INITIAL_PRODUCTS); // Ensure data exists even if seed fails
-    }
-  };
+    return () => unsubscribe();
+  }, []);
 
   const updateProduct = async (id: string, updates: Partial<Product>) => {
     try {
@@ -132,7 +90,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   return (
-    <ProductContext.Provider value={{ products, seedDatabase, updateProduct, bulkUpdateProducts, addProduct, loading }}>
+    <ProductContext.Provider value={{ products, updateProduct, bulkUpdateProducts, addProduct, loading }}>
       {children}
     </ProductContext.Provider>
   );

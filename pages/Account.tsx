@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Package, Settings, MapPin, CreditCard, Bell, Heart, LogOut, 
@@ -11,6 +11,10 @@ import { useAuth } from '../services/AuthContext';
 import { useOrder } from '../services/OrderContext';
 import { useCart } from '../services/CartContext';
 import { useToast } from '../services/ToastContext';
+import { auth, db } from '../services/firebase';
+import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { Transaction } from '../types';
 
 export const Account: React.FC = () => {
   const { user, logout, updateProfile, updateWallet } = useAuth();
@@ -24,9 +28,7 @@ export const Account: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Address State
-  const [addresses, setAddresses] = useState([
-    { id: 1, type: 'Home', text: user?.address || '123 Green Market, Sector 4, New Delhi', isDefault: true },
-  ]);
+  const [addresses, setAddresses] = useState<{ id: number; type: string; text: string; isDefault: boolean }[]>([]);
   const [newAddress, setNewAddress] = useState({ type: 'Home', text: '' });
 
   // Settings & Preferences State (Merged from separate page)
@@ -35,10 +37,38 @@ export const Account: React.FC = () => {
   const [notifications, setNotifications] = useState({ emailOrder: true, emailPromo: false, sms: true, whatsapp: true });
   const [profileData, setProfileData] = useState({ name: user?.name || '', email: user?.email || '', phone: user?.phone || '' });
   const [loading, setLoading] = useState(false);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   useEffect(() => {
     if (!user) navigate('/login');
   }, [user, navigate]);
+
+  useEffect(() => {
+    if (!user) return;
+    const primaryAddress = user.address ? [{
+      id: Date.now(),
+      type: 'Home',
+      text: user.address,
+      isDefault: true
+    }] : [];
+    setAddresses(primaryAddress);
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchTransactions = async () => {
+      try {
+        const q = query(collection(db, 'transactions'), where('userId', '==', user.id));
+        const snap = await getDocs(q);
+        const fetched = snap.docs.map(docItem => ({ id: docItem.id, ...docItem.data() } as Transaction));
+        setTransactions(fetched);
+      } catch (error) {
+        console.error("Failed to load transactions:", error);
+      }
+    };
+
+    fetchTransactions();
+  }, [user]);
 
   // --- ANALYTICS ---
   const totalSpent = orders.reduce((acc, order) => acc + order.total, 0);
@@ -116,14 +146,27 @@ export const Account: React.FC = () => {
     addToast("Profile updated", "success");
   };
 
-  const handlePasswordUpdate = (e: React.FormEvent) => {
+  const handlePasswordUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!auth.currentUser) return;
+    if (!securityData.newPassword || securityData.newPassword !== securityData.confirmPassword) {
+      addToast("Passwords do not match", "error");
+      return;
+    }
     setLoading(true);
-    setTimeout(() => {
-        setLoading(false);
-        setSecurityData({ ...securityData, currentPassword: '', newPassword: '', confirmPassword: '' });
-        addToast("Password changed successfully", "success");
-    }, 1000);
+    try {
+      if (!auth.currentUser.email) throw new Error("Email not available for re-authentication");
+      const credential = EmailAuthProvider.credential(auth.currentUser.email, securityData.currentPassword);
+      await reauthenticateWithCredential(auth.currentUser, credential);
+      await updatePassword(auth.currentUser, securityData.newPassword);
+      setSecurityData({ currentPassword: '', newPassword: '', confirmPassword: '', twoFactor: false });
+      addToast("Password changed successfully", "success");
+    } catch (error: any) {
+      console.error("Password update failed:", error);
+      addToast(error.message || "Unable to update password", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatPrice = (price: number) =>
@@ -131,16 +174,43 @@ export const Account: React.FC = () => {
 
   // --- SUB-COMPONENTS ---
   
+  const monthlySpending = useMemo(() => {
+    const now = new Date();
+    const months = Array.from({ length: 6 }, (_, idx) => {
+      const date = new Date(now.getFullYear(), now.getMonth() - (5 - idx), 1);
+      return {
+        key: `${date.getFullYear()}-${date.getMonth()}`,
+        label: date.toLocaleDateString('en-IN', { month: 'short' }),
+        total: 0
+      };
+    });
+
+    orders.forEach((order) => {
+      const orderDate = new Date(order.createdAt);
+      const key = `${orderDate.getFullYear()}-${orderDate.getMonth()}`;
+      const target = months.find((month) => month.key === key);
+      if (target) {
+        target.total += order.total;
+      }
+    });
+
+    const maxTotal = Math.max(1, ...months.map((month) => month.total));
+    return months.map((month) => ({
+      ...month,
+      height: Math.round((month.total / maxTotal) * 100)
+    }));
+  }, [orders]);
+
   const SpendingGraph = () => (
     <div className="flex items-end justify-between h-32 gap-2 mt-4 px-2">
-       {[35, 55, 40, 70, 50, 85].map((h, i) => (
-           <div key={i} className="flex-1 flex flex-col justify-end group">
-               <div className="w-full bg-leaf-100 rounded-t-lg relative transition-all duration-500 group-hover:bg-leaf-500" style={{ height: `${h}%` }}>
+       {monthlySpending.map((month) => (
+           <div key={month.key} className="flex-1 flex flex-col justify-end group">
+               <div className="w-full bg-leaf-100 rounded-t-lg relative transition-all duration-500 group-hover:bg-leaf-500" style={{ height: `${month.height}%` }}>
                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                       ₹{h * 120}
+                       ₹{Math.round(month.total)}
                    </div>
                </div>
-               <div className="text-[10px] text-gray-400 text-center mt-2 font-bold uppercase">{['May','Jun','Jul','Aug','Sep','Oct'][i]}</div>
+               <div className="text-[10px] text-gray-400 text-center mt-2 font-bold uppercase">{month.label}</div>
            </div>
        ))}
     </div>
@@ -197,8 +267,8 @@ export const Account: React.FC = () => {
                     <div className="absolute top-0 right-0 w-6 h-6 bg-yellow-400 rounded-full animate-pulse border-2 border-white"></div>
                 </div>
                 <div className="text-3xl font-black text-gray-900">{co2Saved} kg</div>
-                <p className="text-xs font-bold text-green-600 uppercase tracking-wide">CO2 Saved</p>
-                <p className="text-[10px] text-gray-400 mt-2 leading-relaxed">By choosing local farmers, you've reduced transport emissions significantly.</p>
+                <p className="text-xs font-bold text-green-600 uppercase tracking-wide">Estimated CO2 Saved</p>
+                <p className="text-[10px] text-gray-400 mt-2 leading-relaxed">Estimated based on order volume and local delivery routes.</p>
             </div>
          </div>
 
@@ -225,6 +295,33 @@ export const Account: React.FC = () => {
                 <div className="bg-white p-1.5 rounded-lg text-gray-400 group-hover:text-leaf-600 transition"><ChevronRight size={16}/></div>
             </div>
          </div>
+      </div>
+
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 mt-6">
+         <div className="flex items-center justify-between mb-6">
+            <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2"><CreditCard size={18} className="text-leaf-600"/> Recent Transactions</h3>
+            <button onClick={() => setActiveTab('orders')} className="text-xs font-bold text-leaf-600 hover:underline">View Orders</button>
+         </div>
+         {transactions.length > 0 ? (
+           <div className="space-y-4">
+              {transactions.slice(0, 4).map((tx) => (
+                 <div key={tx.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                    <div>
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Order #{tx.orderId}</p>
+                      <p className="text-sm font-semibold text-gray-800">{tx.paymentMethod}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-black text-gray-900">{formatPrice(tx.amount)}</p>
+                      <p className={`text-[10px] font-bold uppercase tracking-wide mt-0.5 ${tx.status === 'paid' ? 'text-green-600' : 'text-orange-500'}`}>{tx.status}</p>
+                    </div>
+                 </div>
+              ))}
+           </div>
+         ) : (
+           <div className="rounded-2xl border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500">
+              No transactions yet.
+           </div>
+         )}
       </div>
 
       {/* Recent Activity */}
