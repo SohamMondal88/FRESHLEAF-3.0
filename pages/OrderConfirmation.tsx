@@ -84,6 +84,12 @@ export const OrderConfirmation: React.FC = () => {
   const formatPrice = (price: number) =>
     new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(price);
 
+  const billBreakdown = order.billBreakdown;
+  const payableTotal = billBreakdown
+    ? billBreakdown.grandTotal - (order.walletUsed || 0)
+    : order.total - (order.walletUsed || 0);
+  const isCod = order.paymentMethod.toLowerCase().includes('cod') || order.paymentMethod.toLowerCase().includes('cash');
+
   return (
     <div className="py-12 bg-gray-50 min-h-screen font-sans">
       <div className="container mx-auto px-4 max-w-4xl">
@@ -143,13 +149,28 @@ export const OrderConfirmation: React.FC = () => {
                         <p className="text-gray-800 font-bold text-sm leading-relaxed">{order.customerName}</p>
                         <p className="text-gray-600 text-sm leading-relaxed">{order.address}</p>
                         <p className="text-gray-600 text-sm mt-1 flex items-center gap-1"><Phone size={12}/> {order.customerPhone}</p>
+                        {order.deliverySlot && (
+                            <div className="mt-3 text-xs font-semibold text-leaf-700 bg-leaf-50 border border-leaf-100 inline-flex items-center gap-2 px-3 py-2 rounded-full">
+                                Delivery Slot: {order.deliverySlot.date} • {order.deliverySlot.time}
+                            </div>
+                        )}
                     </div>
                     <div>
                         <h3 className="font-bold text-gray-900 text-sm mb-3 flex items-center gap-2 text-gray-500 uppercase tracking-wide">
                             <CreditCard size={14}/> Payment Info
                         </h3>
                         <p className="text-gray-800 font-bold text-sm">{order.paymentMethod}</p>
-                        <p className="text-gray-600 text-sm mt-1">Status: <span className="text-green-600 font-bold">Paid / Confirmed</span></p>
+                        <p className="text-gray-600 text-sm mt-1">Status: <span className={`font-bold ${isCod ? 'text-orange-600' : 'text-green-600'}`}>{isCod ? 'Pay on Delivery' : 'Paid / Confirmed'}</span></p>
+                        {order.instructions && order.instructions.length > 0 && (
+                            <div className="mt-3">
+                                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Delivery Notes</p>
+                                <ul className="mt-2 space-y-1 text-xs text-gray-600 list-disc list-inside">
+                                    {order.instructions.map((note, index) => (
+                                        <li key={index}>{note}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -193,12 +214,38 @@ export const OrderConfirmation: React.FC = () => {
                     <div className="space-y-3 text-sm pb-4 border-b border-dashed border-gray-200">
                         <div className="flex justify-between text-gray-600">
                             <span>Item Total</span>
-                            <span>{formatPrice(order.total)}</span>
+                            <span>{formatPrice(billBreakdown ? billBreakdown.itemTotal : order.total)}</span>
                         </div>
-                        <div className="flex justify-between text-green-600 font-medium">
-                            <span>Delivery Fee</span>
-                            <span>FREE</span>
-                        </div>
+                        {billBreakdown && billBreakdown.discount > 0 && (
+                            <div className="flex justify-between text-green-600 font-medium">
+                                <span>Discounts</span>
+                                <span>- {formatPrice(billBreakdown.discount)}</span>
+                            </div>
+                        )}
+                        {billBreakdown && (
+                            <>
+                                <div className="flex justify-between text-gray-600">
+                                    <span>Handling + Platform</span>
+                                    <span>{formatPrice(billBreakdown.handlingFee + billBreakdown.platformFee)}</span>
+                                </div>
+                                <div className="flex justify-between text-gray-600">
+                                    <span>Delivery Fee</span>
+                                    <span>{billBreakdown.deliveryFee === 0 ? 'FREE' : formatPrice(billBreakdown.deliveryFee)}</span>
+                                </div>
+                                {billBreakdown.smallCartFee > 0 && (
+                                    <div className="flex justify-between text-gray-600">
+                                        <span>Small Cart Fee</span>
+                                        <span>{formatPrice(billBreakdown.smallCartFee)}</span>
+                                    </div>
+                                )}
+                                {billBreakdown.tip > 0 && (
+                                    <div className="flex justify-between text-gray-600">
+                                        <span>Delivery Tip</span>
+                                        <span>{formatPrice(billBreakdown.tip)}</span>
+                                    </div>
+                                )}
+                            </>
+                        )}
                         {order.walletUsed && order.walletUsed > 0 && (
                             <div className="flex justify-between text-leaf-600">
                                 <span>Wallet Used</span>
@@ -209,7 +256,7 @@ export const OrderConfirmation: React.FC = () => {
                     
                     <div className="flex justify-between items-center pt-4 mb-6">
                         <span className="font-bold text-gray-900 text-lg">Grand Total</span>
-                        <span className="font-extrabold text-leaf-700 text-2xl">{formatPrice(order.total - (order.walletUsed || 0))}</span>
+                        <span className="font-extrabold text-leaf-700 text-2xl">{formatPrice(payableTotal)}</span>
                     </div>
 
                     {order.pointsEarned && order.pointsEarned > 0 && (

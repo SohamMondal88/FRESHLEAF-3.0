@@ -28,6 +28,18 @@ export interface CartItem extends Product {
   selectedUnit: string; // e.g., '500g', '1kg'
 }
 
+export interface BillDetails {
+  mrpTotal: number;
+  itemTotal: number;
+  discount: number;
+  handlingFee: number;
+  platformFee: number;
+  deliveryFee: number;
+  smallCartFee: number;
+  tip: number;
+  grandTotal: number;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -49,6 +61,7 @@ export interface Order {
   date: string;
   createdAt: number; // Timestamp for cancellation logic
   total: number;
+  billBreakdown?: BillDetails;
   status: 'Processing' | 'Packed' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
   items: CartItem[];
   trackingId?: string;
@@ -59,6 +72,11 @@ export interface Order {
   customerName?: string;
   customerPhone?: string;
   instructions?: string[];
+  deliverySlot?: {
+    date: string;
+    time: string;
+  };
+  deliveryNotes?: string;
   walletUsed?: number;
   pointsEarned?: number;
 }
