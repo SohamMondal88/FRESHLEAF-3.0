@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { User } from '../types';
 import { auth, db } from './firebase';
 import { 
@@ -9,7 +9,9 @@ import {
   signOut,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  updateProfile as firebaseUpdateProfile
+  updateProfile as firebaseUpdateProfile,
+  setPersistence,
+  browserLocalPersistence
 } from 'firebase/auth';
 import type { ConfirmationResult } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
@@ -18,7 +20,7 @@ import { useToast } from './ToastContext';
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  setupRecaptcha: (elementId: string) => void;
+  setupRecaptcha: (elementId: string) => Promise<void>;
   sendOtp: (phone: string) => Promise<boolean>;
   verifyOtp: (otp: string) => Promise<boolean>;
   logout: () => Promise<void>;
@@ -26,7 +28,7 @@ interface AuthContextType {
   updateWallet: (amount: number) => Promise<void>;
   joinMembership: () => Promise<void>;
   login: (email: string, password?: string, role?: string) => Promise<boolean>;
-  signup: (name: string, email: string, password?: string, role?: string, farmName?: string) => Promise<boolean>;
+  signup: (name: string, email: string, password?: string, role?: string, farmName?: string, phone?: string, gender?: string) => Promise<boolean>;
   isAuthenticated: boolean;
 }
 
@@ -36,67 +38,81 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
   const { addToast } = useToast();
 
   // 1. Sync with Firebase (Background Validation)
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      if (fbUser) {
-        try {
+    let unsubscribe = () => {};
+
+    const initAuth = async () => {
+      try {
+        await setPersistence(auth, browserLocalPersistence);
+      } catch (error) {
+        console.warn("Auth persistence setup failed:", error);
+      }
+
+      unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+        if (fbUser) {
+          const baseUser: User = {
+            id: fbUser.uid,
+            name: fbUser.displayName || 'FreshLeaf User',
+            email: fbUser.email || '',
+            phone: fbUser.phoneNumber || '',
+            role: 'customer',
+            walletBalance: 0,
+            avatar: fbUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${fbUser.uid}`,
+            isPro: false,
+            address: ''
+          };
+
+          setUser(baseUser);
+          setLoading(false);
+
+          try {
             const userDocRef = doc(db, 'users', fbUser.uid);
             const userDoc = await getDoc(userDocRef);
-            let currentUserData: User | null = null;
 
             if (userDoc && userDoc.exists()) {
-              currentUserData = { id: fbUser.uid, ...userDoc.data() } as User;
+              setUser({ id: fbUser.uid, ...userDoc.data() } as User);
             } else {
-              currentUserData = {
-                id: fbUser.uid,
-                name: fbUser.displayName || 'FreshLeaf User',
-                email: fbUser.email || '',
-                phone: fbUser.phoneNumber || '',
-                role: 'customer',
-                walletBalance: 0,
-                avatar: fbUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${fbUser.uid}`,
-                isPro: false,
-                address: ''
-              };
-              await setDoc(userDocRef, JSON.parse(JSON.stringify(currentUserData)));
+              await setDoc(userDocRef, JSON.parse(JSON.stringify(baseUser)));
             }
-
-            if (currentUserData) {
-                setUser(currentUserData);
-            }
-        } catch (error) {
+          } catch (error) {
             console.error("Profile sync error:", error);
+          }
+        } else {
+          setUser(null);
+          setLoading(false);
         }
-      } else {
-        setUser(null);
-      }
-      setLoading(false);
-    });
+      });
+    };
 
+    initAuth();
     return () => unsubscribe();
   }, []);
 
-  const setupRecaptcha = (elementId: string) => {
+  const setupRecaptcha = async (elementId: string) => {
     try {
         const element = document.getElementById(elementId);
         if (!element) return;
 
-        // Clear existing verifier if any
-        if ((window as any).recaptchaVerifier) {
-            try {
-              (window as any).recaptchaVerifier.clear();
-            } catch (e) { console.warn("Recaptcha clear error", e); }
-            (window as any).recaptchaVerifier = null;
+        if (recaptchaRef.current) {
+            return;
         }
 
-        (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, elementId, {
-            'size': 'invisible',
-            'callback': () => console.log("Recaptcha verified"),
-            'expired-callback': () => console.log("Recaptcha expired")
+        recaptchaRef.current = new RecaptchaVerifier(auth, elementId, {
+            size: 'normal',
+            callback: () => console.log("Recaptcha verified"),
+            'expired-callback': () => {
+              if (recaptchaRef.current) {
+                recaptchaRef.current.clear();
+                recaptchaRef.current = null;
+              }
+              console.log("Recaptcha expired");
+            }
         });
+        await recaptchaRef.current.render();
     } catch (error) {
         console.error("Error setting up Recaptcha:", error);
     }
@@ -104,9 +120,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const sendOtp = async (phone: string): Promise<boolean> => {
     try {
-      if (!(window as any).recaptchaVerifier) setupRecaptcha('recaptcha-container');
-      
-      const appVerifier = (window as any).recaptchaVerifier;
+      await setupRecaptcha('recaptcha-container');
+      const appVerifier = recaptchaRef.current;
       if (!appVerifier) throw new Error("Recaptcha verifier not initialized");
 
       const digitsOnly = phone.replace(/\D/g, '');
@@ -119,7 +134,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return true;
     } catch (error: any) {
       console.error("Error sending OTP:", error);
-      addToast(error.message || "Unable to send OTP. Please try again.", "error");
+      if (error.code === 'auth/invalid-phone-number') {
+        addToast("Invalid phone number. Please check the format.", "error");
+      } else if (error.code === 'auth/too-many-requests') {
+        addToast("Too many attempts. Please wait a bit and try again.", "error");
+      } else if (error.code === 'auth/captcha-check-failed') {
+        addToast("Recaptcha failed. Please refresh and retry.", "error");
+      } else if (error.code === 'auth/operation-not-allowed') {
+        addToast("Phone auth is disabled in Firebase. Please enable it in the console.", "error");
+      } else {
+        addToast(error.message || "Unable to send OTP. Please try again.", "error");
+      }
       return false;
     }
   };
@@ -129,6 +154,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       if (!confirmationResult) throw new Error("OTP session expired. Please request a new code.");
       await confirmationResult.confirm(otp);
+      setLoading(false);
       return true;
     } catch (error: any) {
       setLoading(false);
@@ -205,7 +231,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const signup = async (name: string, email: string, password?: string, role: string = 'customer', farmName?: string): Promise<boolean> => {
+  const signup = async (
+    name: string,
+    email: string,
+    password?: string,
+    role: string = 'customer',
+    farmName?: string,
+    phone?: string,
+    gender?: string
+  ): Promise<boolean> => {
     try {
         setLoading(true);
         if (!password) throw new Error("Password required");
@@ -216,7 +250,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             id: userCredential.user.uid,
             name,
             email,
-            phone: '',
+            phone: phone || '',
+            gender: gender || undefined,
             role: role as 'customer' | 'seller',
             walletBalance: 0, 
             avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userCredential.user.uid}`,

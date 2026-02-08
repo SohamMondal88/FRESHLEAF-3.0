@@ -48,6 +48,7 @@ export interface User {
   name: string;
   email?: string;
   phone: string;
+  gender?: string;
   address?: string;
   city?: string;
   pincode?: string;
