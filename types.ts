@@ -19,6 +19,9 @@ export interface Product {
   isNew?: boolean;
   isOrganic?: boolean;
   isLocal?: boolean;
+  origin?: string;
+  harvestTime?: string;
+  nutritionHighlights?: string[];
   baseUnit: string; // e.g., 'kg', 'pc', 'bunch'
   sellerId?: string; // ID of the farmer/seller
 }
@@ -26,6 +29,18 @@ export interface Product {
 export interface CartItem extends Product {
   quantity: number;
   selectedUnit: string; // e.g., '500g', '1kg'
+}
+
+export interface BillDetails {
+  mrpTotal: number;
+  itemTotal: number;
+  discount: number;
+  handlingFee: number;
+  platformFee: number;
+  deliveryFee: number;
+  smallCartFee: number;
+  tip: number;
+  grandTotal: number;
 }
 
 export interface User {
@@ -49,6 +64,7 @@ export interface Order {
   date: string;
   createdAt: number; // Timestamp for cancellation logic
   total: number;
+  billBreakdown?: BillDetails;
   status: 'Processing' | 'Packed' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
   items: CartItem[];
   trackingId?: string;
@@ -59,8 +75,25 @@ export interface Order {
   customerName?: string;
   customerPhone?: string;
   instructions?: string[];
+  deliverySlot?: {
+    date: string;
+    time: string;
+  };
+  deliveryNotes?: string;
   walletUsed?: number;
   pointsEarned?: number;
+}
+
+export interface Transaction {
+  id: string;
+  userId: string;
+  orderId: string;
+  amount: number;
+  walletUsed?: number;
+  paymentMethod: string;
+  status: 'pending' | 'paid' | 'failed';
+  currency: string;
+  createdAt: number;
 }
 
 export interface DeliveryAgent {
