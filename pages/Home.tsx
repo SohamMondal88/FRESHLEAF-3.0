@@ -107,7 +107,7 @@ export const Home: React.FC = () => {
   };
 
   return (
-    <div className="w-full bg-[#FAFAF9] overflow-x-hidden font-sans text-slate-800" onMouseMove={handleMouseMove}>
+    <div className="w-full overflow-x-hidden font-sans text-slate-800 fade-slide" onMouseMove={handleMouseMove}>
       
       {/* 1. MODERN PARALLAX HERO */}
       <section className="relative min-h-[90vh] flex items-center overflow-hidden pt-20 lg:pt-0">
