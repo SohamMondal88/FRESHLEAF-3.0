@@ -1,11 +1,10 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Order, CartItem, DeliveryAgent } from '../types';
+import { BillDetails, Order, CartItem, DeliveryAgent } from '../types';
 import { useAuth } from './AuthContext';
 import { db } from './firebase';
 import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { useToast } from './ToastContext';
-import { BillDetails } from './CartContext';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -18,6 +17,7 @@ interface OrderContextType {
       paymentMethod: string, 
       phone: string, 
       name: string, 
+      deliverySlot: { date: string; time: string } | null,
       instructions: string[],
       customInstruction?: string,
       walletUsed?: number
@@ -79,6 +79,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       paymentMethod: string, 
       phone: string, 
       name: string, 
+      deliverySlot: { date: string; time: string } | null,
       instructions: string[],
       customInstruction?: string,
       walletUsed: number = 0
@@ -107,6 +108,8 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       paymentMethod,
       address,
       instructions: finalInstructions,
+      deliverySlot: deliverySlot || undefined,
+      deliveryNotes: customInstruction || undefined,
       trackingId: 'TRK-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
       courier: 'FreshLeaf Courier',
       agent: assignedAgent,

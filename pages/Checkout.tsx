@@ -44,6 +44,12 @@ export const Checkout: React.FC = () => {
       if (cartItems.length === 0) navigate('/cart');
   }, [cartItems, navigate]);
 
+  useEffect(() => {
+      if (!user) {
+          navigate('/login', { state: { from: '/checkout' } });
+      }
+  }, [navigate, user]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -96,6 +102,7 @@ export const Checkout: React.FC = () => {
             methodString, 
             formData.phone, 
             `${formData.firstName} ${formData.lastName}`,
+            deliverySlot,
             deliveryInstructions,
             customInstruction,
             walletDeduction
@@ -116,6 +123,11 @@ export const Checkout: React.FC = () => {
     
     if (!formData.address || !formData.phone) {
         addToast("Please fill in all details", "error");
+        return;
+    }
+
+    if (!deliverySlot) {
+        addToast("Please select a delivery slot", "error");
         return;
     }
 
@@ -190,6 +202,18 @@ export const Checkout: React.FC = () => {
         <h1 className="text-xl font-extrabold mb-6 text-gray-900">Checkout</h1>
         
         <form onSubmit={handlePayment} className="space-y-6">
+            {/* Delivery Slot */}
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                <h3 className="font-bold text-sm text-gray-900 mb-4 flex items-center gap-2">
+                    <Package size={16}/> Delivery Slot
+                </h3>
+                <DeliverySlotPicker onSelect={setDeliverySlot} />
+                {deliverySlot && (
+                    <div className="mt-4 rounded-xl bg-leaf-50 border border-leaf-100 p-3 text-xs font-bold text-leaf-700">
+                        Scheduled for {deliverySlot.date} • {deliverySlot.time}
+                    </div>
+                )}
+            </div>
             
             {/* Delivery Instructions */}
             <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
@@ -241,6 +265,53 @@ export const Checkout: React.FC = () => {
                         <input required name="city" value={formData.city} onChange={handleInputChange} placeholder="City" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-green-500" />
                         <input required name="zip" value={formData.zip} onChange={handleInputChange} placeholder="Pincode" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-green-500" />
                     </div>
+                </div>
+            </div>
+
+            {/* Order Summary */}
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                <h3 className="font-bold text-sm text-gray-900 mb-3">Order Summary</h3>
+                <div className="space-y-2 text-sm text-gray-600">
+                    <div className="flex justify-between">
+                        <span>Item Total</span>
+                        <span>₹{bill.itemTotal}</span>
+                    </div>
+                    {bill.discount > 0 && (
+                        <div className="flex justify-between text-green-600 font-semibold">
+                            <span>Discounts</span>
+                            <span>- ₹{bill.discount}</span>
+                        </div>
+                    )}
+                    <div className="flex justify-between">
+                        <span>Handling Fee</span>
+                        <span>₹{bill.handlingFee}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span>Platform Fee</span>
+                        <span>₹{bill.platformFee}</span>
+                    </div>
+                    {bill.deliveryFee > 0 && (
+                        <div className="flex justify-between">
+                            <span>Delivery Fee</span>
+                            <span>₹{bill.deliveryFee}</span>
+                        </div>
+                    )}
+                    {bill.smallCartFee > 0 && (
+                        <div className="flex justify-between">
+                            <span>Small Cart Fee</span>
+                            <span>₹{bill.smallCartFee}</span>
+                        </div>
+                    )}
+                    {bill.tip > 0 && (
+                        <div className="flex justify-between">
+                            <span>Delivery Tip</span>
+                            <span>₹{bill.tip}</span>
+                        </div>
+                    )}
+                </div>
+                <div className="mt-4 pt-4 border-t border-dashed border-gray-200 flex justify-between items-center text-sm font-extrabold">
+                    <span>Grand Total</span>
+                    <span>₹{bill.grandTotal}</span>
                 </div>
             </div>
 
