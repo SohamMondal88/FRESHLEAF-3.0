@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { BillDetails, Order, CartItem, DeliveryAgent } from '../types';
 import { useAuth } from './AuthContext';
 import { db } from './firebase';
-import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, setDoc, addDoc, getDocs } from 'firebase/firestore';
 import { useToast } from './ToastContext';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -31,13 +31,7 @@ interface OrderContextType {
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
 
-const MY_AGENTS: DeliveryAgent[] = [
-  { name: "Rohan Das", phone: "+91 98765 11111", vehicleNumber: "WB-02-AB-1234", avatar: "https://randomuser.me/api/portraits/men/32.jpg", rating: 4.9 },
-  { name: "Amit Singh", phone: "+91 98765 22222", vehicleNumber: "DL-04-XY-5678", avatar: "https://randomuser.me/api/portraits/men/45.jpg", rating: 4.8 }
-];
-
-// Replace with the actual Owner Phone Number
-const OWNER_PHONE = "916297179823"; 
+const OWNER_PHONE = import.meta.env.VITE_SUPPORT_PHONE || "N/A";
 
 export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user, updateWallet } = useAuth();
@@ -86,7 +80,9 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   ) => {
     if (!user) throw new Error("User not logged in");
 
-    const assignedAgent = MY_AGENTS[Math.floor(Math.random() * MY_AGENTS.length)];
+    const agentsSnap = await getDocs(collection(db, 'deliveryAgents'));
+    const agents = agentsSnap.docs.map(docItem => ({ id: docItem.id, ...docItem.data() } as DeliveryAgent));
+    const assignedAgent = agents.length > 0 ? agents[Math.floor(Math.random() * agents.length)] : undefined;
     const newOrderId = 'ORD-' + Date.now().toString().slice(-6) + Math.floor(Math.random() * 1000);
     
     // Merge predefined and custom instructions
@@ -127,15 +123,27 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     // 2. Credit Points (Immediate local update)
     updateWallet(pointsEarned);
 
-    // 3. Save Order (Non-blocking / Background)
-    setDoc(doc(db, 'orders', newOrderId), newOrderData)
-      .then(() => console.log("Order synced to Firebase"))
-      .catch(error => {
-        console.error("Create order background error", error);
-        addToast("Order placed locally. Syncing...", "info");
-    });
+    // 3. Save Order
+    await setDoc(doc(db, 'orders', newOrderId), newOrderData);
 
-    // 4. Log for "Server-Side" Notification Simulation
+    // 4. Create Transaction Record
+    try {
+      await addDoc(collection(db, 'transactions'), {
+        userId: user.id,
+        orderId: newOrderId,
+        amount: billDetails.grandTotal,
+        walletUsed: walletUsed,
+        paymentMethod,
+        status: paymentMethod.toLowerCase().includes('cod') ? 'pending' : 'paid',
+        currency: 'INR',
+        createdAt: Date.now()
+      });
+    } catch (error) {
+      console.error("Transaction logging failed:", error);
+      addToast("Order placed, but transaction logging failed. Please contact support if needed.", "info");
+    }
+
+    // 5. Log for "Server-Side" Notification Simulation
     console.log(`%c[SMS SENT to ${phone}] Order ${newOrderId} Confirmed!`, "color: green; font-weight: bold;");
     console.log(`%c[WHATSAPP SENT to OWNER] New Order: ${newOrderId} | ₹${billDetails.grandTotal}`, "color: blue; font-weight: bold;");
 

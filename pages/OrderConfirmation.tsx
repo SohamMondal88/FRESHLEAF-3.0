@@ -4,6 +4,7 @@ import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { CheckCircle, Truck, Package, Calendar, Download, MessageCircle, ArrowRight, Gift, MapPin, Phone, CreditCard, ShoppingBag, Loader2 } from 'lucide-react';
 import { useOrder } from '../services/OrderContext';
 import { useImage } from '../services/ImageContext';
+import { useToast } from '../services/ToastContext';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { Order } from '../types';
@@ -13,6 +14,7 @@ export const OrderConfirmation: React.FC = () => {
   const orderId = searchParams.get('id');
   const { getOrderById, generateInvoice } = useOrder();
   const { getProductImage } = useImage();
+  const { addToast } = useToast();
   const navigate = useNavigate();
 
   const [fetchedOrder, setFetchedOrder] = useState<Order | null>(null);
@@ -90,8 +92,11 @@ export const OrderConfirmation: React.FC = () => {
   }
 
   const handleWhatsAppShare = () => {
-    // Owner phone number (replace with real one)
-    const ownerPhone = "916297179823"; 
+    const ownerPhone = import.meta.env.VITE_SUPPORT_PHONE as string | undefined;
+    if (!ownerPhone) {
+        addToast("Support contact is not configured.", "info");
+        return;
+    }
     const message = `Hi FreshLeaf, I just placed an order! \n\nOrder ID: ${order.id} \nName: ${order.customerName} \nAmount: ₹${order.total} \n\nPlease confirm delivery time.`;
     const url = `https://wa.me/${ownerPhone}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');

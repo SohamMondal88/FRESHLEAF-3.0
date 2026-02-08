@@ -45,9 +45,9 @@ export const SellerDashboard: React.FC = () => {
     farmName: user?.farmName || '',
     phone: user?.phone || '',
     email: user?.email || '',
-    upiId: 'seller@upi',
-    accountNumber: 'XXXX-XXXX-8821',
-    ifsc: 'HDFC0001234',
+    upiId: '',
+    accountNumber: '',
+    ifsc: '',
     address: user?.address || '',
   });
 
@@ -93,8 +93,9 @@ export const SellerDashboard: React.FC = () => {
         sellerOrders.push({
           id: order.id,
           date: order.date,
+          createdAt: order.createdAt,
           status: order.status,
-          customer: order.customerName || 'Guest User',
+          customer: order.customerName || 'Customer',
           items: myItems,
           total: orderRevenue,
           payment: order.paymentMethod
@@ -104,6 +105,32 @@ export const SellerDashboard: React.FC = () => {
 
     return { totalRevenue, pendingCount, sellerOrders };
   }, [orders, user?.id]);
+
+  const weeklySales = useMemo(() => {
+    const days = Array.from({ length: 7 }, (_, idx) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (6 - idx));
+      return {
+        key: date.toDateString(),
+        label: date.toLocaleDateString('en-IN', { weekday: 'short' }),
+        total: 0
+      };
+    });
+
+    mySalesData.sellerOrders.forEach((order) => {
+      const dateKey = new Date(order.createdAt).toDateString();
+      const target = days.find(day => day.key === dateKey);
+      if (target) {
+        target.total += order.total;
+      }
+    });
+
+    const maxTotal = Math.max(1, ...days.map(day => day.total));
+    return days.map(day => ({
+      ...day,
+      height: Math.round((day.total / maxTotal) * 100)
+    }));
+  }, [mySalesData.sellerOrders]);
 
   // --- HANDLERS ---
 
@@ -124,7 +151,7 @@ export const SellerDashboard: React.FC = () => {
     }
     setAiLoading(true);
     try {
-        const apiKey = process.env.API_KEY;
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
         const ai = new GoogleGenAI({ apiKey });
         const prompt = `Write a short, appealing 2-sentence description for selling "${newProduct.nameEn}" (${newProduct.category}) fresh from an organic farm. Highlight freshness and health benefits.`;
         const result = await ai.models.generateContent({
@@ -150,7 +177,7 @@ export const SellerDashboard: React.FC = () => {
     }
     if (!user) return;
 
-    const finalMainImage = imagePreview || 'https://via.placeholder.com/150';
+    const finalMainImage = imagePreview;
     const finalGallery = [finalMainImage]; 
 
     addProduct({
@@ -177,18 +204,18 @@ export const SellerDashboard: React.FC = () => {
   const Chart = () => (
     <div className="relative h-64 w-full bg-white rounded-2xl p-4 flex items-end gap-2 overflow-hidden border border-gray-100">
         <div className="absolute top-4 left-4 text-xs font-bold text-gray-400">Revenue Trend (7 Days)</div>
-        {[45, 60, 35, 70, 55, 80, 65].map((h, i) => (
-            <div key={i} className="flex-1 flex flex-col justify-end group cursor-pointer relative">
+        {weeklySales.map((day) => (
+            <div key={day.key} className="flex-1 flex flex-col justify-end group cursor-pointer relative">
                 <div 
                     className="w-full bg-leaf-100 rounded-t-lg transition-all duration-500 group-hover:bg-leaf-500 relative" 
-                    style={{ height: `${h}%` }}
+                    style={{ height: `${day.height}%` }}
                 >
                     <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                        ₹{h * 100}
+                        ₹{Math.round(day.total)}
                     </div>
                 </div>
                 <div className="text-center text-[10px] text-gray-400 mt-2 font-bold">
-                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]}
+                    {day.label}
                 </div>
             </div>
         ))}

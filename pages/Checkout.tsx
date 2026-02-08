@@ -148,8 +148,15 @@ export const Checkout: React.FC = () => {
             return;
         }
 
+        const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID as string | undefined;
+        if (!razorpayKey) {
+            addToast("Payment configuration missing. Please contact support.", "error");
+            setLoading(false);
+            return;
+        }
+
         const options = {
-            key: process.env.RAZORPAY_KEY_ID || "rzp_test_S3LyDLZ5MWuKR7", // Replace with your actual Test Key
+            key: razorpayKey,
             amount: Math.round(finalPayable * 100), // Amount in paise
             currency: "INR",
             name: "FreshLeaf",

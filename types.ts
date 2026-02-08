@@ -19,6 +19,9 @@ export interface Product {
   isNew?: boolean;
   isOrganic?: boolean;
   isLocal?: boolean;
+  origin?: string;
+  harvestTime?: string;
+  nutritionHighlights?: string[];
   baseUnit: string; // e.g., 'kg', 'pc', 'bunch'
   sellerId?: string; // ID of the farmer/seller
 }
@@ -79,6 +82,18 @@ export interface Order {
   deliveryNotes?: string;
   walletUsed?: number;
   pointsEarned?: number;
+}
+
+export interface Transaction {
+  id: string;
+  userId: string;
+  orderId: string;
+  amount: number;
+  walletUsed?: number;
+  paymentMethod: string;
+  status: 'pending' | 'paid' | 'failed';
+  currency: string;
+  createdAt: number;
 }
 
 export interface DeliveryAgent {

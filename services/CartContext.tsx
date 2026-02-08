@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useMe
 import { BillDetails, CartItem, Product } from '../types';
 import { useAuth } from './AuthContext';
 import { db } from './firebase';
-import { doc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { useToast } from './ToastContext';
 
 interface CartContextType {
@@ -63,15 +63,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       });
     } else {
-      // Guest Mode: Local Storage
-      const localCart = localStorage.getItem('freshleaf_guest_cart');
-      const localWishlist = localStorage.getItem('freshleaf_guest_wishlist');
-      if (localCart) {
-          const parsed = JSON.parse(localCart);
-          setCartItems(parsed.items || []);
-          setTip(parsed.tip || 0);
-      }
-      if (localWishlist) setWishlist(JSON.parse(localWishlist));
+      setCartItems([]);
+      setWishlist([]);
+      setTip(0);
       setLoading(false);
     }
 
@@ -83,25 +77,23 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // 2. Persistence Logic
   const saveCartToFirestore = async (items: CartItem[], currentTip: number) => {
-    if (user) {
-      const cartRef = doc(db, 'carts', user.id);
-      await setDoc(cartRef, { items, tip: currentTip, updatedAt: Date.now() }, { merge: true });
-    } else {
-      localStorage.setItem('freshleaf_guest_cart', JSON.stringify({ items, tip: currentTip }));
-    }
+    if (!user) return;
+    const cartRef = doc(db, 'carts', user.id);
+    await setDoc(cartRef, { items, tip: currentTip, updatedAt: Date.now() }, { merge: true });
   };
 
   const saveWishlistToFirestore = async (items: Product[]) => {
-    if (user) {
-      const wishlistRef = doc(db, 'wishlists', user.id);
-      await setDoc(wishlistRef, { items, updatedAt: Date.now() }, { merge: true });
-    } else {
-      localStorage.setItem('freshleaf_guest_wishlist', JSON.stringify(items));
-    }
+    if (!user) return;
+    const wishlistRef = doc(db, 'wishlists', user.id);
+    await setDoc(wishlistRef, { items, updatedAt: Date.now() }, { merge: true });
   };
 
   // 3. Cart Actions
   const addToCart = (product: Product, quantity = 1, selectedUnit = '1kg', pricePerUnit?: number) => {
+    if (!user) {
+      addToast("Please login to add items to cart", "info");
+      return;
+    }
     const finalPrice = pricePerUnit || product.price; 
     const newItems = [...cartItems];
     const existingIdx = newItems.findIndex(item => item.id === product.id && item.selectedUnit === selectedUnit);
@@ -118,6 +110,10 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const removeFromCart = (productId: string, selectedUnit: string) => {
+    if (!user) {
+      addToast("Please login to manage your cart", "info");
+      return;
+    }
     const newItems = cartItems.filter(item => !(item.id === productId && item.selectedUnit === selectedUnit));
     setCartItems(newItems);
     saveCartToFirestore(newItems, tip);
@@ -125,6 +121,10 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const updateQuantity = (productId: string, selectedUnit: string, quantity: number) => {
     if (quantity < 1) return;
+    if (!user) {
+      addToast("Please login to manage your cart", "info");
+      return;
+    }
     const newItems = cartItems.map(item => 
       (item.id === productId && item.selectedUnit === selectedUnit) ? { ...item, quantity } : item
     );
@@ -133,6 +133,11 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const clearCart = () => {
+    if (!user) {
+      setCartItems([]);
+      setTip(0);
+      return;
+    }
     setCartItems([]);
     setTip(0);
     saveCartToFirestore([], 0);
@@ -145,6 +150,10 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // 4. Wishlist Actions
   const addToWishlist = (product: Product) => {
+    if (!user) {
+      addToast("Please login to use wishlist", "info");
+      return;
+    }
     const newWishlist = [...wishlist];
     if (!newWishlist.some(p => p.id === product.id)) {
       newWishlist.push(product);
@@ -155,6 +164,10 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const removeFromWishlist = (productId: string) => {
+    if (!user) {
+      addToast("Please login to use wishlist", "info");
+      return;
+    }
     const newWishlist = wishlist.filter(p => p.id !== productId);
     setWishlist(newWishlist);
     saveWishlistToFirestore(newWishlist);

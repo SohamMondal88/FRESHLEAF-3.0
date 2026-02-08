@@ -56,35 +56,6 @@ export const OrderTracking: React.FC = () => {
     fetchOrder();
   }, [contextOrder, id]);
 
-  useEffect(() => {
-    if (!id) {
-      setIsLoading(false);
-      return;
-    }
-
-    if (contextOrder) {
-      setOrder(contextOrder);
-      setIsLoading(false);
-      return;
-    }
-
-    const fetchOrder = async () => {
-      try {
-        const docRef = doc(db, 'orders', id);
-        const snap = await getDoc(docRef);
-        if (snap.exists()) {
-          setOrder({ id: snap.id, ...snap.data() } as Order);
-        }
-      } catch (error) {
-        console.error("Failed to fetch order fallback", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchOrder();
-  }, [contextOrder, id]);
-
   // Cancellation Timer Logic (2 Minutes)
   useEffect(() => {
     if (!order) return;

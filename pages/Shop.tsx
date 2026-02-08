@@ -13,7 +13,7 @@ import { useImage } from '../services/ImageContext';
 import { ProductCard } from '../components/ui/ProductCard';
 import { ProductCardSkeleton } from '../components/ui/Skeleton';
 import { Product } from '../types';
-import { FARMERS } from '../constants';
+import { useFarmer } from '../services/FarmerContext';
 
 // --- MOBILE 3D CAROUSEL COMPONENT ---
 const Mobile3DCarousel: React.FC<{ 
@@ -152,6 +152,7 @@ export const Shop: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { products, loading } = useProduct();
+  const { farmers } = useFarmer();
   const { getProductImage } = useImage();
   const { addToCart } = useCart();
   
@@ -200,12 +201,12 @@ export const Shop: React.FC = () => {
   // Available Data for Filters
   const availableFarmers = useMemo(() => {
       const sellerIds = new Set(products.map(p => p.sellerId).filter(Boolean));
-      let farmers = FARMERS.filter(f => sellerIds.has(f.id));
+      let filteredFarmers = farmers.filter(f => sellerIds.has(f.id));
       if (farmerSearch) {
-          farmers = farmers.filter(f => f.farmName.toLowerCase().includes(farmerSearch.toLowerCase()) || f.name.toLowerCase().includes(farmerSearch.toLowerCase()));
+          filteredFarmers = filteredFarmers.filter(f => f.farmName.toLowerCase().includes(farmerSearch.toLowerCase()) || f.name.toLowerCase().includes(farmerSearch.toLowerCase()));
       }
-      return farmers;
-  }, [products, farmerSearch]);
+      return filteredFarmers;
+  }, [products, farmerSearch, farmers]);
 
   const availableSubCategories = useMemo(() => {
       if (selectedCategory === 'Vegetables') {
@@ -236,13 +237,17 @@ export const Shop: React.FC = () => {
     }
   }, [maxProductPrice]);
 
-  // --- MOCK DATA FOR JOURNAL VIEW ---
-  const getProductDetails = (product: any) => ({
-    origin: product.isLocal ? 'Local Farms, West Bengal' : 'Sourced from Nashik/Himachal',
-    harvestTime: 'Daily 6:00 AM',
-    benefits: ['Rich in Fiber', 'Vitamin Boost', 'Antioxidant'].slice(0, 2),
-    calories: Math.floor(Math.random() * 80 + 20)
-  });
+  const getProductDetails = (product: Product) => {
+    const farmer = farmers.find((item) => item.id === product.sellerId);
+    return {
+      origin: product.origin || farmer?.location || 'Origin not specified',
+      harvestTime: product.harvestTime || 'Harvest time not specified',
+      benefits: product.nutritionHighlights && product.nutritionHighlights.length > 0
+        ? product.nutritionHighlights.slice(0, 2)
+        : [],
+      rating: product.rating
+    };
+  };
 
   // --- SEASONAL LOGIC ---
   const seasonalBestSellers = useMemo(() => {
@@ -859,11 +864,11 @@ export const Shop: React.FC = () => {
                                              </div>
                                              <div className="text-center md:text-left hidden sm:block">
                                                 <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1 flex items-center justify-center md:justify-start gap-1"><Zap size={10}/> Nutrition</p>
-                                                <p className="text-sm font-bold text-gray-700">{details.benefits[0]}</p>
+                                                <p className="text-sm font-bold text-gray-700">{details.benefits[0] || 'Nutrition info pending'}</p>
                                              </div>
                                              <div className="text-center md:text-left hidden sm:block">
                                                 <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1 flex items-center justify-center md:justify-start gap-1"><Star size={10}/> Rating</p>
-                                                <p className="text-sm font-bold text-gray-700 flex items-center justify-center md:justify-start gap-1">4.8 <span className="text-yellow-400">★</span></p>
+                                                <p className="text-sm font-bold text-gray-700 flex items-center justify-center md:justify-start gap-1">{details.rating.toFixed(1)} <span className="text-yellow-400">★</span></p>
                                              </div>
                                           </div>
                                        </div>
