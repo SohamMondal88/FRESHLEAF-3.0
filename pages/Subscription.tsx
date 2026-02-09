@@ -31,9 +31,16 @@ export const Subscription: React.FC = () => {
 
     setLoading(planName);
 
+    const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID as string | undefined;
+    if (!razorpayKey) {
+      addToast("Payment configuration missing. Please contact support.", "error");
+      setLoading(null);
+      return;
+    }
+
     // Razorpay Integration
     const options = {
-      key: process.env.RAZORPAY_KEY_ID || "rzp_test_1234567890", // Test Key
+      key: razorpayKey,
       amount: amount * 100, // paise
       currency: "INR",
       name: "FreshLeaf",
