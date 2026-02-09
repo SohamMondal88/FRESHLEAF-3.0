@@ -15,6 +15,15 @@ import { auth, db } from '../services/firebase';
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { Transaction } from '../types';
+<<<<<<< codex/fix-and-improve-ecommerce-website-8ic628
+
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
+=======
+>>>>>>> main
 
 export const Account: React.FC = () => {
   const { user, logout, updateProfile, updateWallet } = useAuth();
@@ -22,6 +31,7 @@ export const Account: React.FC = () => {
   const { wishlist } = useCart();
   const { addToast } = useToast();
   const navigate = useNavigate();
+  const supportPhone = import.meta.env.VITE_SUPPORT_PHONE as string | undefined;
   
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isEditingAddress, setIsEditingAddress] = useState(false);
@@ -38,6 +48,11 @@ export const Account: React.FC = () => {
   const [profileData, setProfileData] = useState({ name: user?.name || '', email: user?.email || '', phone: user?.phone || '' });
   const [loading, setLoading] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+<<<<<<< codex/fix-and-improve-ecommerce-website-8ic628
+  const [walletTopup, setWalletTopup] = useState(500);
+  const [walletLoading, setWalletLoading] = useState(false);
+=======
+>>>>>>> main
 
   useEffect(() => {
     if (!user) navigate('/login');
@@ -136,6 +151,59 @@ export const Account: React.FC = () => {
           await updateWallet(10); 
           addToast("₹10 added to your wallet!", "success");
       }
+  };
+
+  const handleWalletTopup = () => {
+    const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID as string | undefined;
+    if (!razorpayKey) {
+      addToast("Missing Razorpay key. Add VITE_RAZORPAY_KEY_ID to your env.", "error");
+      return;
+    }
+    if (!window.Razorpay) {
+      addToast("Razorpay SDK failed to load. Please refresh.", "error");
+      return;
+    }
+    if (walletTopup < 50) {
+      addToast("Minimum top-up is ₹50", "error");
+      return;
+    }
+    if (!user) return;
+    setWalletLoading(true);
+
+    const options = {
+      key: razorpayKey,
+      amount: Math.round(walletTopup * 100),
+      currency: 'INR',
+      name: 'FreshLeaf Wallet',
+      description: 'Wallet Top-up',
+      prefill: {
+        name: user.name,
+        email: user.email,
+        contact: user.phone
+      },
+      theme: {
+        color: '#2b8a5a'
+      },
+      handler: async (response: { razorpay_payment_id?: string }) => {
+        if (response.razorpay_payment_id) {
+          await updateWallet(walletTopup);
+          addToast("Wallet updated successfully!", "success");
+        }
+        setWalletLoading(false);
+      },
+      modal: {
+        ondismiss: () => setWalletLoading(false)
+      }
+    };
+
+    try {
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (error) {
+      setWalletLoading(false);
+      console.error("Razorpay Error:", error);
+      addToast("Unable to start payment. Please try again.", "error");
+    }
   };
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
@@ -359,6 +427,219 @@ export const Account: React.FC = () => {
     </div>
   );
 
+  const AddressesView = () => (
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-bold text-gray-900">Saved Addresses</h3>
+          <p className="text-sm text-gray-500">Manage your delivery locations.</p>
+        </div>
+        <button 
+          onClick={() => setIsEditingAddress(true)}
+          className="bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-leaf-600 transition"
+        >
+          <Plus size={16}/> Add Address
+        </button>
+      </div>
+
+      {isEditingAddress && (
+        <form onSubmit={handleAddAddress} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <select 
+              value={newAddress.type}
+              onChange={(e) => setNewAddress({ ...newAddress, type: e.target.value })}
+              className="border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium"
+            >
+              <option>Home</option>
+              <option>Work</option>
+              <option>Other</option>
+            </select>
+            <input 
+              value={newAddress.text}
+              onChange={(e) => setNewAddress({ ...newAddress, text: e.target.value })}
+              placeholder="House no, street, city, pincode"
+              className="md:col-span-2 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium"
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <button type="submit" className="bg-leaf-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-leaf-700 transition">Save Address</button>
+            <button type="button" onClick={() => setIsEditingAddress(false)} className="text-sm font-bold text-gray-500 hover:text-gray-700">Cancel</button>
+          </div>
+        </form>
+      )}
+
+      {addresses.length === 0 ? (
+        <div className="bg-white p-10 rounded-3xl shadow-sm border border-dashed border-gray-200 text-center text-sm text-gray-500">
+          No addresses saved yet.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {addresses.map((address) => (
+            <div key={address.id} className={`bg-white p-5 rounded-2xl border ${address.isDefault ? 'border-leaf-500' : 'border-gray-100'} shadow-sm`}>
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{address.type}</span>
+                    {address.isDefault && <span className="text-[10px] font-bold text-leaf-700 bg-leaf-50 px-2 py-0.5 rounded-full">Default</span>}
+                  </div>
+                  <p className="mt-2 text-sm text-gray-700 leading-relaxed">{address.text}</p>
+                </div>
+                <button onClick={() => handleDeleteAddress(address.id)} className="text-gray-400 hover:text-red-500 transition">
+                  <Trash2 size={16} />
+                </button>
+              </div>
+              <div className="mt-4 flex items-center gap-3">
+                {!address.isDefault && (
+                  <button onClick={() => handleSetDefaultAddress(address.id)} className="text-xs font-bold text-leaf-600 hover:underline">
+                    Set as default
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const WalletView = () => (
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="bg-gradient-to-r from-leaf-700 to-leaf-500 rounded-3xl p-8 text-white shadow-xl">
+        <p className="text-sm text-leaf-100">Wallet Balance</p>
+        <div className="text-4xl font-extrabold mt-2">{formatPrice(user.walletBalance)}</div>
+        <p className="text-xs text-leaf-100 mt-2">Use wallet balance for faster checkout and instant savings.</p>
+      </div>
+
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+        <h3 className="text-lg font-bold text-gray-900 mb-4">Add Money</h3>
+        <div className="flex flex-col md:flex-row gap-4 md:items-center">
+          <input
+            type="number"
+            min={50}
+            value={walletTopup}
+            onChange={(e) => setWalletTopup(Number(e.target.value))}
+            className="border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium w-full md:max-w-[200px]"
+          />
+          <button
+            onClick={handleWalletTopup}
+            disabled={walletLoading}
+            className="bg-gray-900 text-white px-5 py-3 rounded-xl text-sm font-bold hover:bg-leaf-600 transition disabled:opacity-60"
+          >
+            {walletLoading ? 'Processing…' : 'Pay with Razorpay'}
+          </button>
+          <p className="text-xs text-gray-500">Minimum ₹50. Uses your configured Razorpay key.</p>
+        </div>
+      </div>
+
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-gray-900">Transaction History</h3>
+          <button onClick={() => setActiveTab('dashboard')} className="text-xs font-bold text-leaf-600 hover:underline">Back to overview</button>
+        </div>
+        {transactions.length > 0 ? (
+          <div className="space-y-3">
+            {transactions.map((tx) => (
+              <div key={tx.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                <div>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Order #{tx.orderId}</p>
+                  <p className="text-sm font-semibold text-gray-800">{tx.paymentMethod}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-black text-gray-900">{formatPrice(tx.amount)}</p>
+                  <p className={`text-[10px] font-bold uppercase tracking-wide mt-0.5 ${tx.status === 'paid' ? 'text-green-600' : 'text-orange-500'}`}>{tx.status}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500">
+            No wallet transactions yet.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const ReferView = () => {
+    const code = `FRESH-${user.name.split(' ')[0].toUpperCase()}20`;
+    const shareText = encodeURIComponent(`Use my FreshLeaf referral code ${code} to get instant savings on your first order!`);
+    return (
+      <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+          <h3 className="text-lg font-bold text-gray-900 mb-2">Refer & Earn</h3>
+          <p className="text-sm text-gray-500 mb-6">Invite friends and earn wallet credits when they order.</p>
+          <div className="bg-leaf-50 border border-leaf-100 rounded-2xl p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Your Code</p>
+              <p className="text-2xl font-extrabold text-leaf-700 tracking-wide">{code}</p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={handleCopyReferral} className="bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-leaf-600 transition">Copy Code</button>
+              <a href={`https://wa.me/?text=${shareText}`} className="bg-white border border-gray-200 px-4 py-2 rounded-xl text-sm font-bold text-gray-700 hover:border-leaf-300 hover:text-leaf-700 transition flex items-center gap-2">
+                <Share2 size={16}/> Share
+              </a>
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[
+            { title: 'Share', detail: 'Send your code to friends & family.' },
+            { title: 'Order', detail: 'They place their first order.' },
+            { title: 'Earn', detail: 'You both receive wallet credits.' }
+          ].map((step, idx) => (
+            <div key={step.title} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+              <div className="text-xs font-bold text-leaf-600 uppercase tracking-wide">Step {idx + 1}</div>
+              <div className="text-lg font-bold text-gray-900 mt-2">{step.title}</div>
+              <p className="text-sm text-gray-500 mt-2">{step.detail}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const HelpDeskView = () => (
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+        <h3 className="text-lg font-bold text-gray-900 mb-2">Help Desk</h3>
+        <p className="text-sm text-gray-500 mb-6">We are here to help you with orders, payments, and account questions.</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-gray-50 p-5 rounded-2xl">
+            <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">Support Phone</div>
+            <p className="text-lg font-bold text-gray-900 mt-2">{supportPhone || 'Add VITE_SUPPORT_PHONE'}</p>
+            {supportPhone && <a href={`tel:${supportPhone}`} className="text-sm text-leaf-600 font-bold hover:underline">Call now</a>}
+          </div>
+          <div className="bg-gray-50 p-5 rounded-2xl">
+            <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">Email</div>
+            <p className="text-lg font-bold text-gray-900 mt-2">support@freshleaf.in</p>
+            <a href="mailto:support@freshleaf.in" className="text-sm text-leaf-600 font-bold hover:underline">Send email</a>
+          </div>
+          <div className="bg-gray-50 p-5 rounded-2xl">
+            <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">Help Center</div>
+            <p className="text-sm text-gray-500 mt-2">Browse FAQs and delivery policies.</p>
+            <Link to="/contact" className="text-sm text-leaf-600 font-bold hover:underline">Visit help center</Link>
+          </div>
+        </div>
+      </div>
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+        <h4 className="font-bold text-gray-900 mb-4">Common Topics</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[
+            { title: 'Order delays', desc: 'Track your order timeline and see rider status.' },
+            { title: 'Payment issues', desc: 'Find help with Razorpay or wallet payments.' },
+            { title: 'Refunds', desc: 'Learn how we process refunds and returns.' },
+            { title: 'Account updates', desc: 'Manage addresses, phone, and preferences.' }
+          ].map((item) => (
+            <div key={item.title} className="border border-gray-100 rounded-2xl p-4">
+              <p className="font-bold text-gray-900">{item.title}</p>
+              <p className="text-sm text-gray-500 mt-1">{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="bg-gray-50 min-h-screen py-10 font-sans">
       <div className="container mx-auto px-4 max-w-7xl">
@@ -452,6 +733,10 @@ export const Account: React.FC = () => {
           {/* RIGHT CONTENT AREA */}
           <div className="lg:col-span-9">
              {activeTab === 'dashboard' && <DashboardView />}
+             {activeTab === 'addresses' && <AddressesView />}
+             {activeTab === 'wallet' && <WalletView />}
+             {activeTab === 'refer' && <ReferView />}
+             {activeTab === 'support' && <HelpDeskView />}
              {/* Other view components would go here, simplified for brevity as logic is in DashboardView */}
           </div>
 
