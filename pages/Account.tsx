@@ -15,12 +15,15 @@ import { auth, db } from '../services/firebase';
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { Transaction } from '../types';
+<<<<<<< codex/fix-and-improve-ecommerce-website-8ic628
 
 declare global {
   interface Window {
     Razorpay: any;
   }
 }
+=======
+>>>>>>> main
 
 export const Account: React.FC = () => {
   const { user, logout, updateProfile, updateWallet } = useAuth();
@@ -45,8 +48,11 @@ export const Account: React.FC = () => {
   const [profileData, setProfileData] = useState({ name: user?.name || '', email: user?.email || '', phone: user?.phone || '' });
   const [loading, setLoading] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+<<<<<<< codex/fix-and-improve-ecommerce-website-8ic628
   const [walletTopup, setWalletTopup] = useState(500);
   const [walletLoading, setWalletLoading] = useState(false);
+=======
+>>>>>>> main
 
   useEffect(() => {
     if (!user) navigate('/login');
