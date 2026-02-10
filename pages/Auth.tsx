@@ -131,7 +131,7 @@ export const Login: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const { login, sendOtp, verifyOtp, setupRecaptcha } = useAuth();
+  const { login, sendOtp, verifyOtp, setupRecaptcha, googleLogin } = useAuth();
   const { addToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -169,9 +169,8 @@ export const Login: React.FC = () => {
     setIsLoading(false);
     if (success) {
       setShowOtpInput(true);
+      setOtp(['', '', '', '', '', '']);
       addToast(`OTP sent to ${phone}`, 'success');
-    } else {
-      addToast("Failed to send OTP", "error");
     }
   };
 
@@ -183,8 +182,6 @@ export const Login: React.FC = () => {
     if (success) {
       addToast("Login Successful!", "success");
       navigate(from, { replace: true });
-    } else {
-      addToast("Invalid OTP", "error");
     }
   };
 
@@ -326,7 +323,13 @@ export const Login: React.FC = () => {
       </div>
 
       {/* Social Login */}
-      <button onClick={() => addToast("Google Login Coming Soon!", "info")} className="w-full bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 py-3.5 rounded-xl font-bold flex items-center justify-center gap-3 transition-all transform active:scale-95 shadow-sm hover:shadow-md">
+      <button onClick={async () => {
+        const success = await googleLogin();
+        if (success) {
+          addToast('Logged in with Google', 'success');
+          navigate(from, { replace: true });
+        }
+      }} className="w-full bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 py-3.5 rounded-xl font-bold flex items-center justify-center gap-3 transition-all transform active:scale-95 shadow-sm hover:shadow-md">
         <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-6 h-6" alt="Google" />
         Continue with Google
       </button>

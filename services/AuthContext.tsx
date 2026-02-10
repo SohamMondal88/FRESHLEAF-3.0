@@ -11,7 +11,9 @@ import {
   createUserWithEmailAndPassword,
   updateProfile as firebaseUpdateProfile,
   setPersistence,
-  browserLocalPersistence
+  browserLocalPersistence,
+  GoogleAuthProvider,
+  signInWithPopup
 } from 'firebase/auth';
 import type { ConfirmationResult } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
@@ -29,6 +31,7 @@ interface AuthContextType {
   joinMembership: () => Promise<void>;
   login: (email: string, password?: string, role?: string) => Promise<boolean>;
   signup: (name: string, email: string, password?: string, role?: string, farmName?: string, phone?: string, gender?: string) => Promise<boolean>;
+  googleLogin: () => Promise<boolean>;
   isAuthenticated: boolean;
 }
 
@@ -153,12 +156,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setLoading(true);
     try {
       if (!confirmationResult) throw new Error("OTP session expired. Please request a new code.");
-      await confirmationResult.confirm(otp);
+
+      const cleanOtp = otp.trim();
+      if (!/^\d{6}$/.test(cleanOtp)) {
+        throw new Error('Please enter a valid 6-digit OTP');
+      }
+
+      await confirmationResult.confirm(cleanOtp);
       setLoading(false);
       return true;
     } catch (error: any) {
       setLoading(false);
-      addToast(error.message || "Invalid OTP", "error");
+      if (error.code === 'auth/invalid-verification-code') {
+        addToast('Invalid OTP. Please re-check the code or request a new OTP.', 'error');
+      } else if (error.code === 'auth/code-expired') {
+        addToast('OTP expired. Please request a new one.', 'error');
+      } else {
+        addToast(error.message || "Invalid OTP", "error");
+      }
       return false;
     }
   };
@@ -231,6 +246,41 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const googleLogin = async (): Promise<boolean> => {
+    try {
+      setLoading(true);
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      const credential = await signInWithPopup(auth, provider);
+
+      const baseUser: User = {
+        id: credential.user.uid,
+        name: credential.user.displayName || 'FreshLeaf User',
+        email: credential.user.email || '',
+        phone: credential.user.phoneNumber || '',
+        role: 'customer',
+        walletBalance: 0,
+        avatar: credential.user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${credential.user.uid}`,
+        isPro: false,
+        address: ''
+      };
+
+      await setDoc(doc(db, 'users', credential.user.uid), JSON.parse(JSON.stringify(baseUser)), { merge: true });
+      setLoading(false);
+      return true;
+    } catch (error: any) {
+      setLoading(false);
+      if (error.code === 'auth/popup-closed-by-user') {
+        addToast('Google login was cancelled.', 'info');
+      } else if (error.code === 'auth/operation-not-allowed') {
+        addToast('Google provider is disabled in Firebase console.', 'error');
+      } else {
+        addToast(error.message || 'Google login failed', 'error');
+      }
+      return false;
+    }
+  };
+
   const signup = async (
     name: string,
     email: string,
@@ -293,6 +343,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       joinMembership,
       login,
       signup,
+      googleLogin,
       isAuthenticated: !!user 
     }}>
       {children}
