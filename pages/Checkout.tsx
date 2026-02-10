@@ -7,6 +7,7 @@ import { useOrder } from '../services/OrderContext';
 import { useToast } from '../services/ToastContext';
 import { ShieldCheck, CreditCard, Banknote, MapPin, BellOff, PhoneOff, Package, Plus, Loader2, MessageSquare, Wallet } from 'lucide-react';
 import { DeliverySlotPicker } from '../components/DeliverySlotPicker';
+import { createServerOrder, verifyServerPayment } from '../services/paymentApi';
 
 declare global {
   interface Window {
@@ -43,6 +44,12 @@ export const Checkout: React.FC = () => {
   useEffect(() => {
       if (cartItems.length === 0) navigate('/cart');
   }, [cartItems, navigate]);
+
+  useEffect(() => {
+      if (!user) {
+          navigate('/login', { state: { from: '/checkout' } });
+      }
+  }, [navigate, user]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -96,6 +103,7 @@ export const Checkout: React.FC = () => {
             methodString, 
             formData.phone, 
             `${formData.firstName} ${formData.lastName}`,
+            deliverySlot,
             deliveryInstructions,
             customInstruction,
             walletDeduction
@@ -119,6 +127,11 @@ export const Checkout: React.FC = () => {
         return;
     }
 
+    if (!deliverySlot) {
+        addToast("Please select a delivery slot", "error");
+        return;
+    }
+
     setLoading(true);
 
     // If fully paid by wallet
@@ -136,17 +149,57 @@ export const Checkout: React.FC = () => {
             return;
         }
 
+        if (!user) {
+            addToast("Please login again to continue payment", "error");
+            setLoading(false);
+            return;
+        }
+
+        const currentUserId = user.id;
+
+        let serverOrder: any;
+        try {
+            serverOrder = await createServerOrder({
+                amountPaise: Math.round(finalPayable * 100),
+                userId: currentUserId,
+                purpose: 'checkout'
+            });
+        } catch (error: any) {
+            addToast(error.message || "Unable to initialize payment", "error");
+            setLoading(false);
+            return;
+        }
+
         const options = {
-            key: process.env.RAZORPAY_KEY_ID || "rzp_test_S3LyDLZ5MWuKR7", // Replace with your actual Test Key
-            amount: Math.round(finalPayable * 100), // Amount in paise
-            currency: "INR",
+            key: serverOrder.key,
+            amount: serverOrder.amount,
+            currency: serverOrder.currency || "INR",
             name: "FreshLeaf",
             description: "Fresh Vegetables & Fruits Order",
             image: "https://cdn-icons-png.flaticon.com/512/2909/2909808.png",
-            handler: function (response: any) {
-                if (response.razorpay_payment_id) {
-                    addToast("Payment Successful!", "success");
-                    processOrder(response.razorpay_payment_id);
+            order_id: serverOrder.id,
+            handler: async function (response: any) {
+                if (response.razorpay_payment_id && response.razorpay_order_id && response.razorpay_signature) {
+                    try {
+                        await verifyServerPayment({
+                            userId: currentUserId,
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_signature: response.razorpay_signature,
+                            amount: finalPayable,
+                            paymentMethod: 'Online (Razorpay)',
+                            walletUsed: walletDeduction,
+                            purpose: 'checkout'
+                        });
+                        addToast("Payment Successful!", "success");
+                        processOrder(response.razorpay_payment_id);
+                    } catch (error: any) {
+                        addToast(error.message || "Payment verification failed", "error");
+                        setLoading(false);
+                    }
+                } else {
+                    addToast("Payment not completed", "error");
+                    setLoading(false);
                 }
             },
             prefill: {
@@ -190,6 +243,18 @@ export const Checkout: React.FC = () => {
         <h1 className="text-xl font-extrabold mb-6 text-gray-900">Checkout</h1>
         
         <form onSubmit={handlePayment} className="space-y-6">
+            {/* Delivery Slot */}
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                <h3 className="font-bold text-sm text-gray-900 mb-4 flex items-center gap-2">
+                    <Package size={16}/> Delivery Slot
+                </h3>
+                <DeliverySlotPicker onSelect={setDeliverySlot} />
+                {deliverySlot && (
+                    <div className="mt-4 rounded-xl bg-leaf-50 border border-leaf-100 p-3 text-xs font-bold text-leaf-700">
+                        Scheduled for {deliverySlot.date} • {deliverySlot.time}
+                    </div>
+                )}
+            </div>
             
             {/* Delivery Instructions */}
             <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
@@ -241,6 +306,53 @@ export const Checkout: React.FC = () => {
                         <input required name="city" value={formData.city} onChange={handleInputChange} placeholder="City" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-green-500" />
                         <input required name="zip" value={formData.zip} onChange={handleInputChange} placeholder="Pincode" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-green-500" />
                     </div>
+                </div>
+            </div>
+
+            {/* Order Summary */}
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                <h3 className="font-bold text-sm text-gray-900 mb-3">Order Summary</h3>
+                <div className="space-y-2 text-sm text-gray-600">
+                    <div className="flex justify-between">
+                        <span>Item Total</span>
+                        <span>₹{bill.itemTotal}</span>
+                    </div>
+                    {bill.discount > 0 && (
+                        <div className="flex justify-between text-green-600 font-semibold">
+                            <span>Discounts</span>
+                            <span>- ₹{bill.discount}</span>
+                        </div>
+                    )}
+                    <div className="flex justify-between">
+                        <span>Handling Fee</span>
+                        <span>₹{bill.handlingFee}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span>Platform Fee</span>
+                        <span>₹{bill.platformFee}</span>
+                    </div>
+                    {bill.deliveryFee > 0 && (
+                        <div className="flex justify-between">
+                            <span>Delivery Fee</span>
+                            <span>₹{bill.deliveryFee}</span>
+                        </div>
+                    )}
+                    {bill.smallCartFee > 0 && (
+                        <div className="flex justify-between">
+                            <span>Small Cart Fee</span>
+                            <span>₹{bill.smallCartFee}</span>
+                        </div>
+                    )}
+                    {bill.tip > 0 && (
+                        <div className="flex justify-between">
+                            <span>Delivery Tip</span>
+                            <span>₹{bill.tip}</span>
+                        </div>
+                    )}
+                </div>
+                <div className="mt-4 pt-4 border-t border-dashed border-gray-200 flex justify-between items-center text-sm font-extrabold">
+                    <span>Grand Total</span>
+                    <span>₹{bill.grandTotal}</span>
                 </div>
             </div>
 
