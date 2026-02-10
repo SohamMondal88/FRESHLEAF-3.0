@@ -7,6 +7,7 @@ import { useOrder } from '../services/OrderContext';
 import { useToast } from '../services/ToastContext';
 import { ShieldCheck, CreditCard, Banknote, MapPin, BellOff, PhoneOff, Package, Plus, Loader2, MessageSquare, Wallet } from 'lucide-react';
 import { DeliverySlotPicker } from '../components/DeliverySlotPicker';
+import { createServerOrder, verifyServerPayment } from '../services/paymentApi';
 
 declare global {
   interface Window {
@@ -148,24 +149,57 @@ export const Checkout: React.FC = () => {
             return;
         }
 
-        const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID as string | undefined;
-        if (!razorpayKey) {
-            addToast("Payment configuration missing. Please contact support.", "error");
+        if (!user) {
+            addToast("Please login again to continue payment", "error");
+            setLoading(false);
+            return;
+        }
+
+        const currentUserId = user.id;
+
+        let serverOrder: any;
+        try {
+            serverOrder = await createServerOrder({
+                amountPaise: Math.round(finalPayable * 100),
+                userId: currentUserId,
+                purpose: 'checkout'
+            });
+        } catch (error: any) {
+            addToast(error.message || "Unable to initialize payment", "error");
             setLoading(false);
             return;
         }
 
         const options = {
-            key: razorpayKey,
-            amount: Math.round(finalPayable * 100), // Amount in paise
-            currency: "INR",
+            key: serverOrder.key,
+            amount: serverOrder.amount,
+            currency: serverOrder.currency || "INR",
             name: "FreshLeaf",
             description: "Fresh Vegetables & Fruits Order",
             image: "https://cdn-icons-png.flaticon.com/512/2909/2909808.png",
-            handler: function (response: any) {
-                if (response.razorpay_payment_id) {
-                    addToast("Payment Successful!", "success");
-                    processOrder(response.razorpay_payment_id);
+            order_id: serverOrder.id,
+            handler: async function (response: any) {
+                if (response.razorpay_payment_id && response.razorpay_order_id && response.razorpay_signature) {
+                    try {
+                        await verifyServerPayment({
+                            userId: currentUserId,
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_signature: response.razorpay_signature,
+                            amount: finalPayable,
+                            paymentMethod: 'Online (Razorpay)',
+                            walletUsed: walletDeduction,
+                            purpose: 'checkout'
+                        });
+                        addToast("Payment Successful!", "success");
+                        processOrder(response.razorpay_payment_id);
+                    } catch (error: any) {
+                        addToast(error.message || "Payment verification failed", "error");
+                        setLoading(false);
+                    }
+                } else {
+                    addToast("Payment not completed", "error");
+                    setLoading(false);
                 }
             },
             prefill: {

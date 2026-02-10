@@ -13,17 +13,15 @@ import { useCart } from '../services/CartContext';
 import { useToast } from '../services/ToastContext';
 import { auth, db } from '../services/firebase';
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { addDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { Transaction } from '../types';
-<<<<<<< codex/fix-and-improve-ecommerce-website-8ic628
+import { createServerOrder, verifyServerPayment } from '../services/paymentApi';
 
 declare global {
   interface Window {
     Razorpay: any;
   }
 }
-=======
->>>>>>> main
 
 export const Account: React.FC = () => {
   const { user, logout, updateProfile, updateWallet } = useAuth();
@@ -48,11 +46,11 @@ export const Account: React.FC = () => {
   const [profileData, setProfileData] = useState({ name: user?.name || '', email: user?.email || '', phone: user?.phone || '' });
   const [loading, setLoading] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-<<<<<<< codex/fix-and-improve-ecommerce-website-8ic628
   const [walletTopup, setWalletTopup] = useState(500);
   const [walletLoading, setWalletLoading] = useState(false);
-=======
->>>>>>> main
+  const [walletTopup, setWalletTopup] = useState(500);
+  const [walletLoading, setWalletLoading] = useState(false);
+
 
   useEffect(() => {
     if (!user) navigate('/login');
@@ -153,12 +151,7 @@ export const Account: React.FC = () => {
       }
   };
 
-  const handleWalletTopup = () => {
-    const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID as string | undefined;
-    if (!razorpayKey) {
-      addToast("Missing Razorpay key. Add VITE_RAZORPAY_KEY_ID to your env.", "error");
-      return;
-    }
+  const handleWalletTopup = async () => {
     if (!window.Razorpay) {
       addToast("Razorpay SDK failed to load. Please refresh.", "error");
       return;
@@ -170,10 +163,26 @@ export const Account: React.FC = () => {
     if (!user) return;
     setWalletLoading(true);
 
+    const currentUserId = user.id;
+
+    let serverOrder: any;
+    try {
+      serverOrder = await createServerOrder({
+        amountPaise: Math.round(walletTopup * 100),
+        userId: currentUserId,
+        purpose: 'wallet_topup'
+      });
+    } catch (error: any) {
+      setWalletLoading(false);
+      addToast(error.message || 'Unable to initialize payment', 'error');
+      return;
+    }
+
     const options = {
-      key: razorpayKey,
-      amount: Math.round(walletTopup * 100),
-      currency: 'INR',
+      key: serverOrder.key,
+      amount: serverOrder.amount,
+      currency: serverOrder.currency || 'INR',
+      order_id: serverOrder.id,
       name: 'FreshLeaf Wallet',
       description: 'Wallet Top-up',
       prefill: {
@@ -184,12 +193,35 @@ export const Account: React.FC = () => {
       theme: {
         color: '#2b8a5a'
       },
-      handler: async (response: { razorpay_payment_id?: string }) => {
-        if (response.razorpay_payment_id) {
-          await updateWallet(walletTopup);
-          addToast("Wallet updated successfully!", "success");
+      handler: async (response: { razorpay_order_id?: string; razorpay_payment_id?: string; razorpay_signature?: string }) => {
+        try {
+          if (response.razorpay_payment_id && response.razorpay_order_id && response.razorpay_signature) {
+            await verifyServerPayment({
+              userId: currentUserId,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              amount: walletTopup,
+              paymentMethod: 'Wallet Top-up (Razorpay)',
+              purpose: 'wallet_topup'
+            });
+            await updateWallet(walletTopup);
+            await addDoc(collection(db, 'transactions'), {
+              userId: currentUserId,
+              orderId: `wallet-topup-${Date.now()}`,
+              amount: walletTopup,
+              paymentMethod: 'Wallet Top-up (Razorpay)',
+              status: 'paid',
+              currency: 'INR',
+              createdAt: Date.now()
+            });
+            addToast("Wallet updated successfully!", "success");
+          }
+        } catch (error: any) {
+          addToast(error.message || 'Payment verification failed', 'error');
+        } finally {
+          setWalletLoading(false);
         }
-        setWalletLoading(false);
       },
       modal: {
         ondismiss: () => setWalletLoading(false)
