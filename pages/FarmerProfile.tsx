@@ -2,13 +2,24 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MapPin, Star, Calendar, ArrowLeft, CheckCircle, ShieldCheck, Sprout } from 'lucide-react';
-import { FARMERS, PRODUCTS } from '../constants';
+import { useFarmer } from '../services/FarmerContext';
+import { useProduct } from '../services/ProductContext';
 import { ProductCard } from '../components/ui/ProductCard';
 
 export const FarmerProfile: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const farmer = FARMERS.find(f => f.id === id);
+  const { farmers, loading } = useFarmer();
+  const { products } = useProduct();
+  const farmer = farmers.find(f => f.id === id);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-14 h-14 border-4 border-leaf-200 border-t-leaf-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (!farmer) {
     return (
@@ -19,7 +30,7 @@ export const FarmerProfile: React.FC = () => {
     );
   }
 
-  const farmerProducts = PRODUCTS.filter(p => p.sellerId === farmer.id);
+  const farmerProducts = products.filter(p => p.sellerId === farmer.id);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">

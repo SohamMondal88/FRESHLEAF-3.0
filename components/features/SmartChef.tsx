@@ -23,13 +23,10 @@ export const SmartChef: React.FC<SmartChefProps> = ({ isOpen, onClose }) => {
     setRecipe(null);
 
     try {
-      const apiKey = process.env.API_KEY;
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
       if (!apiKey) {
-        // Fallback for demo mode
-        setTimeout(() => {
-            setRecipe(`**FreshLeaf Garden Salad (Demo Mode)**\n\n*Ingredients:*\n- Fresh Spinach\n- Cherry Tomatoes\n- Cucumber\n- Lemon Zest\n\n*Instructions:*\n1. Wash all vegetables thoroughly.\n2. Chop cucumber and tomatoes into bite-sized pieces.\n3. Toss with spinach and olive oil.\n4. Season with salt, pepper, and lemon juice.`);
-            setLoading(false);
-        }, 1500);
+        setRecipe("AI chef is unavailable until a valid API key is configured.");
+        setLoading(false);
         return;
       }
 
