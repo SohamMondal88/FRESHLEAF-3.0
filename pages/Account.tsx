@@ -48,6 +48,9 @@ export const Account: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [walletTopup, setWalletTopup] = useState(500);
   const [walletLoading, setWalletLoading] = useState(false);
+  const [walletTopup, setWalletTopup] = useState(500);
+  const [walletLoading, setWalletLoading] = useState(false);
+
 
   useEffect(() => {
     if (!user) navigate('/login');
