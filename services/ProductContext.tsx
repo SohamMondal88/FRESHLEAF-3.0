@@ -1,9 +1,10 @@
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { Product } from '../types';
 import { db } from './firebase';
 import { collection, doc, setDoc, updateDoc, writeBatch, query, onSnapshot } from 'firebase/firestore';
 import { useToast } from './ToastContext';
+import { seedProducts } from '../data/seedProducts';
 
 interface ProductContextType {
   products: Product[];
@@ -20,12 +21,30 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [loading, setLoading] = useState(true);
   const { addToast } = useToast();
 
+  const autoSeedTriggeredRef = useRef(false);
+  const autoSeedProducts = import.meta.env.VITE_AUTO_SEED_PRODUCTS === 'true';
+
   useEffect(() => {
     setLoading(true);
     const q = query(collection(db, 'products'));
     const unsubscribe = onSnapshot(
       q,
-      (snapshot) => {
+      async (snapshot) => {
+        if (snapshot.empty && autoSeedProducts && !autoSeedTriggeredRef.current) {
+          autoSeedTriggeredRef.current = true;
+          try {
+            const batch = writeBatch(db);
+            seedProducts.forEach((product) => {
+              batch.set(doc(db, 'products', product.id), product, { merge: true });
+            });
+            await batch.commit();
+            addToast(`Seeded ${seedProducts.length} products to Firestore`, 'success');
+          } catch (error) {
+            console.error('Auto-seed failed:', error);
+            addToast('Unable to seed default products. Please upload manually.', 'error');
+          }
+        }
+
         const fetchedProducts = snapshot.docs.map((docItem) => ({ id: docItem.id, ...docItem.data() } as Product));
         setProducts(fetchedProducts);
         setLoading(false);
@@ -38,7 +57,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     );
 
     return () => unsubscribe();
-  }, []);
+  }, [addToast, autoSeedProducts]);
 
   const updateProduct = async (id: string, updates: Partial<Product>) => {
     try {

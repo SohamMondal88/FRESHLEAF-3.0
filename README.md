@@ -25,6 +25,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/165D9YvGQYBu7jjGWQMLMDx
    - `VITE_RAZORPAY_KEY_ID`
    - `VITE_GEMINI_API_KEY`
    - `VITE_SUPPORT_PHONE`
+   - `VITE_AUTO_SEED_PRODUCTS` (`true` once to auto-seed provided fruits/vegetables)
    - `RAZORPAY_KEY_ID` (server)
    - `RAZORPAY_KEY_SECRET` (server)
    - `RAZORPAY_WEBHOOK_SECRET` (server)
@@ -59,3 +60,10 @@ View your app in AI Studio: https://ai.studio/apps/drive/165D9YvGQYBu7jjGWQMLMDx
 }
 ```
 2. Run: `node scripts/import-firestore.mjs data/firestore-seed.json`
+
+### Auto-seed products to Firestore
+
+- The app now includes your provided fruits + vegetables catalog in `data/seedProducts.ts`.
+- Set `VITE_AUTO_SEED_PRODUCTS=true` for first run/deploy to auto-upload seed products when `products` collection is empty.
+- After data is seeded, set it back to `false` (or remove) to prevent unnecessary seed checks.
+
