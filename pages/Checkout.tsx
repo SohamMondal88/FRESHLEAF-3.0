@@ -260,7 +260,7 @@ export const Checkout: React.FC = () => {
             <div className="rounded-3xl border border-emerald-100/70 bg-white p-5 shadow-sm shadow-emerald-100/40 sm:p-6 xl:col-span-8">
                 <h3 className="font-bold text-sm text-gray-900 mb-3 flex items-center gap-2"><MessageSquare size={16}/> Delivery Instructions</h3>
                 
-                <div className="mb-4 grid grid-cols-3 gap-2 sm:gap-3">
+                <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
                     {instructionOptions.map(inst => (
                         <button
                             key={inst.id}
@@ -407,7 +407,7 @@ export const Checkout: React.FC = () => {
             </div>
 
             {/* Total & Action */}
-            <div className="rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900 p-5 text-white shadow-xl shadow-slate-300/40 sm:p-6 xl:col-span-4 xl:sticky xl:top-[35rem]">
+            <div className="rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900 p-5 text-white shadow-xl shadow-slate-300/40 sm:p-6 xl:col-span-4">
                 <div className="flex justify-between items-center mb-4 text-gray-300 text-sm">
                     <span>Order Total</span>
                     <span>₹{bill.grandTotal}</span>
@@ -424,6 +424,11 @@ export const Checkout: React.FC = () => {
                 </div>
                 <div className="bg-white/10 rounded-lg p-3 text-center mb-4">
                     <p className="text-xs text-green-300 font-bold">You will earn {pointsToEarn} points on this order!</p>
+                </div>
+
+                <div className="mb-4 grid grid-cols-2 gap-2 text-[11px] text-gray-200">
+                    <div className="rounded-lg bg-white/10 px-3 py-2 text-center">Encrypted checkout</div>
+                    <div className="rounded-lg bg-white/10 px-3 py-2 text-center">Freshness guarantee</div>
                 </div>
 
                 <button 

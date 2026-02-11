@@ -721,7 +721,7 @@ export const Account: React.FC = () => {
             </div>
 
             {/* Navigation Menu */}
-            <nav className="overflow-x-auto rounded-3xl border border-emerald-100 bg-white shadow-sm lg:sticky lg:top-24">
+            <nav className="rounded-3xl border border-emerald-100 bg-white shadow-sm lg:sticky lg:top-24">
               {[
                 { id: 'dashboard', label: 'Overview', icon: Home },
                 { id: 'orders', label: 'My Orders', icon: Package },
@@ -738,7 +738,7 @@ export const Account: React.FC = () => {
                     else if(item.id === 'settings') navigate('/settings');
                     else setActiveTab(item.id);
                   }}
-                  className={`group flex min-w-[220px] items-center justify-between border-b border-gray-50 p-4 text-sm font-bold transition-all last:border-0 lg:min-w-0 ${
+                  className={`group flex w-full items-center justify-between border-b border-gray-50 p-4 text-sm font-bold transition-all last:border-0 ${
                     activeTab === item.id && item.id !== 'orders' && item.id !== 'settings'
                       ? 'bg-leaf-50 text-leaf-700 border-l-4 border-l-leaf-600' 
                       : 'text-gray-500 hover:bg-gray-50 hover:pl-5 border-l-4 border-l-transparent'
