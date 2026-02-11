@@ -5,6 +5,7 @@ import { db } from './firebase';
 import { collection, doc, setDoc, updateDoc, writeBatch, query, onSnapshot } from 'firebase/firestore';
 import { useToast } from './ToastContext';
 import { seedProducts } from '../data/seedProducts';
+import { useAuth } from './AuthContext';
 
 interface ProductContextType {
   products: Product[];
@@ -20,6 +21,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const { addToast } = useToast();
+  const { user } = useAuth();
 
   const autoSeedTriggeredRef = useRef(false);
   const autoSeedProducts = import.meta.env.VITE_AUTO_SEED_PRODUCTS === 'true';
@@ -30,18 +32,18 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     const unsubscribe = onSnapshot(
       q,
       async (snapshot) => {
-        if (snapshot.empty && autoSeedProducts && !autoSeedTriggeredRef.current) {
-          autoSeedTriggeredRef.current = true;
+        if (snapshot.empty && autoSeedProducts && !autoSeedTriggeredRef.current && user) {
           try {
             const batch = writeBatch(db);
             seedProducts.forEach((product) => {
-              batch.set(doc(db, 'products', product.id), product, { merge: true });
+              batch.set(doc(db, 'products', product.id), { ...product, seedSource: 'app_auto_seed' }, { merge: true });
             });
             await batch.commit();
+            autoSeedTriggeredRef.current = true;
             addToast(`Seeded ${seedProducts.length} products to Firestore`, 'success');
           } catch (error) {
             console.error('Auto-seed failed:', error);
-            addToast('Unable to seed default products. Please upload manually.', 'error');
+            addToast('Auto-seed failed. Login with admin claim or update Firestore rules for seed writes.', 'error');
           }
         }
 
@@ -57,7 +59,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     );
 
     return () => unsubscribe();
-  }, [addToast, autoSeedProducts]);
+  }, [addToast, autoSeedProducts, user]);
 
   const updateProduct = async (id: string, updates: Partial<Product>) => {
     try {

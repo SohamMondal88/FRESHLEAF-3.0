@@ -76,8 +76,19 @@ The website is already configured to upload the large product list automatically
 6. Verify in Firebase Console that documents like `f-1`, `f-2`, ..., `v-54` appear under `products`.
 7. Set `VITE_AUTO_SEED_PRODUCTS=false` (or remove it) and redeploy to disable future auto-seed checks.
 
+#### Payment env setup (where to put Razorpay key)
+
+- Put keys in your hosting env vars (Vercel/Netlify), not in code files.
+- Frontend env:
+  - `VITE_RAZORPAY_KEY_ID` = Razorpay Key ID (public).
+- Server/API env:
+  - `RAZORPAY_KEY_ID` = same Key ID.
+  - `RAZORPAY_KEY_SECRET` = Razorpay Key Secret (private).
+  - `RAZORPAY_WEBHOOK_SECRET` = webhook secret from Razorpay dashboard.
+
+If checkout shows **"Unable to create payment order"**, it almost always means server env vars are missing or incorrect (`RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET`).
+
 #### Important notes
 - The app can only seed into the Firebase project referenced by your current `VITE_FIREBASE_*` config.
 - If Firestore rules block writes, temporarily allow admin write (or use admin account) for initial seeding.
 - This process is idempotent with `merge` writes, but keep `VITE_AUTO_SEED_PRODUCTS` off after first successful seed in production.
-

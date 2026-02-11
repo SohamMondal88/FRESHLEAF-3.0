@@ -1,15 +1,18 @@
 import crypto from 'crypto';
 
-const keyId = process.env.RAZORPAY_KEY_ID;
-const keySecret = process.env.RAZORPAY_KEY_SECRET;
-
-if (!keyId || !keySecret) {
-  throw new Error('Missing Razorpay credentials. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET');
-}
-
-const authHeader = `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}`;
+const getRazorpayCredentials = () => {
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keyId || !keySecret) {
+    throw new Error('Missing server envs: RAZORPAY_KEY_ID and/or RAZORPAY_KEY_SECRET');
+  }
+  return { keyId, keySecret };
+};
 
 export const createRazorpayOrder = async (amount: number, receipt: string, notes?: Record<string, string>) => {
+  const { keyId, keySecret } = getRazorpayCredentials();
+  const authHeader = `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}`;
+
   const response = await fetch('https://api.razorpay.com/v1/orders', {
     method: 'POST',
     headers: {
@@ -34,6 +37,7 @@ export const createRazorpayOrder = async (amount: number, receipt: string, notes
 };
 
 export const verifyRazorpaySignature = (orderId: string, paymentId: string, signature: string) => {
+  const { keySecret } = getRazorpayCredentials();
   const expected = crypto
     .createHmac('sha256', keySecret)
     .update(`${orderId}|${paymentId}`)
