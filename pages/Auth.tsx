@@ -131,7 +131,7 @@ export const Login: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const { login, sendOtp, verifyOtp, setupRecaptcha, googleLogin } = useAuth();
+  const { login, sendOtp, verifyOtp, setupRecaptcha, googleLogin, resetOtpSession } = useAuth();
   const { addToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -140,6 +140,7 @@ export const Login: React.FC = () => {
 
   useEffect(() => {
     if (authMethod === 'phone') {
+      resetOtpSession();
       const t = setTimeout(() => {
         void setupRecaptcha('recaptcha-container');
       }, 500);
@@ -303,6 +304,22 @@ export const Login: React.FC = () => {
                       />
                   ))}
                </div>
+               <div className="text-center text-xs">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      resetOtpSession();
+                      const sent = await sendOtp(phone);
+                      if (sent) addToast('New OTP sent', 'success');
+                    }}
+                    className="text-leaf-600 font-bold hover:underline"
+                  >
+                    Resend OTP
+                  </button>
+               </div>
+               <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-100 rounded-lg p-2">
+                 If OTP keeps failing, check that this site domain is added in Firebase Authorized Domains and use the latest OTP from the same session.
+               </p>
             </div>
           )}
           

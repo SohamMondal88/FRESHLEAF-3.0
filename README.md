@@ -43,6 +43,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/165D9YvGQYBu7jjGWQMLMDx
 ## Firebase Auth production checklist
 
 - Enable **Email/Password** and **Phone** sign-in providers in Firebase Console.
+- Enable **Google** sign-in provider in Firebase Console (for "Continue with Google").
 - Add your real domain to **Authentication → Settings → Authorized domains**.
 - Keep `VITE_FIREBASE_AUTH_DOMAIN` aligned with the same Firebase project.
 
@@ -58,4 +59,3 @@ View your app in AI Studio: https://ai.studio/apps/drive/165D9YvGQYBu7jjGWQMLMDx
 }
 ```
 2. Run: `node scripts/import-firestore.mjs data/firestore-seed.json`
-

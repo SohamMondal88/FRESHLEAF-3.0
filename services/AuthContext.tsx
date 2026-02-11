@@ -32,6 +32,7 @@ interface AuthContextType {
   login: (email: string, password?: string, role?: string) => Promise<boolean>;
   signup: (name: string, email: string, password?: string, role?: string, farmName?: string, phone?: string, gender?: string) => Promise<boolean>;
   googleLogin: () => Promise<boolean>;
+  resetOtpSession: () => void;
   isAuthenticated: boolean;
 }
 
@@ -121,6 +122,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const resetOtpSession = () => {
+    setConfirmationResult(null);
+    if (recaptchaRef.current) {
+      try {
+        recaptchaRef.current.clear();
+      } catch (error) {
+        console.warn('Error clearing recaptcha', error);
+      }
+      recaptchaRef.current = null;
+    }
+  };
+
   const sendOtp = async (phone: string): Promise<boolean> => {
     try {
       await setupRecaptcha('recaptcha-container');
@@ -163,6 +176,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       await confirmationResult.confirm(cleanOtp);
+      resetOtpSession();
       setLoading(false);
       return true;
     } catch (error: any) {
@@ -337,6 +351,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setupRecaptcha, 
       sendOtp, 
       verifyOtp, 
+      resetOtpSession,
       logout, 
       updateProfile, 
       updateWallet, 
