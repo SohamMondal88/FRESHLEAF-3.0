@@ -61,9 +61,23 @@ View your app in AI Studio: https://ai.studio/apps/drive/165D9YvGQYBu7jjGWQMLMDx
 ```
 2. Run: `node scripts/import-firestore.mjs data/firestore-seed.json`
 
-### Auto-seed products to Firestore
+### Auto-seed products to Firestore (your provided fruits + vegetables)
 
-- The app now includes your provided fruits + vegetables catalog in `data/seedProducts.ts`.
-- Set `VITE_AUTO_SEED_PRODUCTS=true` for first run/deploy to auto-upload seed products when `products` collection is empty.
-- After data is seeded, set it back to `false` (or remove) to prevent unnecessary seed checks.
+The website is already configured to upload the large product list automatically from `data/seedProducts.ts` into Firestore `products`.
+
+#### One-time setup steps (manual)
+1. Open your Firebase Console → Firestore Database.
+2. Make sure collection **`products`** is empty (or rename old data if you want a fresh replace).
+3. In your deployment/project env vars, set:
+   - `VITE_AUTO_SEED_PRODUCTS=true`
+   - All `VITE_FIREBASE_*` vars for the same Firebase project.
+4. Deploy the app (or run locally with the same env vars).
+5. Open the website once. `ProductContext` will detect empty `products` and batch-write all seed items.
+6. Verify in Firebase Console that documents like `f-1`, `f-2`, ..., `v-54` appear under `products`.
+7. Set `VITE_AUTO_SEED_PRODUCTS=false` (or remove it) and redeploy to disable future auto-seed checks.
+
+#### Important notes
+- The app can only seed into the Firebase project referenced by your current `VITE_FIREBASE_*` config.
+- If Firestore rules block writes, temporarily allow admin write (or use admin account) for initial seeding.
+- This process is idempotent with `merge` writes, but keep `VITE_AUTO_SEED_PRODUCTS` off after first successful seed in production.
 
