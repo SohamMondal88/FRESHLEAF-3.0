@@ -1,21 +1,60 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Phone, Check, Clock, Home, ArrowLeft, Star, MapPin, Truck, AlertTriangle, X } from 'lucide-react';
+import { Phone, Check, Home, ArrowLeft, MapPin, Truck, X } from 'lucide-react';
 import { useOrder } from '../services/OrderContext';
-import { useToast } from '../services/ToastContext';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../services/firebase';
+import { Order } from '../types';
 
 export const OrderTracking: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { getOrderById, cancelOrder } = useOrder();
-  const { addToast } = useToast();
   const navigate = useNavigate();
-  const order = getOrderById(id || '');
+  const contextOrder = getOrderById(id || '');
+  const [order, setOrder] = useState<Order | null>(contextOrder || null);
+  const [isLoading, setIsLoading] = useState(true);
   
   const [progress, setProgress] = useState(0);
   const [canCancel, setCanCancel] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
   const [dynamicEta, setDynamicEta] = useState(25);
+  const routeStops = [
+    { label: 'Store', progress: 0 },
+    { label: 'Sorting Hub', progress: 25 },
+    { label: 'Micro Hub', progress: 55 },
+    { label: 'Near You', progress: 80 },
+    { label: 'Home', progress: 100 }
+  ];
+
+  useEffect(() => {
+    if (!id) {
+      setIsLoading(false);
+      return;
+    }
+
+    if (contextOrder) {
+      setOrder(contextOrder);
+      setIsLoading(false);
+      return;
+    }
+
+    const fetchOrder = async () => {
+      try {
+        const docRef = doc(db, 'orders', id);
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          setOrder({ id: snap.id, ...snap.data() } as Order);
+        }
+      } catch (error) {
+        console.error("Failed to fetch order fallback", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchOrder();
+  }, [contextOrder, id]);
 
   // Cancellation Timer Logic (2 Minutes)
   useEffect(() => {
@@ -81,6 +120,15 @@ export const OrderTracking: React.FC = () => {
       const s = seconds % 60;
       return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
+        <div className="w-14 h-14 border-4 border-leaf-200 border-t-leaf-600 rounded-full animate-spin mb-4" />
+        <p className="text-sm text-gray-500 font-medium">Loading order tracking...</p>
+      </div>
+    );
+  }
 
   if (!order) return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
@@ -172,6 +220,29 @@ export const OrderTracking: React.FC = () => {
                         ></div>
                     </div>
 
+                    {/* Drop Points */}
+                    {routeStops.map((stop, index) => {
+                        const nextStop = routeStops[index + 1];
+                        const isReached = progress >= stop.progress;
+                        const isCurrent = isReached && (!nextStop || progress < nextStop.progress);
+                        return (
+                            <div
+                                key={stop.label}
+                                className="absolute top-1/2 z-20 -translate-y-1/2"
+                                style={{ left: `calc(10% + ${stop.progress * 0.8}%)` }}
+                            >
+                                <div className={`w-3.5 h-3.5 rounded-full border-2 ${isReached ? 'bg-leaf-600 border-leaf-700' : 'bg-white border-gray-300'} ${stop.progress === 100 ? 'shadow-[0_0_10px_rgba(76,175,80,0.8)]' : ''}`}>
+                                    {isCurrent && (
+                                        <span className="absolute inset-0 rounded-full animate-ping bg-leaf-500/50"></span>
+                                    )}
+                                </div>
+                                <span className="absolute top-4 left-1/2 -translate-x-1/2 text-[9px] font-bold text-gray-600 bg-white/80 px-1.5 py-0.5 rounded">
+                                    {stop.label}
+                                </span>
+                            </div>
+                        );
+                    })}
+
                     {/* Bike Icon (Moving) */}
                     <div 
                         className="absolute top-1/2 z-20 transition-all duration-300 transform -translate-x-1/2 -translate-y-1/2"
@@ -240,6 +311,11 @@ export const OrderTracking: React.FC = () => {
                 <div>
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Delivering To</p>
                     <p className="text-sm font-bold text-gray-800 leading-snug mt-1">{order.address}</p>
+                    {order.deliverySlot && (
+                        <p className="text-xs text-leaf-700 font-semibold mt-2">
+                            Delivery Slot: {order.deliverySlot.date} • {order.deliverySlot.time}
+                        </p>
+                    )}
                 </div>
             </div>
 
@@ -261,6 +337,17 @@ export const OrderTracking: React.FC = () => {
                     <span className="font-extrabold text-xl text-leaf-600">₹{order.total}</span>
                 </div>
             </div>
+
+            {order.instructions && order.instructions.length > 0 && (
+                <div className="mt-6 bg-leaf-50 border border-leaf-100 rounded-xl p-4">
+                    <p className="text-xs font-bold text-leaf-700 uppercase tracking-wide mb-2">Delivery Notes</p>
+                    <ul className="text-xs text-gray-600 list-disc list-inside space-y-1">
+                        {order.instructions.map((note, index) => (
+                            <li key={index}>{note}</li>
+                        ))}
+                    </ul>
+                </div>
+            )}
         </div>
 
         <div className="text-center">
