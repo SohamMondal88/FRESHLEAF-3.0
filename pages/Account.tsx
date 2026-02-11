@@ -670,11 +670,11 @@ export const Account: React.FC = () => {
   );
 
   return (
-    <div className="bg-gray-50 min-h-screen py-10 font-sans">
-      <div className="container mx-auto px-4 max-w-7xl">
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-emerald-50 via-white to-slate-100 py-6 font-sans sm:py-10">
+      <div className="pointer-events-none absolute inset-0 opacity-60"><div className="absolute -top-20 -right-10 h-80 w-80 rounded-full bg-emerald-200 blur-3xl"></div><div className="absolute left-0 top-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-teal-100 blur-3xl"></div></div><div className="container relative z-10 mx-auto max-w-7xl px-4">
         
         {/* Welcome Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-4">
+        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-emerald-100 bg-white/80 p-5 shadow-lg shadow-emerald-100/40 backdrop-blur md:mb-10 md:flex-row md:items-end md:justify-between md:p-7">
           <div>
             <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">My Account</h1>
             <p className="text-gray-500 mt-1 font-medium">Manage your profile, orders, and rewards.</p>
@@ -685,13 +685,13 @@ export const Account: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
           
           {/* LEFT SIDEBAR */}
-          <div className="lg:col-span-3 space-y-6">
+          <div className="space-y-5 lg:col-span-3 lg:space-y-6">
             
             {/* User Profile Card */}
-            <div className="bg-white rounded-3xl p-6 shadow-xl shadow-leaf-100/50 border border-gray-100 text-center relative overflow-hidden group">
+            <div className="group relative overflow-hidden rounded-3xl border border-emerald-100 bg-white p-5 text-center shadow-xl shadow-emerald-100/50 sm:p-6">
                <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-leaf-600 to-leaf-500 transition-all duration-500 group-hover:scale-110"></div>
                <div className="relative z-10 pt-12">
                  <div className="relative inline-block">
@@ -721,7 +721,7 @@ export const Account: React.FC = () => {
             </div>
 
             {/* Navigation Menu */}
-            <nav className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden sticky top-24">
+            <nav className="overflow-x-auto rounded-3xl border border-emerald-100 bg-white shadow-sm lg:sticky lg:top-24">
               {[
                 { id: 'dashboard', label: 'Overview', icon: Home },
                 { id: 'orders', label: 'My Orders', icon: Package },
@@ -738,7 +738,7 @@ export const Account: React.FC = () => {
                     else if(item.id === 'settings') navigate('/settings');
                     else setActiveTab(item.id);
                   }}
-                  className={`w-full flex items-center justify-between p-4 text-sm font-bold transition-all border-b border-gray-50 last:border-0 group ${
+                  className={`group flex min-w-[220px] items-center justify-between border-b border-gray-50 p-4 text-sm font-bold transition-all last:border-0 lg:min-w-0 ${
                     activeTab === item.id && item.id !== 'orders' && item.id !== 'settings'
                       ? 'bg-leaf-50 text-leaf-700 border-l-4 border-l-leaf-600' 
                       : 'text-gray-500 hover:bg-gray-50 hover:pl-5 border-l-4 border-l-transparent'
