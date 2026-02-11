@@ -28,6 +28,10 @@ export default async function handler(req: any, res: any) {
     });
   } catch (error: any) {
     console.error('Create order API error:', error);
-    return res.status(500).json({ error: error.message || 'Unable to create payment order' });
+    const message = error?.message || 'Unable to create payment order';
+    return res.status(500).json({
+      error: message,
+      hint: 'Set server envs RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET on your deployment (not only VITE_RAZORPAY_KEY_ID).'
+    });
   }
 }

@@ -72,7 +72,7 @@ The website is already configured to upload the large product list automatically
    - `VITE_AUTO_SEED_PRODUCTS=true`
    - All `VITE_FIREBASE_*` vars for the same Firebase project.
 4. Deploy the app (or run locally with the same env vars).
-5. Open the website once. `ProductContext` will detect empty `products` and batch-write all seed items.
+5. Sign in to the app once, then open the website. `ProductContext` will detect empty `products` and batch-write all seed items.
 6. Verify in Firebase Console that documents like `f-1`, `f-2`, ..., `v-54` appear under `products`.
 7. Set `VITE_AUTO_SEED_PRODUCTS=false` (or remove it) and redeploy to disable future auto-seed checks.
 
@@ -87,6 +87,8 @@ The website is already configured to upload the large product list automatically
   - `RAZORPAY_WEBHOOK_SECRET` = webhook secret from Razorpay dashboard.
 
 If checkout shows **"Unable to create payment order"**, it almost always means server env vars are missing or incorrect (`RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET`).
+
+If you are testing locally with `npm run dev`, note that Vite does not run `/api/*` serverless routes. Use a deployed environment (Vercel) or run `vercel dev` so `/api/payments/create-order` and `/api/payments/verify` are available.
 
 #### Important notes
 - The app can only seed into the Firebase project referenced by your current `VITE_FIREBASE_*` config.

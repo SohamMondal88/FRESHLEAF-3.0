@@ -14,6 +14,11 @@ export const createServerOrder = async ({ amountPaise, userId, purpose }: Create
   });
 
   if (!response.ok) {
+    const isHtmlResponse = (response.headers.get('content-type') || '').includes('text/html');
+    if (response.status === 404 || isHtmlResponse) {
+      throw new Error('Payments API route not found. Deploy on Vercel (or run `vercel dev`) so /api/payments/* routes are available.');
+    }
+
     const data = await response.json().catch(() => ({ error: 'Unable to create payment order' }));
     throw new Error(data.error || 'Unable to create payment order');
   }
