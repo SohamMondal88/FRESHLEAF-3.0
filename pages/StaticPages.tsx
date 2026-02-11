@@ -1,33 +1,25 @@
 
-import React, { useMemo, useState } from 'react';
-import { BLOG_POSTS } from '../constants';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Mail, Phone, MapPin, Send, Target, Users, Heart, Clock, ArrowRight, User, Globe, MessageCircle, ChevronDown } from 'lucide-react';
 import { useOrder } from '../services/OrderContext';
+import { useFarmer } from '../services/FarmerContext';
 import { Link } from 'react-router-dom';
+import { BlogPost } from '../types';
+import { db } from '../services/firebase';
+import { collection, getDocs, query } from 'firebase/firestore';
 
 // --- ABOUT PAGE ---
 export const About: React.FC = () => {
   const { orders } = useOrder();
+  const { farmers } = useFarmer();
 
   // Dynamic calculations for "Realtime" stats
   const stats = useMemo(() => {
-    const startDate = new Date('2023-06-01').getTime();
-    const now = new Date().getTime();
-    const daysSince = Math.floor((now - startDate) / (1000 * 60 * 60 * 24));
-    
-    const baseOrders = 15420; 
-    const dailyAvg = 68;
-    const totalOrders = baseOrders + (daysSince * dailyAvg) + orders.length;
-
-    const baseAreas = 35;
-    const expansion = Math.floor(daysSince / 15);
-    const totalAreas = baseAreas + expansion;
-
     return {
-      orders: new Intl.NumberFormat('en-IN').format(totalOrders),
-      areas: totalAreas
+      orders: new Intl.NumberFormat('en-IN').format(orders.length),
+      areas: farmers.length
     };
-  }, [orders.length]);
+  }, [farmers.length, orders.length]);
 
   return (
     <div className="bg-white font-sans overflow-hidden">
@@ -52,7 +44,7 @@ export const About: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {[
             { icon: Target, title: "Our Mission", desc: "Eliminate middlemen to ensure fair pricing for farmers and fresher produce for you.", color: "text-red-500", bg: "bg-red-50" },
-            { icon: Users, title: "Our Community", desc: "Partnering with 500+ certified organic farmers across Maharashtra and Himachal.", color: "text-blue-500", bg: "bg-blue-50" },
+            { icon: Users, title: "Our Community", desc: "Partnering with certified organic farmers across India.", color: "text-blue-500", bg: "bg-blue-50" },
             { icon: Heart, title: "Our Promise", desc: "Farm-to-Fork in 24 Hours. If it's not fresh, we won't deliver it.", color: "text-green-500", bg: "bg-green-50" }
           ].map((item, i) => (
             <div key={i} className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-gray-100 hover:-translate-y-2 transition-all duration-300 group">
@@ -77,17 +69,17 @@ export const About: React.FC = () => {
             <div className="lg:w-1/2 space-y-8">
                <h2 className="text-4xl md:text-5xl font-black text-gray-900 leading-tight">Empowering <br/> Rural India</h2>
                <p className="text-gray-600 text-lg leading-relaxed">
-                 FreshLeaf isn't just a store; it's a movement. By removing intermediaries, we increase farmer income by up to 40%. Every purchase you make contributes to a sustainable agricultural ecosystem.
+                 FreshLeaf isn't just a store; it's a movement. By removing intermediaries, we help farmers earn fair prices. Every purchase you make contributes to a sustainable agricultural ecosystem.
                </p>
                
                <div className="grid grid-cols-2 gap-8 pt-4">
                   <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                     <div className="text-4xl md:text-5xl font-black text-leaf-600 mb-2">{stats.orders}+</div>
-                    <div className="text-sm font-bold text-gray-400 uppercase tracking-widest">Orders Delivered</div>
+                    <div className="text-sm font-bold text-gray-400 uppercase tracking-widest">Orders Placed</div>
                   </div>
                   <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                     <div className="text-4xl md:text-5xl font-black text-leaf-600 mb-2">{stats.areas}</div>
-                    <div className="text-sm font-bold text-gray-400 uppercase tracking-widest">Cities Covered</div>
+                    <div className="text-sm font-bold text-gray-400 uppercase tracking-widest">Partner Farms</div>
                   </div>
                </div>
             </div>
@@ -186,17 +178,36 @@ export const Contact: React.FC = () => (
 
 // --- BLOG PAGE ---
 export const Blog: React.FC = () => {
+  const [posts, setPosts] = useState<BlogPost[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('All');
   
   const categories = ['All', 'Farming', 'Health', 'Recipes', 'Tips'];
   
-  const filteredPosts = useMemo(() => {
-    if (activeCategory === 'All') return BLOG_POSTS;
-    return BLOG_POSTS.filter(post => post.category === activeCategory);
-  }, [activeCategory]);
+  useEffect(() => {
+    const fetchPosts = async () => {
+      try {
+        setLoading(true);
+        const blogQuery = query(collection(db, 'blogPosts'));
+        const snapshot = await getDocs(blogQuery);
+        setPosts(snapshot.docs.map(docItem => ({ id: docItem.id, ...docItem.data() } as BlogPost)));
+      } catch (error) {
+        console.error("Failed to load blog posts:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const featuredPost = activeCategory === 'All' ? BLOG_POSTS[0] : filteredPosts[0];
-  const gridPosts = activeCategory === 'All' ? BLOG_POSTS.slice(1) : filteredPosts.slice(1);
+    fetchPosts();
+  }, []);
+
+  const filteredPosts = useMemo(() => {
+    if (activeCategory === 'All') return posts;
+    return posts.filter(post => post.category === activeCategory);
+  }, [activeCategory, posts]);
+
+  const featuredPost = activeCategory === 'All' ? posts[0] : filteredPosts[0];
+  const gridPosts = activeCategory === 'All' ? posts.slice(1) : filteredPosts.slice(1);
 
   return (
     <div className="bg-white min-h-screen font-sans">
@@ -237,6 +248,14 @@ export const Blog: React.FC = () => {
             ))}
           </div>
         </div>
+
+        {loading && (
+          <div className="text-center text-sm text-gray-400 mb-12">Loading articles...</div>
+        )}
+
+        {!loading && filteredPosts.length === 0 && (
+          <div className="text-center text-sm text-gray-400 mb-12">No articles available right now.</div>
+        )}
 
         {/* Featured Post */}
         {featuredPost && (
@@ -284,7 +303,7 @@ export const Blog: React.FC = () => {
                 </div>
                 
                 <h3 className="text-2xl font-bold text-gray-900 mb-3 group-hover:text-leaf-600 transition-colors leading-tight">
-                  <Link to={`/blog/${post.id}`}>{post.title}</Link>
+                  <Link to="/blog">{post.title}</Link>
                 </h3>
                 
                 <p className="text-gray-500 leading-relaxed mb-6 line-clamp-3">

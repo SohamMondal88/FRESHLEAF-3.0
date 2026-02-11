@@ -9,18 +9,23 @@ import {
 import { useProduct } from '../services/ProductContext';
 import { useAuth } from '../services/AuthContext';
 import { useOrder } from '../services/OrderContext';
-import { TESTIMONIALS, BLOG_POSTS } from '../constants';
 import { ProductCard } from '../components/ui/ProductCard';
 import { ProductCardSkeleton } from '../components/ui/Skeleton';
-import { DailyRewards } from '../components/features/DailyRewards';
+import { BlogPost, Testimonial } from '../types';
+import { db } from '../services/firebase';
+import { collection, getDocs, query } from 'firebase/firestore';
+import { useFarmer } from '../services/FarmerContext';
 
 export const Home: React.FC = () => {
   const { products } = useProduct();
   const { user } = useAuth();
   const { orders } = useOrder();
   const navigate = useNavigate();
+  const { farmers } = useFarmer();
   
   const [loading, setLoading] = useState(true);
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   
   // Real countdown to midnight
   const calculateTimeLeft = () => {
@@ -41,6 +46,7 @@ export const Home: React.FC = () => {
   // Data selection
   const featuredProducts = useMemo(() => products.filter(p => p.isOrganic).slice(0, 4), [products]);
   const dealProduct = useMemo(() => products.find(p => p.price > 100 && p.oldPrice) || products[0], [products]);
+  const featuredFarmer = useMemo(() => farmers[0], [farmers]);
 
   // Buy It Again Logic (Personalization)
   const previousItems = useMemo(() => {
@@ -62,6 +68,26 @@ export const Home: React.FC = () => {
     return () => clearTimeout(t);
   }, []);
 
+  useEffect(() => {
+    const fetchContent = async () => {
+      try {
+        const testimonialsQuery = query(collection(db, 'testimonials'));
+        const blogQuery = query(collection(db, 'blogPosts'));
+        const [testimonialsSnap, blogSnap] = await Promise.all([
+          getDocs(testimonialsQuery),
+          getDocs(blogQuery)
+        ]);
+
+        setTestimonials(testimonialsSnap.docs.map(docItem => ({ id: docItem.id, ...docItem.data() } as Testimonial)));
+        setBlogPosts(blogSnap.docs.map(docItem => ({ id: docItem.id, ...docItem.data() } as BlogPost)));
+      } catch (error) {
+        console.error("Failed to load homepage content:", error);
+      }
+    };
+
+    fetchContent();
+  }, []);
+
   // Timer Logic
   useEffect(() => {
     const timer = setInterval(() => {
@@ -81,10 +107,8 @@ export const Home: React.FC = () => {
   };
 
   return (
-    <div className="w-full bg-[#FAFAF9] overflow-x-hidden font-sans text-slate-800" onMouseMove={handleMouseMove}>
+    <div className="w-full overflow-x-hidden font-sans text-slate-800 fade-slide" onMouseMove={handleMouseMove}>
       
-      <DailyRewards />
-
       {/* 1. MODERN PARALLAX HERO */}
       <section className="relative min-h-[90vh] flex items-center overflow-hidden pt-20 lg:pt-0">
         {/* Animated Background Blobs */}
@@ -107,7 +131,7 @@ export const Home: React.FC = () => {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-leaf-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-leaf-500"></span>
               </span>
-              <span className="text-xs font-bold text-gray-600 tracking-wide uppercase">Live from Kolkata & Delhi Farms</span>
+              <span className="text-xs font-bold text-gray-600 tracking-wide uppercase">Live from partner farms</span>
             </div>
             
             <h1 className="text-5xl md:text-7xl lg:text-8xl font-serif font-medium text-gray-900 leading-[1] tracking-tight">
@@ -132,8 +156,8 @@ export const Home: React.FC = () => {
 
             <div className="flex items-center gap-8 pt-8 border-t border-gray-200/60 max-w-lg">
                 {[
-                    { val: "15k+", label: "Happy Families" },
-                    { val: "100%", label: "Organic Verified" },
+                    { val: products.length.toString(), label: "Fresh Products" },
+                    { val: farmers.length.toString(), label: "Partner Farms" },
                 ].map((stat, i) => (
                     <div key={i} className="flex flex-col">
                         <span className="text-3xl font-black text-gray-900">{stat.val}</span>
@@ -401,28 +425,36 @@ export const Home: React.FC = () => {
             )}
 
             {/* Editorial Story - Light Theme */}
-            <div className="bg-white border border-gray-100 rounded-[3rem] p-10 md:p-14 relative overflow-hidden flex flex-col justify-end min-h-[500px] group shadow-xl">
-                <img 
-                    src="https://images.unsplash.com/photo-1595855709957-bc07692996d1?auto=format&fit=crop&w=800&q=80" 
-                    alt="Farmer" 
-                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 filter brightness-[0.85] group-hover:brightness-100"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent"></div>
-                
-                <div className="relative z-10 text-white">
-                    <div className="inline-flex items-center gap-2 bg-yellow-400 text-black px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider mb-4 shadow-lg shadow-yellow-400/20">
-                       <Sparkles size={14}/> Farmer of the Month
-                    </div>
-                    <h3 className="text-3xl md:text-4xl font-serif font-medium mb-4 leading-tight">Meet Rajesh from <br/>Nashik Organic Farms</h3>
-                    <div className="w-16 h-1 bg-yellow-400 rounded-full mb-6"></div>
-                    <p className="text-gray-200 mb-8 line-clamp-2 text-lg font-medium">
-                       "Growing organic isn't just a method, it's a responsibility. Every apple you buy supports my family and the earth."
-                    </p>
-                    <Link to="/about" className="inline-flex items-center gap-2 text-white font-bold hover:text-yellow-400 transition-colors uppercase tracking-widest text-sm group-hover:gap-4">
-                        Read His Story <ArrowRight size={16}/>
-                    </Link>
-                </div>
-            </div>
+            {featuredFarmer ? (
+              <div className="bg-white border border-gray-100 rounded-[3rem] p-10 md:p-14 relative overflow-hidden flex flex-col justify-end min-h-[500px] group shadow-xl">
+                  <img 
+                      src={featuredFarmer.coverImage} 
+                      alt={featuredFarmer.farmName} 
+                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 filter brightness-[0.85] group-hover:brightness-100"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent"></div>
+                  
+                  <div className="relative z-10 text-white">
+                      <div className="inline-flex items-center gap-2 bg-yellow-400 text-black px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider mb-4 shadow-lg shadow-yellow-400/20">
+                         <Sparkles size={14}/> Farmer Spotlight
+                      </div>
+                      <h3 className="text-3xl md:text-4xl font-serif font-medium mb-4 leading-tight">
+                        Meet {featuredFarmer.name} from <br/>{featuredFarmer.farmName}
+                      </h3>
+                      <div className="w-16 h-1 bg-yellow-400 rounded-full mb-6"></div>
+                      <p className="text-gray-200 mb-8 line-clamp-2 text-lg font-medium">
+                         {featuredFarmer.description}
+                      </p>
+                      <Link to={`/farmer/${featuredFarmer.id}`} className="inline-flex items-center gap-2 text-white font-bold hover:text-yellow-400 transition-colors uppercase tracking-widest text-sm group-hover:gap-4">
+                          View Profile <ArrowRight size={16}/>
+                      </Link>
+                  </div>
+              </div>
+            ) : (
+              <div className="bg-white border border-gray-100 rounded-[3rem] p-10 md:p-14 flex items-center justify-center min-h-[500px] shadow-xl">
+                <p className="text-gray-500 text-sm">Farmer stories will appear once profiles are added.</p>
+              </div>
+            )}
          </div>
       </div>
 
@@ -435,8 +467,8 @@ export const Home: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-               {BLOG_POSTS.slice(0, 3).map((post, i) => (
-                  <Link to={`/blog/${post.id}`} key={i} className="group cursor-pointer">
+               {blogPosts.slice(0, 3).map((post) => (
+                  <Link to="/blog" key={post.id} className="group cursor-pointer">
                      <div className="rounded-[2rem] overflow-hidden mb-6 relative aspect-[4/3] shadow-md group-hover:shadow-2xl transition-all duration-300">
                         <img src={post.image} alt={post.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"/>
                         <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>
@@ -450,6 +482,11 @@ export const Home: React.FC = () => {
                      <p className="text-gray-500 text-sm line-clamp-2 leading-relaxed">{post.excerpt}</p>
                   </Link>
                ))}
+               {blogPosts.length === 0 && (
+                  <div className="col-span-full text-center text-sm text-gray-400">
+                    No posts available right now.
+                  </div>
+               )}
             </div>
          </div>
       </section>
@@ -458,13 +495,13 @@ export const Home: React.FC = () => {
       <section className="py-24 bg-[#FAFAF9] overflow-hidden border-t border-gray-100">
          <div className="container mx-auto px-4 text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-serif font-medium text-gray-900 tracking-tight">Love from the <span className="text-leaf-600 italic">Community</span></h2>
-            <p className="text-gray-500 mt-4 text-lg">Join 15,000+ happy neighbors in West Bengal.</p>
+            <p className="text-gray-500 mt-4 text-lg">Join our growing community of fresh food lovers.</p>
          </div>
 
          <div className="relative w-full">
             <div className="flex gap-6 animate-marquee hover:[animation-play-state:paused]">
-                {[...TESTIMONIALS, ...TESTIMONIALS].map((t, i) => (
-                    <div key={i} className="min-w-[350px] md:min-w-[400px] bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                {[...testimonials, ...testimonials].map((t, i) => (
+                    <div key={`${t.id}-${i}`} className="min-w-[350px] md:min-w-[400px] bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
                         <div className="flex gap-1 text-yellow-400 mb-4">
                             {[1,2,3,4,5].map(star => <Star key={star} fill="currentColor" size={16}/>)}
                         </div>
@@ -483,6 +520,9 @@ export const Home: React.FC = () => {
                     </div>
                 ))}
             </div>
+            {testimonials.length === 0 && (
+              <div className="text-center text-sm text-gray-400 mt-6">No testimonials yet.</div>
+            )}
          </div>
       </section>
 

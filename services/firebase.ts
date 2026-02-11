@@ -5,14 +5,18 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCMwYHpQJpPGoyQYSbDExiMDgT3v7Y-xjw",
-  authDomain: "freshleaf-425c3.firebaseapp.com",
-  projectId: "freshleaf-425c3",
-  storageBucket: "freshleaf-425c3.firebasestorage.app",
-  messagingSenderId: "788536555394",
-  appId: "1:788536555394:web:541bce0f597b1adabb419b",
-  measurementId: "G-ZFRJ5ZDT5L"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY as string,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID as string,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET as string,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID as string,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID as string,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID as string | undefined
 };
+
+if (!firebaseConfig.apiKey || !firebaseConfig.authDomain || !firebaseConfig.projectId) {
+  console.warn('Missing Firebase env config. Verify VITE_FIREBASE_* values for this deployment environment.');
+}
 
 const app = initializeApp(firebaseConfig);
 

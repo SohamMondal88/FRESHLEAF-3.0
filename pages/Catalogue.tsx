@@ -6,13 +6,16 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useProduct } from '../services/ProductContext';
+import { useFarmer } from '../services/FarmerContext';
 import { useCart } from '../services/CartContext';
 import { useImage } from '../services/ImageContext';
+import { Product } from '../types';
 
 export const Catalogue: React.FC = () => {
   const { products } = useProduct();
   const { addToCart } = useCart();
   const { getProductImage } = useImage();
+  const { farmers } = useFarmer();
   const [activeSection, setActiveSection] = useState('Fruits');
 
   // --- DATA ORGANIZATION ---
@@ -78,13 +81,14 @@ export const Catalogue: React.FC = () => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Mock Data Helper
-  const getProductDetails = (product: any) => ({
-    origin: product.isLocal ? 'Local Farms, West Bengal' : 'Sourced from Nashik/Himachal',
-    harvestTime: 'Daily 6:00 AM',
-    benefits: ['Rich in Fiber', 'Vitamin Boost', 'Antioxidant'].slice(0, 2),
-    calories: Math.floor(Math.random() * 80 + 20)
-  });
+  const getProductDetails = (product: Product) => {
+    const farmer = farmers.find((item) => item.id === product.sellerId);
+    return {
+      origin: product.origin || farmer?.location || 'Origin not specified',
+      harvestTime: product.harvestTime || 'Harvest time not specified',
+      benefits: product.nutritionHighlights && product.nutritionHighlights.length > 0 ? product.nutritionHighlights.slice(0, 2) : []
+    };
+  };
 
   return (
     <div className="bg-[#fdfbf7] min-h-screen font-sans text-gray-800">
@@ -96,7 +100,7 @@ export const Catalogue: React.FC = () => {
         </div>
         <div className="relative z-10 text-center text-white px-4 animate-in fade-in slide-in-from-bottom-8 duration-1000">
            <div className="inline-flex items-center gap-2 border border-white/30 bg-white/10 backdrop-blur-md px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mb-6">
-              <BookOpen size={14} /> Vol. 12 • October 2023
+              <BookOpen size={14} /> {new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
            </div>
            <h1 className="text-5xl md:text-8xl font-serif font-medium mb-6 leading-tight">
              The Harvest <br/> <span className="italic font-light">Edit</span>
@@ -190,7 +194,7 @@ export const Catalogue: React.FC = () => {
                             </div>
                             <div className="text-center md:text-left">
                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1 flex items-center justify-center md:justify-start gap-1"><Droplets size={10}/> Nutrition</p>
-                               <p className="text-sm font-bold text-gray-700">{details.benefits[0]}</p>
+                              <p className="text-sm font-bold text-gray-700">{details.benefits[0] || 'Nutrition info pending'}</p>
                             </div>
                             <div className="text-center md:text-left">
                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1 flex items-center justify-center md:justify-start gap-1"><Star size={10}/> Rating</p>
