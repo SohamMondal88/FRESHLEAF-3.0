@@ -14,7 +14,7 @@ import { X, MapPin, Loader2 } from 'lucide-react';
 
 export const Layout: React.FC = () => {
   const [showChef, setShowChef] = useState(false);
-  const { pincode, setPincode, detectLocation, isServiceable, showModal, setShowModal } = usePincode();
+  const { pincode, setPincode, detectLocation, isServiceable, showModal, setShowModal, serviceablePincodes } = usePincode();
   const [pincodeInput, setPincodeInput] = useState('');
   const [pincodeLoading, setPincodeLoading] = useState(false);
   const [detectingLoc, setDetectingLoc] = useState(false);
@@ -22,8 +22,8 @@ export const Layout: React.FC = () => {
 
   const handlePincodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pincodeInput !== '743372') {
-        setPincodeError("We only deliver to pincode 743372");
+    if (serviceablePincodes.length > 0 && !serviceablePincodes.includes(pincodeInput)) {
+        setPincodeError("We do not deliver to this pincode yet.");
         return;
     }
     setPincodeLoading(true);
@@ -45,7 +45,7 @@ export const Layout: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen font-sans text-gray-800 bg-[#FAFAF9]">
+    <div className="site-shell flex flex-col min-h-screen font-sans text-gray-800">
       
       {/* Pincode Modal - Global Level */}
       {showModal && (
@@ -58,7 +58,13 @@ export const Layout: React.FC = () => {
                       <MapPin size={32}/>
                     </div>
                     <h3 className="text-2xl font-extrabold text-gray-900">Delivery Location</h3>
-                    <p className="text-gray-500 text-sm mt-2">We deliver to <b>743372</b>.</p>
+                    <p className="text-gray-500 text-sm mt-2">
+                      {serviceablePincodes.length > 0 ? (
+                        <>We deliver to <b>{serviceablePincodes.join(', ')}</b>.</>
+                      ) : (
+                        <>Checking serviceable areas…</>
+                      )}
+                    </p>
                 </div>
 
                 {/* Detect Location Button */}
@@ -80,7 +86,7 @@ export const Layout: React.FC = () => {
                     <input 
                       type="text" 
                       maxLength={6} 
-                      placeholder="Enter Pincode (e.g. 743372)" 
+                      placeholder="Enter Pincode" 
                       value={pincodeInput} 
                       onChange={(e) => {
                         setPincodeInput(e.target.value.replace(/[^0-9]/g, ''));
@@ -105,7 +111,7 @@ export const Layout: React.FC = () => {
       {/* New Modern Navbar */}
       <Navbar onOpenChef={() => setShowChef(true)} />
 
-      <main className="flex-grow pt-24 lg:pt-32">
+      <main className="page-shell flex-grow pt-24 lg:pt-32">
         <Outlet />
       </main>
 
@@ -177,7 +183,7 @@ export const Layout: React.FC = () => {
                <div className="flex gap-6">
                   <Link to="/privacy" className="hover:text-white transition">Privacy</Link>
                   <Link to="/terms" className="hover:text-white transition">Terms</Link>
-                  <Link to="/security" className="hover:text-white transition">Security</Link>
+                  <Link to="/disclaimer" className="hover:text-white transition">Disclaimer</Link>
                </div>
             </div>
          </div>
