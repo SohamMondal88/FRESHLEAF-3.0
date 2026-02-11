@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Package, Settings, MapPin, CreditCard, Bell, Heart, LogOut, 
@@ -11,6 +11,17 @@ import { useAuth } from '../services/AuthContext';
 import { useOrder } from '../services/OrderContext';
 import { useCart } from '../services/CartContext';
 import { useToast } from '../services/ToastContext';
+import { auth, db } from '../services/firebase';
+import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
+import { addDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { Transaction } from '../types';
+import { createServerOrder, verifyServerPayment } from '../services/paymentApi';
+
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 export const Account: React.FC = () => {
   const { user, logout, updateProfile, updateWallet } = useAuth();
@@ -18,15 +29,14 @@ export const Account: React.FC = () => {
   const { wishlist } = useCart();
   const { addToast } = useToast();
   const navigate = useNavigate();
+  const supportPhone = import.meta.env.VITE_SUPPORT_PHONE as string | undefined;
   
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Address State
-  const [addresses, setAddresses] = useState([
-    { id: 1, type: 'Home', text: user?.address || '123 Green Market, Sector 4, New Delhi', isDefault: true },
-  ]);
+  const [addresses, setAddresses] = useState<{ id: number; type: string; text: string; isDefault: boolean }[]>([]);
   const [newAddress, setNewAddress] = useState({ type: 'Home', text: '' });
 
   // Settings & Preferences State (Merged from separate page)
@@ -35,10 +45,40 @@ export const Account: React.FC = () => {
   const [notifications, setNotifications] = useState({ emailOrder: true, emailPromo: false, sms: true, whatsapp: true });
   const [profileData, setProfileData] = useState({ name: user?.name || '', email: user?.email || '', phone: user?.phone || '' });
   const [loading, setLoading] = useState(false);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [walletTopup, setWalletTopup] = useState(500);
+  const [walletLoading, setWalletLoading] = useState(false);
 
   useEffect(() => {
     if (!user) navigate('/login');
   }, [user, navigate]);
+
+  useEffect(() => {
+    if (!user) return;
+    const primaryAddress = user.address ? [{
+      id: Date.now(),
+      type: 'Home',
+      text: user.address,
+      isDefault: true
+    }] : [];
+    setAddresses(primaryAddress);
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchTransactions = async () => {
+      try {
+        const q = query(collection(db, 'transactions'), where('userId', '==', user.id));
+        const snap = await getDocs(q);
+        const fetched = snap.docs.map(docItem => ({ id: docItem.id, ...docItem.data() } as Transaction));
+        setTransactions(fetched);
+      } catch (error) {
+        console.error("Failed to load transactions:", error);
+      }
+    };
+
+    fetchTransactions();
+  }, [user]);
 
   // --- ANALYTICS ---
   const totalSpent = orders.reduce((acc, order) => acc + order.total, 0);
@@ -108,6 +148,93 @@ export const Account: React.FC = () => {
       }
   };
 
+  const handleWalletTopup = async () => {
+    if (!window.Razorpay) {
+      addToast("Razorpay SDK failed to load. Please refresh.", "error");
+      return;
+    }
+    if (walletTopup < 50) {
+      addToast("Minimum top-up is ₹50", "error");
+      return;
+    }
+    if (!user) return;
+    setWalletLoading(true);
+
+    const currentUserId = user.id;
+
+    let serverOrder: any;
+    try {
+      serverOrder = await createServerOrder({
+        amountPaise: Math.round(walletTopup * 100),
+        userId: currentUserId,
+        purpose: 'wallet_topup'
+      });
+    } catch (error: any) {
+      setWalletLoading(false);
+      addToast(error.message || 'Unable to initialize payment', 'error');
+      return;
+    }
+
+    const options = {
+      key: serverOrder.key,
+      amount: serverOrder.amount,
+      currency: serverOrder.currency || 'INR',
+      order_id: serverOrder.id,
+      name: 'FreshLeaf Wallet',
+      description: 'Wallet Top-up',
+      prefill: {
+        name: user.name,
+        email: user.email,
+        contact: user.phone
+      },
+      theme: {
+        color: '#2b8a5a'
+      },
+      handler: async (response: { razorpay_order_id?: string; razorpay_payment_id?: string; razorpay_signature?: string }) => {
+        try {
+          if (response.razorpay_payment_id && response.razorpay_order_id && response.razorpay_signature) {
+            await verifyServerPayment({
+              userId: currentUserId,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              amount: walletTopup,
+              paymentMethod: 'Wallet Top-up (Razorpay)',
+              purpose: 'wallet_topup'
+            });
+            await updateWallet(walletTopup);
+            await addDoc(collection(db, 'transactions'), {
+              userId: currentUserId,
+              orderId: `wallet-topup-${Date.now()}`,
+              amount: walletTopup,
+              paymentMethod: 'Wallet Top-up (Razorpay)',
+              status: 'paid',
+              currency: 'INR',
+              createdAt: Date.now()
+            });
+            addToast("Wallet updated successfully!", "success");
+          }
+        } catch (error: any) {
+          addToast(error.message || 'Payment verification failed', 'error');
+        } finally {
+          setWalletLoading(false);
+        }
+      },
+      modal: {
+        ondismiss: () => setWalletLoading(false)
+      }
+    };
+
+    try {
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (error) {
+      setWalletLoading(false);
+      console.error("Razorpay Error:", error);
+      addToast("Unable to start payment. Please try again.", "error");
+    }
+  };
+
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -116,14 +243,27 @@ export const Account: React.FC = () => {
     addToast("Profile updated", "success");
   };
 
-  const handlePasswordUpdate = (e: React.FormEvent) => {
+  const handlePasswordUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!auth.currentUser) return;
+    if (!securityData.newPassword || securityData.newPassword !== securityData.confirmPassword) {
+      addToast("Passwords do not match", "error");
+      return;
+    }
     setLoading(true);
-    setTimeout(() => {
-        setLoading(false);
-        setSecurityData({ ...securityData, currentPassword: '', newPassword: '', confirmPassword: '' });
-        addToast("Password changed successfully", "success");
-    }, 1000);
+    try {
+      if (!auth.currentUser.email) throw new Error("Email not available for re-authentication");
+      const credential = EmailAuthProvider.credential(auth.currentUser.email, securityData.currentPassword);
+      await reauthenticateWithCredential(auth.currentUser, credential);
+      await updatePassword(auth.currentUser, securityData.newPassword);
+      setSecurityData({ currentPassword: '', newPassword: '', confirmPassword: '', twoFactor: false });
+      addToast("Password changed successfully", "success");
+    } catch (error: any) {
+      console.error("Password update failed:", error);
+      addToast(error.message || "Unable to update password", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatPrice = (price: number) =>
@@ -131,16 +271,43 @@ export const Account: React.FC = () => {
 
   // --- SUB-COMPONENTS ---
   
+  const monthlySpending = useMemo(() => {
+    const now = new Date();
+    const months = Array.from({ length: 6 }, (_, idx) => {
+      const date = new Date(now.getFullYear(), now.getMonth() - (5 - idx), 1);
+      return {
+        key: `${date.getFullYear()}-${date.getMonth()}`,
+        label: date.toLocaleDateString('en-IN', { month: 'short' }),
+        total: 0
+      };
+    });
+
+    orders.forEach((order) => {
+      const orderDate = new Date(order.createdAt);
+      const key = `${orderDate.getFullYear()}-${orderDate.getMonth()}`;
+      const target = months.find((month) => month.key === key);
+      if (target) {
+        target.total += order.total;
+      }
+    });
+
+    const maxTotal = Math.max(1, ...months.map((month) => month.total));
+    return months.map((month) => ({
+      ...month,
+      height: Math.round((month.total / maxTotal) * 100)
+    }));
+  }, [orders]);
+
   const SpendingGraph = () => (
     <div className="flex items-end justify-between h-32 gap-2 mt-4 px-2">
-       {[35, 55, 40, 70, 50, 85].map((h, i) => (
-           <div key={i} className="flex-1 flex flex-col justify-end group">
-               <div className="w-full bg-leaf-100 rounded-t-lg relative transition-all duration-500 group-hover:bg-leaf-500" style={{ height: `${h}%` }}>
+       {monthlySpending.map((month) => (
+           <div key={month.key} className="flex-1 flex flex-col justify-end group">
+               <div className="w-full bg-leaf-100 rounded-t-lg relative transition-all duration-500 group-hover:bg-leaf-500" style={{ height: `${month.height}%` }}>
                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                       ₹{h * 120}
+                       ₹{Math.round(month.total)}
                    </div>
                </div>
-               <div className="text-[10px] text-gray-400 text-center mt-2 font-bold uppercase">{['May','Jun','Jul','Aug','Sep','Oct'][i]}</div>
+               <div className="text-[10px] text-gray-400 text-center mt-2 font-bold uppercase">{month.label}</div>
            </div>
        ))}
     </div>
@@ -197,8 +364,8 @@ export const Account: React.FC = () => {
                     <div className="absolute top-0 right-0 w-6 h-6 bg-yellow-400 rounded-full animate-pulse border-2 border-white"></div>
                 </div>
                 <div className="text-3xl font-black text-gray-900">{co2Saved} kg</div>
-                <p className="text-xs font-bold text-green-600 uppercase tracking-wide">CO2 Saved</p>
-                <p className="text-[10px] text-gray-400 mt-2 leading-relaxed">By choosing local farmers, you've reduced transport emissions significantly.</p>
+                <p className="text-xs font-bold text-green-600 uppercase tracking-wide">Estimated CO2 Saved</p>
+                <p className="text-[10px] text-gray-400 mt-2 leading-relaxed">Estimated based on order volume and local delivery routes.</p>
             </div>
          </div>
 
@@ -225,6 +392,33 @@ export const Account: React.FC = () => {
                 <div className="bg-white p-1.5 rounded-lg text-gray-400 group-hover:text-leaf-600 transition"><ChevronRight size={16}/></div>
             </div>
          </div>
+      </div>
+
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 mt-6">
+         <div className="flex items-center justify-between mb-6">
+            <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2"><CreditCard size={18} className="text-leaf-600"/> Recent Transactions</h3>
+            <button onClick={() => setActiveTab('orders')} className="text-xs font-bold text-leaf-600 hover:underline">View Orders</button>
+         </div>
+         {transactions.length > 0 ? (
+           <div className="space-y-4">
+              {transactions.slice(0, 4).map((tx) => (
+                 <div key={tx.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                    <div>
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Order #{tx.orderId}</p>
+                      <p className="text-sm font-semibold text-gray-800">{tx.paymentMethod}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-black text-gray-900">{formatPrice(tx.amount)}</p>
+                      <p className={`text-[10px] font-bold uppercase tracking-wide mt-0.5 ${tx.status === 'paid' ? 'text-green-600' : 'text-orange-500'}`}>{tx.status}</p>
+                    </div>
+                 </div>
+              ))}
+           </div>
+         ) : (
+           <div className="rounded-2xl border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500">
+              No transactions yet.
+           </div>
+         )}
       </div>
 
       {/* Recent Activity */}
@@ -262,12 +456,225 @@ export const Account: React.FC = () => {
     </div>
   );
 
+  const AddressesView = () => (
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-bold text-gray-900">Saved Addresses</h3>
+          <p className="text-sm text-gray-500">Manage your delivery locations.</p>
+        </div>
+        <button 
+          onClick={() => setIsEditingAddress(true)}
+          className="bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-leaf-600 transition"
+        >
+          <Plus size={16}/> Add Address
+        </button>
+      </div>
+
+      {isEditingAddress && (
+        <form onSubmit={handleAddAddress} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <select 
+              value={newAddress.type}
+              onChange={(e) => setNewAddress({ ...newAddress, type: e.target.value })}
+              className="border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium"
+            >
+              <option>Home</option>
+              <option>Work</option>
+              <option>Other</option>
+            </select>
+            <input 
+              value={newAddress.text}
+              onChange={(e) => setNewAddress({ ...newAddress, text: e.target.value })}
+              placeholder="House no, street, city, pincode"
+              className="md:col-span-2 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium"
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <button type="submit" className="bg-leaf-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-leaf-700 transition">Save Address</button>
+            <button type="button" onClick={() => setIsEditingAddress(false)} className="text-sm font-bold text-gray-500 hover:text-gray-700">Cancel</button>
+          </div>
+        </form>
+      )}
+
+      {addresses.length === 0 ? (
+        <div className="bg-white p-10 rounded-3xl shadow-sm border border-dashed border-gray-200 text-center text-sm text-gray-500">
+          No addresses saved yet.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {addresses.map((address) => (
+            <div key={address.id} className={`bg-white p-5 rounded-2xl border ${address.isDefault ? 'border-leaf-500' : 'border-gray-100'} shadow-sm`}>
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{address.type}</span>
+                    {address.isDefault && <span className="text-[10px] font-bold text-leaf-700 bg-leaf-50 px-2 py-0.5 rounded-full">Default</span>}
+                  </div>
+                  <p className="mt-2 text-sm text-gray-700 leading-relaxed">{address.text}</p>
+                </div>
+                <button onClick={() => handleDeleteAddress(address.id)} className="text-gray-400 hover:text-red-500 transition">
+                  <Trash2 size={16} />
+                </button>
+              </div>
+              <div className="mt-4 flex items-center gap-3">
+                {!address.isDefault && (
+                  <button onClick={() => handleSetDefaultAddress(address.id)} className="text-xs font-bold text-leaf-600 hover:underline">
+                    Set as default
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const WalletView = () => (
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="bg-gradient-to-r from-leaf-700 to-leaf-500 rounded-3xl p-8 text-white shadow-xl">
+        <p className="text-sm text-leaf-100">Wallet Balance</p>
+        <div className="text-4xl font-extrabold mt-2">{formatPrice(user.walletBalance)}</div>
+        <p className="text-xs text-leaf-100 mt-2">Use wallet balance for faster checkout and instant savings.</p>
+      </div>
+
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+        <h3 className="text-lg font-bold text-gray-900 mb-4">Add Money</h3>
+        <div className="flex flex-col md:flex-row gap-4 md:items-center">
+          <input
+            type="number"
+            min={50}
+            value={walletTopup}
+            onChange={(e) => setWalletTopup(Number(e.target.value))}
+            className="border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium w-full md:max-w-[200px]"
+          />
+          <button
+            onClick={handleWalletTopup}
+            disabled={walletLoading}
+            className="bg-gray-900 text-white px-5 py-3 rounded-xl text-sm font-bold hover:bg-leaf-600 transition disabled:opacity-60"
+          >
+            {walletLoading ? 'Processing…' : 'Pay with Razorpay'}
+          </button>
+          <p className="text-xs text-gray-500">Minimum ₹50. Uses your configured Razorpay key.</p>
+        </div>
+      </div>
+
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-gray-900">Transaction History</h3>
+          <button onClick={() => setActiveTab('dashboard')} className="text-xs font-bold text-leaf-600 hover:underline">Back to overview</button>
+        </div>
+        {transactions.length > 0 ? (
+          <div className="space-y-3">
+            {transactions.map((tx) => (
+              <div key={tx.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                <div>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Order #{tx.orderId}</p>
+                  <p className="text-sm font-semibold text-gray-800">{tx.paymentMethod}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-black text-gray-900">{formatPrice(tx.amount)}</p>
+                  <p className={`text-[10px] font-bold uppercase tracking-wide mt-0.5 ${tx.status === 'paid' ? 'text-green-600' : 'text-orange-500'}`}>{tx.status}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500">
+            No wallet transactions yet.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const ReferView = () => {
+    const code = `FRESH-${user.name.split(' ')[0].toUpperCase()}20`;
+    const shareText = encodeURIComponent(`Use my FreshLeaf referral code ${code} to get instant savings on your first order!`);
+    return (
+      <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+          <h3 className="text-lg font-bold text-gray-900 mb-2">Refer & Earn</h3>
+          <p className="text-sm text-gray-500 mb-6">Invite friends and earn wallet credits when they order.</p>
+          <div className="bg-leaf-50 border border-leaf-100 rounded-2xl p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Your Code</p>
+              <p className="text-2xl font-extrabold text-leaf-700 tracking-wide">{code}</p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={handleCopyReferral} className="bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-leaf-600 transition">Copy Code</button>
+              <a href={`https://wa.me/?text=${shareText}`} className="bg-white border border-gray-200 px-4 py-2 rounded-xl text-sm font-bold text-gray-700 hover:border-leaf-300 hover:text-leaf-700 transition flex items-center gap-2">
+                <Share2 size={16}/> Share
+              </a>
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[
+            { title: 'Share', detail: 'Send your code to friends & family.' },
+            { title: 'Order', detail: 'They place their first order.' },
+            { title: 'Earn', detail: 'You both receive wallet credits.' }
+          ].map((step, idx) => (
+            <div key={step.title} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+              <div className="text-xs font-bold text-leaf-600 uppercase tracking-wide">Step {idx + 1}</div>
+              <div className="text-lg font-bold text-gray-900 mt-2">{step.title}</div>
+              <p className="text-sm text-gray-500 mt-2">{step.detail}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const HelpDeskView = () => (
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+        <h3 className="text-lg font-bold text-gray-900 mb-2">Help Desk</h3>
+        <p className="text-sm text-gray-500 mb-6">We are here to help you with orders, payments, and account questions.</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-gray-50 p-5 rounded-2xl">
+            <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">Support Phone</div>
+            <p className="text-lg font-bold text-gray-900 mt-2">{supportPhone || 'Add VITE_SUPPORT_PHONE'}</p>
+            {supportPhone && <a href={`tel:${supportPhone}`} className="text-sm text-leaf-600 font-bold hover:underline">Call now</a>}
+          </div>
+          <div className="bg-gray-50 p-5 rounded-2xl">
+            <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">Email</div>
+            <p className="text-lg font-bold text-gray-900 mt-2">support@freshleaf.in</p>
+            <a href="mailto:support@freshleaf.in" className="text-sm text-leaf-600 font-bold hover:underline">Send email</a>
+          </div>
+          <div className="bg-gray-50 p-5 rounded-2xl">
+            <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">Help Center</div>
+            <p className="text-sm text-gray-500 mt-2">Browse FAQs and delivery policies.</p>
+            <Link to="/contact" className="text-sm text-leaf-600 font-bold hover:underline">Visit help center</Link>
+          </div>
+        </div>
+      </div>
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+        <h4 className="font-bold text-gray-900 mb-4">Common Topics</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[
+            { title: 'Order delays', desc: 'Track your order timeline and see rider status.' },
+            { title: 'Payment issues', desc: 'Find help with Razorpay or wallet payments.' },
+            { title: 'Refunds', desc: 'Learn how we process refunds and returns.' },
+            { title: 'Account updates', desc: 'Manage addresses, phone, and preferences.' }
+          ].map((item) => (
+            <div key={item.title} className="border border-gray-100 rounded-2xl p-4">
+              <p className="font-bold text-gray-900">{item.title}</p>
+              <p className="text-sm text-gray-500 mt-1">{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="bg-gray-50 min-h-screen py-10 font-sans">
-      <div className="container mx-auto px-4 max-w-7xl">
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-emerald-50 via-white to-slate-100 py-6 font-sans sm:py-10">
+      <div className="pointer-events-none absolute inset-0 opacity-60"><div className="absolute -top-20 -right-10 h-80 w-80 rounded-full bg-emerald-200 blur-3xl"></div><div className="absolute left-0 top-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-teal-100 blur-3xl"></div></div><div className="container relative z-10 mx-auto max-w-7xl px-4">
         
         {/* Welcome Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-4">
+        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-emerald-100 bg-white/80 p-5 shadow-lg shadow-emerald-100/40 backdrop-blur md:mb-10 md:flex-row md:items-end md:justify-between md:p-7">
           <div>
             <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">My Account</h1>
             <p className="text-gray-500 mt-1 font-medium">Manage your profile, orders, and rewards.</p>
@@ -278,13 +685,13 @@ export const Account: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
           
           {/* LEFT SIDEBAR */}
-          <div className="lg:col-span-3 space-y-6">
+          <div className="space-y-5 lg:col-span-3 lg:space-y-6">
             
             {/* User Profile Card */}
-            <div className="bg-white rounded-3xl p-6 shadow-xl shadow-leaf-100/50 border border-gray-100 text-center relative overflow-hidden group">
+            <div className="group relative overflow-hidden rounded-3xl border border-emerald-100 bg-white p-5 text-center shadow-xl shadow-emerald-100/50 sm:p-6">
                <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-leaf-600 to-leaf-500 transition-all duration-500 group-hover:scale-110"></div>
                <div className="relative z-10 pt-12">
                  <div className="relative inline-block">
@@ -314,7 +721,7 @@ export const Account: React.FC = () => {
             </div>
 
             {/* Navigation Menu */}
-            <nav className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden sticky top-24">
+            <nav className="overflow-x-auto rounded-3xl border border-emerald-100 bg-white shadow-sm lg:sticky lg:top-24">
               {[
                 { id: 'dashboard', label: 'Overview', icon: Home },
                 { id: 'orders', label: 'My Orders', icon: Package },
@@ -331,7 +738,7 @@ export const Account: React.FC = () => {
                     else if(item.id === 'settings') navigate('/settings');
                     else setActiveTab(item.id);
                   }}
-                  className={`w-full flex items-center justify-between p-4 text-sm font-bold transition-all border-b border-gray-50 last:border-0 group ${
+                  className={`group flex min-w-[220px] items-center justify-between border-b border-gray-50 p-4 text-sm font-bold transition-all last:border-0 lg:min-w-0 ${
                     activeTab === item.id && item.id !== 'orders' && item.id !== 'settings'
                       ? 'bg-leaf-50 text-leaf-700 border-l-4 border-l-leaf-600' 
                       : 'text-gray-500 hover:bg-gray-50 hover:pl-5 border-l-4 border-l-transparent'
@@ -355,6 +762,10 @@ export const Account: React.FC = () => {
           {/* RIGHT CONTENT AREA */}
           <div className="lg:col-span-9">
              {activeTab === 'dashboard' && <DashboardView />}
+             {activeTab === 'addresses' && <AddressesView />}
+             {activeTab === 'wallet' && <WalletView />}
+             {activeTab === 'refer' && <ReferView />}
+             {activeTab === 'support' && <HelpDeskView />}
              {/* Other view components would go here, simplified for brevity as logic is in DashboardView */}
           </div>
 

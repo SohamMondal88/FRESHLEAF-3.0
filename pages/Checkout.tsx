@@ -7,6 +7,7 @@ import { useOrder } from '../services/OrderContext';
 import { useToast } from '../services/ToastContext';
 import { ShieldCheck, CreditCard, Banknote, MapPin, BellOff, PhoneOff, Package, Plus, Loader2, MessageSquare, Wallet } from 'lucide-react';
 import { DeliverySlotPicker } from '../components/DeliverySlotPicker';
+import { createServerOrder, verifyServerPayment } from '../services/paymentApi';
 
 declare global {
   interface Window {
@@ -43,6 +44,12 @@ export const Checkout: React.FC = () => {
   useEffect(() => {
       if (cartItems.length === 0) navigate('/cart');
   }, [cartItems, navigate]);
+
+  useEffect(() => {
+      if (!user) {
+          navigate('/login', { state: { from: '/checkout' } });
+      }
+  }, [navigate, user]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -96,6 +103,7 @@ export const Checkout: React.FC = () => {
             methodString, 
             formData.phone, 
             `${formData.firstName} ${formData.lastName}`,
+            deliverySlot,
             deliveryInstructions,
             customInstruction,
             walletDeduction
@@ -119,6 +127,11 @@ export const Checkout: React.FC = () => {
         return;
     }
 
+    if (!deliverySlot) {
+        addToast("Please select a delivery slot", "error");
+        return;
+    }
+
     setLoading(true);
 
     // If fully paid by wallet
@@ -136,17 +149,57 @@ export const Checkout: React.FC = () => {
             return;
         }
 
+        if (!user) {
+            addToast("Please login again to continue payment", "error");
+            setLoading(false);
+            return;
+        }
+
+        const currentUserId = user.id;
+
+        let serverOrder: any;
+        try {
+            serverOrder = await createServerOrder({
+                amountPaise: Math.round(finalPayable * 100),
+                userId: currentUserId,
+                purpose: 'checkout'
+            });
+        } catch (error: any) {
+            addToast(error.message || "Unable to initialize payment", "error");
+            setLoading(false);
+            return;
+        }
+
         const options = {
-            key: process.env.RAZORPAY_KEY_ID || "rzp_test_S3LyDLZ5MWuKR7", // Replace with your actual Test Key
-            amount: Math.round(finalPayable * 100), // Amount in paise
-            currency: "INR",
+            key: serverOrder.key,
+            amount: serverOrder.amount,
+            currency: serverOrder.currency || "INR",
             name: "FreshLeaf",
             description: "Fresh Vegetables & Fruits Order",
             image: "https://cdn-icons-png.flaticon.com/512/2909/2909808.png",
-            handler: function (response: any) {
-                if (response.razorpay_payment_id) {
-                    addToast("Payment Successful!", "success");
-                    processOrder(response.razorpay_payment_id);
+            order_id: serverOrder.id,
+            handler: async function (response: any) {
+                if (response.razorpay_payment_id && response.razorpay_order_id && response.razorpay_signature) {
+                    try {
+                        await verifyServerPayment({
+                            userId: currentUserId,
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_signature: response.razorpay_signature,
+                            amount: finalPayable,
+                            paymentMethod: 'Online (Razorpay)',
+                            walletUsed: walletDeduction,
+                            purpose: 'checkout'
+                        });
+                        addToast("Payment Successful!", "success");
+                        processOrder(response.razorpay_payment_id);
+                    } catch (error: any) {
+                        addToast(error.message || "Payment verification failed", "error");
+                        setLoading(false);
+                    }
+                } else {
+                    addToast("Payment not completed", "error");
+                    setLoading(false);
                 }
             },
             prefill: {
@@ -185,17 +238,29 @@ export const Checkout: React.FC = () => {
   ];
 
   return (
-    <div className="py-8 bg-[#f8fafc] min-h-screen font-sans">
-      <div className="container mx-auto px-4 max-w-xl">
-        <h1 className="text-xl font-extrabold mb-6 text-gray-900">Checkout</h1>
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-emerald-50 via-white to-slate-50 py-8 font-sans sm:py-10">
+      <div className="pointer-events-none absolute inset-0 opacity-60"><div className="absolute -top-20 -right-24 h-72 w-72 rounded-full bg-emerald-200 blur-3xl"></div><div className="absolute -left-24 top-1/2 h-72 w-72 rounded-full bg-teal-100 blur-3xl"></div></div><div className="container relative z-10 mx-auto max-w-6xl px-4">
+        <div className="mb-6 rounded-3xl border border-emerald-100 bg-white/80 p-5 shadow-lg shadow-emerald-100/40 backdrop-blur sm:mb-8 sm:p-7"><p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-600">Secure checkout</p><h1 className="mt-2 text-2xl font-black tracking-tight text-gray-900 sm:text-3xl">Complete your order</h1><p className="mt-2 text-sm text-gray-600">Fast delivery, secure payment, and real-time order confirmation.</p></div>
         
-        <form onSubmit={handlePayment} className="space-y-6">
+        <form onSubmit={handlePayment} className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+            {/* Delivery Slot */}
+            <div className="rounded-3xl border border-emerald-100/70 bg-white p-5 shadow-sm shadow-emerald-100/40 sm:p-6 xl:col-span-8">
+                <h3 className="font-bold text-sm text-gray-900 mb-4 flex items-center gap-2">
+                    <Package size={16}/> Delivery Slot
+                </h3>
+                <DeliverySlotPicker onSelect={setDeliverySlot} />
+                {deliverySlot && (
+                    <div className="mt-4 rounded-xl bg-leaf-50 border border-leaf-100 p-3 text-xs font-bold text-leaf-700">
+                        Scheduled for {deliverySlot.date} • {deliverySlot.time}
+                    </div>
+                )}
+            </div>
             
             {/* Delivery Instructions */}
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+            <div className="rounded-3xl border border-emerald-100/70 bg-white p-5 shadow-sm shadow-emerald-100/40 sm:p-6 xl:col-span-8">
                 <h3 className="font-bold text-sm text-gray-900 mb-3 flex items-center gap-2"><MessageSquare size={16}/> Delivery Instructions</h3>
                 
-                <div className="grid grid-cols-3 gap-3 mb-4">
+                <div className="mb-4 grid grid-cols-3 gap-2 sm:gap-3">
                     {instructionOptions.map(inst => (
                         <button
                             key={inst.id}
@@ -223,7 +288,7 @@ export const Checkout: React.FC = () => {
             </div>
 
             {/* Address */}
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+            <div className="rounded-3xl border border-emerald-100/70 bg-white p-5 shadow-sm shadow-emerald-100/40 sm:p-6 xl:col-span-8">
                 <div className="flex justify-between items-center mb-3">
                     <h3 className="font-bold text-sm text-gray-900">Address Details</h3>
                     <button type="button" onClick={detectLocation} className="text-xs font-bold text-leaf-600 flex items-center gap-1 hover:underline">
@@ -231,21 +296,68 @@ export const Checkout: React.FC = () => {
                     </button>
                 </div>
                 <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <input required name="firstName" value={formData.firstName} onChange={handleInputChange} placeholder="First Name" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-green-500" />
                         <input required name="lastName" value={formData.lastName} onChange={handleInputChange} placeholder="Last Name" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-green-500" />
                     </div>
                     <input required name="phone" value={formData.phone} onChange={handleInputChange} placeholder="Mobile Number" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-green-500" />
                     <input required name="address" value={formData.address} onChange={handleInputChange} placeholder="House / Flat / Block No." className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-green-500" />
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <input required name="city" value={formData.city} onChange={handleInputChange} placeholder="City" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-green-500" />
                         <input required name="zip" value={formData.zip} onChange={handleInputChange} placeholder="Pincode" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-green-500" />
                     </div>
                 </div>
             </div>
 
+            {/* Order Summary */}
+            <div className="rounded-3xl border border-emerald-100/70 bg-white p-5 shadow-sm shadow-emerald-100/40 sm:p-6 xl:col-span-8">
+                <h3 className="font-bold text-sm text-gray-900 mb-3">Order Summary</h3>
+                <div className="space-y-2 text-sm text-gray-600">
+                    <div className="flex justify-between">
+                        <span>Item Total</span>
+                        <span>₹{bill.itemTotal}</span>
+                    </div>
+                    {bill.discount > 0 && (
+                        <div className="flex justify-between text-green-600 font-semibold">
+                            <span>Discounts</span>
+                            <span>- ₹{bill.discount}</span>
+                        </div>
+                    )}
+                    <div className="flex justify-between">
+                        <span>Handling Fee</span>
+                        <span>₹{bill.handlingFee}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span>Platform Fee</span>
+                        <span>₹{bill.platformFee}</span>
+                    </div>
+                    {bill.deliveryFee > 0 && (
+                        <div className="flex justify-between">
+                            <span>Delivery Fee</span>
+                            <span>₹{bill.deliveryFee}</span>
+                        </div>
+                    )}
+                    {bill.smallCartFee > 0 && (
+                        <div className="flex justify-between">
+                            <span>Small Cart Fee</span>
+                            <span>₹{bill.smallCartFee}</span>
+                        </div>
+                    )}
+                    {bill.tip > 0 && (
+                        <div className="flex justify-between">
+                            <span>Delivery Tip</span>
+                            <span>₹{bill.tip}</span>
+                        </div>
+                    )}
+                </div>
+                <div className="mt-4 pt-4 border-t border-dashed border-gray-200 flex justify-between items-center text-sm font-extrabold">
+                    <span>Grand Total</span>
+                    <span>₹{bill.grandTotal}</span>
+                </div>
+            </div>
+
             {/* Wallet & Payment */}
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+            <div className="rounded-3xl border border-emerald-100/70 bg-white p-5 shadow-sm shadow-emerald-100/40 sm:p-6 xl:col-span-4 xl:sticky xl:top-24">
                 <h3 className="font-bold text-sm text-gray-900 mb-3">Payment</h3>
                 
                 {/* Wallet Toggle */}
@@ -295,7 +407,7 @@ export const Checkout: React.FC = () => {
             </div>
 
             {/* Total & Action */}
-            <div className="bg-gray-900 text-white p-5 rounded-2xl shadow-lg">
+            <div className="rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900 p-5 text-white shadow-xl shadow-slate-300/40 sm:p-6 xl:col-span-4 xl:sticky xl:top-[35rem]">
                 <div className="flex justify-between items-center mb-4 text-gray-300 text-sm">
                     <span>Order Total</span>
                     <span>₹{bill.grandTotal}</span>
@@ -317,7 +429,7 @@ export const Checkout: React.FC = () => {
                 <button 
                     type="submit" 
                     disabled={loading}
-                    className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed transition-all"
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 py-4 font-bold text-white shadow-lg shadow-emerald-800/30 transition-all hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-70"
                 >
                     {loading ? <Loader2 className="animate-spin" size={24}/> : <ShieldCheck size={20}/>}
                     {loading ? 'Processing...' : (finalPayable === 0 ? 'Place Order' : `Pay ₹${finalPayable}`)}

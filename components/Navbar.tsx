@@ -31,6 +31,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenChef }) => {
   const { user, logout, loading } = useAuth();
   const { products } = useProduct();
   const { pincode, setShowModal } = usePincode();
+  const supportPhone = import.meta.env.VITE_SUPPORT_PHONE as string | undefined;
   
   const location = useLocation();
   const navigate = useNavigate();
@@ -94,6 +95,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenChef }) => {
   const navLinks = [
     { name: 'Home', path: '/home' },
     { name: 'Shop', path: '/shop' },
+    { name: 'Catalogue', path: '/catalogue' },
     { name: 'About', path: '/about' },
     { name: 'Blog', path: '/blog' },
     { name: 'Contact', path: '/contact' },
@@ -109,9 +111,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenChef }) => {
               <MapPin size={12} className="group-hover:animate-bounce" /> 
               <span className="truncate max-w-[150px]">{pincode ? `Delivering to ${pincode}` : "Select Location"}</span>
             </button>
-            <a href="tel:+919876543210" className="hidden sm:flex items-center gap-1.5 hover:text-green-300 transition-colors">
-              <Phone size={12} /> Support: +91 98765 43210
-            </a>
+            {supportPhone && (
+              <a href={`tel:${supportPhone}`} className="hidden sm:flex items-center gap-1.5 hover:text-green-300 transition-colors">
+                <Phone size={12} /> Support: {supportPhone}
+              </a>
+            )}
           </div>
           <div className="flex items-center gap-4">
             <Link to="/seller" className="flex items-center gap-1.5 hover:text-green-300 transition-colors">

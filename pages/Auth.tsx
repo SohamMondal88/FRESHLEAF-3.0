@@ -131,7 +131,7 @@ export const Login: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const { login, sendOtp, verifyOtp, setupRecaptcha } = useAuth();
+  const { login, sendOtp, verifyOtp, setupRecaptcha, googleLogin, resetOtpSession } = useAuth();
   const { addToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -140,7 +140,10 @@ export const Login: React.FC = () => {
 
   useEffect(() => {
     if (authMethod === 'phone') {
-      const t = setTimeout(() => setupRecaptcha('recaptcha-container'), 500);
+      resetOtpSession();
+      const t = setTimeout(() => {
+        void setupRecaptcha('recaptcha-container');
+      }, 500);
       return () => clearTimeout(t);
     }
   }, [authMethod]);
@@ -167,9 +170,8 @@ export const Login: React.FC = () => {
     setIsLoading(false);
     if (success) {
       setShowOtpInput(true);
+      setOtp(['', '', '', '', '', '']);
       addToast(`OTP sent to ${phone}`, 'success');
-    } else {
-      addToast("Failed to send OTP", "error");
     }
   };
 
@@ -181,8 +183,6 @@ export const Login: React.FC = () => {
     if (success) {
       addToast("Login Successful!", "success");
       navigate(from, { replace: true });
-    } else {
-      addToast("Invalid OTP", "error");
     }
   };
 
@@ -304,6 +304,22 @@ export const Login: React.FC = () => {
                       />
                   ))}
                </div>
+               <div className="text-center text-xs">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      resetOtpSession();
+                      const sent = await sendOtp(phone);
+                      if (sent) addToast('New OTP sent', 'success');
+                    }}
+                    className="text-leaf-600 font-bold hover:underline"
+                  >
+                    Resend OTP
+                  </button>
+               </div>
+               <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-100 rounded-lg p-2">
+                 If OTP keeps failing, check that this site domain is added in Firebase Authorized Domains and use the latest OTP from the same session.
+               </p>
             </div>
           )}
           
@@ -324,7 +340,13 @@ export const Login: React.FC = () => {
       </div>
 
       {/* Social Login */}
-      <button onClick={() => addToast("Google Login Coming Soon!", "info")} className="w-full bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 py-3.5 rounded-xl font-bold flex items-center justify-center gap-3 transition-all transform active:scale-95 shadow-sm hover:shadow-md">
+      <button onClick={async () => {
+        const success = await googleLogin();
+        if (success) {
+          addToast('Logged in with Google', 'success');
+          navigate(from, { replace: true });
+        }
+      }} className="w-full bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 py-3.5 rounded-xl font-bold flex items-center justify-center gap-3 transition-all transform active:scale-95 shadow-sm hover:shadow-md">
         <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-6 h-6" alt="Google" />
         Continue with Google
       </button>
@@ -380,12 +402,20 @@ export const Signup: React.FC = () => {
     }
 
     setIsLoading(true);
-    const success = await signup(formData.name, formData.email, formData.password, 'customer');
+    const success = await signup(
+      formData.name,
+      formData.email,
+      formData.password,
+      'customer',
+      undefined,
+      formData.phone,
+      formData.gender === 'Select' ? undefined : formData.gender
+    );
     setIsLoading(false);
     
     if (success) {
       addToast("Account created successfully!", "success");
-      navigate('/login');
+      navigate('/account', { replace: true });
     }
   };
 
