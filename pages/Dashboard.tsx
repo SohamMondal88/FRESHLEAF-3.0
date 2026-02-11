@@ -1,8 +1,11 @@
 
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { BarChart3, Users, ShoppingBag, DollarSign, TrendingUp, Package, Bell, Search, Settings, Image as ImageIcon, Upload, Trash2, Home, CheckSquare, Square, Edit, Layers, Tag, X, Check, Menu } from 'lucide-react';
 import { useImage } from '../services/ImageContext';
 import { useProduct } from '../services/ProductContext';
+import { db } from '../services/firebase';
+import { collection, getDocs, orderBy, query } from 'firebase/firestore';
+import { Order, User } from '../types';
 
 export const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -10,6 +13,8 @@ export const Dashboard: React.FC = () => {
   const { customImages, uploadImage, removeImage, getProductImage } = useImage();
   const { products, bulkUpdateProducts } = useProduct();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [customers, setCustomers] = useState<User[]>([]);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
@@ -26,6 +31,32 @@ export const Dashboard: React.FC = () => {
 
   // Derived categories for dropdown
   const categories = useMemo(() => Array.from(new Set(products.map(p => p.category))), [products]);
+
+  useEffect(() => {
+    const fetchAdminData = async () => {
+      try {
+        const ordersQuery = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
+        const usersQuery = query(collection(db, 'users'));
+        const [ordersSnap, usersSnap] = await Promise.all([
+          getDocs(ordersQuery),
+          getDocs(usersQuery)
+        ]);
+        setOrders(ordersSnap.docs.map(docItem => ({ id: docItem.id, ...docItem.data() } as Order)));
+        setCustomers(usersSnap.docs.map(docItem => ({ id: docItem.id, ...docItem.data() } as User)));
+      } catch (error) {
+        console.error("Failed to load admin data:", error);
+      }
+    };
+
+    fetchAdminData();
+  }, []);
+
+  const totalRevenue = useMemo(() => orders.reduce((sum, order) => sum + order.total, 0), [orders]);
+  const last24Hours = useMemo(() => {
+    const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    return orders.filter(order => order.createdAt >= dayAgo);
+  }, [orders]);
+  const avgOrderValue = useMemo(() => (orders.length > 0 ? totalRevenue / orders.length : 0), [orders.length, totalRevenue]);
 
   // Handlers
   const handleFileClick = (productId: string) => {
@@ -143,19 +174,16 @@ export const Dashboard: React.FC = () => {
             {/* Stats Section */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               {[
-                { label: 'Total Revenue', value: '₹1,24,000', change: '+12.5%', icon: DollarSign, color: 'text-blue-600', bg: 'bg-blue-50' },
-                { label: 'New Orders', value: '145', change: '+8.2%', icon: ShoppingBag, color: 'text-green-600', bg: 'bg-green-50' },
-                { label: 'Total Customers', value: '1,200', change: '+3.1%', icon: Users, color: 'text-orange-600', bg: 'bg-orange-50' },
-                { label: 'Avg Order Value', value: '₹850', change: '-2.4%', icon: TrendingUp, color: 'text-purple-600', bg: 'bg-purple-50' },
+                { label: 'Total Revenue', value: `₹${Math.round(totalRevenue)}`, icon: DollarSign, color: 'text-blue-600', bg: 'bg-blue-50' },
+                { label: 'Orders (24h)', value: `${last24Hours.length}`, icon: ShoppingBag, color: 'text-green-600', bg: 'bg-green-50' },
+                { label: 'Total Customers', value: `${customers.length}`, icon: Users, color: 'text-orange-600', bg: 'bg-orange-50' },
+                { label: 'Avg Order Value', value: `₹${Math.round(avgOrderValue)}`, icon: TrendingUp, color: 'text-purple-600', bg: 'bg-purple-50' },
               ].map((stat, idx) => (
                 <div key={idx} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition">
                   <div className="flex justify-between items-start mb-4">
                      <div className={`${stat.bg} ${stat.color} p-3 rounded-xl`}>
                        <stat.icon size={24} />
                      </div>
-                     <span className={`text-xs font-bold px-2 py-1 rounded-full ${stat.change.startsWith('+') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                       {stat.change}
-                     </span>
                   </div>
                   <h3 className="text-3xl font-bold text-gray-900 mb-1">{stat.value}</h3>
                   <p className="text-gray-500 text-sm font-medium">{stat.label}</p>
@@ -163,27 +191,27 @@ export const Dashboard: React.FC = () => {
               ))}
             </div>
 
-            {/* Simple Recent Activity */}
+            {/* Recent Orders */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-              <h2 className="text-lg font-bold text-gray-800 mb-6">Recent Activity</h2>
-              <div className="space-y-6 relative pl-2">
-                 <div className="absolute left-[19px] top-2 bottom-2 w-0.5 bg-gray-100"></div>
-                {[
-                  { text: "New order #ORD-9281 received", time: "2 mins ago", icon: ShoppingBag, color: "bg-blue-500" },
-                  { text: "Rahul S. registered account", time: "45 mins ago", icon: Users, color: "bg-orange-500" },
-                  { text: "Low stock alert: Mango Alphonso", time: "1 hour ago", icon: Bell, color: "bg-red-500" },
-                ].map((item, i) => (
-                  <div key={i} className="flex gap-4 relative">
-                    <div className={`w-10 h-10 rounded-full ${item.color} flex items-center justify-center text-white shrink-0 z-10 border-4 border-white shadow-sm`}>
-                      <item.icon size={16} />
+              <h2 className="text-lg font-bold text-gray-800 mb-6">Recent Orders</h2>
+              {orders.length === 0 ? (
+                <p className="text-sm text-gray-500">No orders yet.</p>
+              ) : (
+                <div className="space-y-4">
+                  {orders.slice(0, 5).map((order) => (
+                    <div key={order.id} className="flex items-center justify-between border border-gray-100 rounded-xl p-4">
+                      <div>
+                        <p className="text-sm font-bold text-gray-800">Order #{order.id}</p>
+                        <p className="text-xs text-gray-400">{order.date} • {order.items.length} items</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-gray-900">₹{order.total}</p>
+                        <p className="text-[10px] font-bold uppercase text-gray-500">{order.status}</p>
+                      </div>
                     </div>
-                    <div className="pt-1">
-                      <p className="text-sm font-bold text-gray-800 leading-tight">{item.text}</p>
-                      <p className="text-xs text-gray-400 mt-1">{item.time}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         ) : (
